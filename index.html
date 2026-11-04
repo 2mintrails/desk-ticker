@@ -1593,9 +1593,9 @@ async function keepAwake() {
     wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch (e) {}
 }
 keepAwake(); document.addEventListener('visibilitychange', keepAwake); document.addEventListener('click', keepAwake);
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
 // pick up a new version of the display by itself (checked every 30 min)
-setInterval(() => { if (navigator.onLine) fetch(location.href, { cache: 'no-store' }).then(r => r.text()).then(t => {
+setInterval(() => { if (navigator.onLine) fetch(location.href.split('#')[0] + (location.search ? '&' : '?') + 'v=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(t => {
   const v = (t.match(/<meta name="ticker-version" content="([^"]+)"/) || [])[1];
   if (v && v !== document.querySelector('meta[name="ticker-version"]').content) location.reload();
 }).catch(() => {}); }, 30 * 60 * 1000);
