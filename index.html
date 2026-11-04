@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v6.1-2026-11-04">
+<meta name="ticker-version" content="v7-2026-11-04">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -492,7 +492,7 @@
     </section>
 
     <!-- 3. WEATHER -->
-    <section class="slide" data-title="Koramangala, Bengaluru" data-accent="#38c8ff">
+    <section class="slide" data-title="Koramangala, Bengaluru" data-wx="1" data-accent="#38c8ff">
       <div class="card wx2" id="wxCard">
         <div class="wx-top">
           <div class="wx-main">
@@ -564,7 +564,9 @@ const MODES = { day: '06:00', evening: '18:30', night: '23:30' };
 // Pin a slide: double-tap anywhere (or tap the slide name, top-right). Tap again to move between slides while pinned.
 // The pin lifts by itself after this many minutes (0 = stay pinned until you double-tap again).
 const LOCK_MINUTES = 30;
-const LAT = 12.9352, LON = 77.6245;        // Koramangala, Bengaluru
+const HOME = { lat: 12.9352, lon: 77.6245, name: 'Koramangala, Bengaluru' };
+const AWAY_KM = 20;   // further than this from home (by the phone's location) = show local weather instead of HAL
+let LAT = HOME.lat, LON = HOME.lon, away = false;
 // Weather: "NOW" (big temperature, humidity, wind, conditions) is MEASURED at HAL Airport, ~2–3 km away.
 // The FORECAST (high/low, rain, next 6 hours) comes from WEATHER_SOURCE: 'metno' (MET Norway) or 'openmeteo'.
 // The two are never mixed into one number. If HAL's report is older than HAL_MAX_AGE minutes, "now" says so.
@@ -1155,13 +1157,13 @@ function applyLight(force) {
 }
 function sceneFor(sl) {
   const t = sl ? sl.dataset.title : '';
+  if (sl && sl.dataset.wx) return wxKind;
   if (/Nifty|Sensex/.test(t)) return 'nifty';
   if (/US/.test(t)) return 'us';
   if (/India|Large caps/.test(t) && !/News/.test(t)) return 'india';
   if (/Currenc/.test(t)) return 'fx';
   if (/News/.test(t)) return 'news';
   if (/Bullion/.test(t)) return 'gold';
-  if (/Koramangala/.test(t)) return wxKind;
   return 'nifty';
 }
 let sceneOn = 'A', sceneNow = '', wxKind = 'clear';
@@ -1380,7 +1382,7 @@ function renderWeather() {
   const c = wxModel && wxModel.current, dl = wxModel && wxModel.daily;
   if (!c) return;   // forecast not loaded yet
   const isDay = c ? c.is_day : (() => { const h = +new Date().toLocaleString('en-US', { timeZone:'Asia/Kolkata', hour:'numeric', hour12:false }); return h >= 6 && h < 18 ? 1 : 0; })();
-  const o = wxObs && wxObs.age <= HAL_MAX_AGE ? wxObs : null;      // measured "now", if HAL's report is recent
+  const o = !away && wxObs && wxObs.age <= HAL_MAX_AGE ? wxObs : null;      // measured "now", if HAL's report is recent
   let [desc, icon] = o ? (o.wx || ['Clear', '☀️']) : (WMO[c.weather_code] || ['—', '🌡️']);
   icon = nightIcon(icon, isDay);
   if (!isDay && icon === '🌙') icon = moonNow.up ? moonPhase()[1] : '✨';
@@ -1407,10 +1409,11 @@ function renderWeather() {
   document.getElementById('wxCard').style.setProperty('--wxglow', WX_GLOW[kind]);
   wxKind = kind;
   const hw = document.getElementById('hWx'); if (hw) hw.textContent = icon + ' ' + Math.round(t) + '°';
-  if (THEME === 'ambient' && slides[idx] && /Koramangala/.test(slides[idx].dataset.title)) setScene(sceneFor(slides[idx]));
+  if (THEME === 'ambient' && slides[idx] && slides[idx].dataset.wx) setScene(sceneFor(slides[idx]));
   const fmt = d => d.toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' });
   document.getElementById('wSrc').textContent =
-    (o ? 'Now: measured at HAL Airport, ' + fmt(o.at)
+    (away ? 'Now: forecast estimate for your location'
+       : o ? 'Now: measured at HAL Airport, ' + fmt(o.at)
        : 'Now: forecast estimate' + (wxObs ? ' (HAL report from ' + fmt(wxObs.at) + ' is too old)' : ' (no HAL report yet)')) +
     ' · Forecast: ' + (met ? 'MET Norway' : 'Open-Meteo');
   // next 6 hours
@@ -1514,6 +1517,34 @@ async function loadAQI() {
   } catch (e) { document.getElementById('wAqi').textContent = '--'; }
 }
 loadAQI(); setInterval(loadAQI, 30 * 60 * 1000);
+
+/* ---------- WEATHER WHERE THE PHONE IS (only when you're away from home) ---------- */
+function kmBetween(a, b, c, d) {
+  const r = Math.PI / 180, x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(x));
+}
+function setPlace(lat, lon, name, isAway) {
+  LAT = lat; LON = lon; away = isAway;
+  const sec = document.querySelector('section[data-wx]'); sec.dataset.title = name;
+  if (slides[idx] === sec) document.getElementById('title').textContent = name;
+  renderSky(); loadWeather(); loadAQI();
+}
+function checkLocation() {
+  if (!('geolocation' in navigator) || location.protocol !== 'https:') return;
+  navigator.geolocation.getCurrentPosition(async p => {
+    const lat = +p.coords.latitude.toFixed(2), lon = +p.coords.longitude.toFixed(2);   // rounded to ~1 km
+    if (kmBetween(lat, lon, HOME.lat, HOME.lon) <= AWAY_KM) { if (away) setPlace(HOME.lat, HOME.lon, HOME.name, false); return; }
+    if (away && kmBetween(lat, lon, LAT, LON) < 3) return;                              // still in the same place
+    let name = 'Your location';
+    try {
+      const g = await (await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`)).json();
+      const a = g.locality || g.city, b = g.city && g.city !== a ? g.city : g.principalSubdivision;
+      name = [a, b].filter(Boolean).join(', ') || name;
+    } catch (e) {}
+    setPlace(lat, lon, name, true);
+  }, () => {}, { enableHighAccuracy: false, maximumAge: 30 * 60 * 1000, timeout: 20000 });
+}
+checkLocation(); setInterval(checkLocation, 30 * 60 * 1000);
 
 /* ---------- GOLD & SILVER (gold-api.com + open.er-api.com, no key) ---------- */
 const OZ = 31.1035;
