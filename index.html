@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v7.1-2026-11-04">
+<meta name="ticker-version" content="v7.2-2026-11-04">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1344,12 +1344,13 @@ function parseMetar(line) {
   const w = String(line).match(/\s(\d{3}|VRB)(\d{2,3})(?:G\d{2,3})?KT/);
   const t = n(tt[1]), td = n(tt[2]);
   let wx = null;
-  if (/\s[-+]?TS(RA|SH|DZ|GR|GS)/.test(line)) wx = ['Thunderstorm', '⛈️'];            // thunder with rain at the airport
-  else if (/\s(VC)?TS(\s|$)/.test(line)) wx = ['Thunder nearby', '🌩️'];                // thunder heard, no rain falling there
-  else if (/\s[-+]?(VC)?(SH)?RA/.test(line) || /\sSHRA/.test(line)) wx = [/\s-/.test(line.match(/\s[-+]?(VC)?(SH)?RA/)?.[0] || '') ? 'Light rain' : 'Rain', '🌧️'];
-  else if (/\s[-+]?DZ/.test(line)) wx = ['Drizzle', '🌦️'];
-  else if (/\sFG\b/.test(line)) wx = ['Fog', '🌫️'];
-  else if (/\sBR\b/.test(line)) wx = ['Mist', '🌫️'];
+  const cur = String(line).split(/\s(?:TEMPO|BECMG|NOSIG)\b/)[0];   // weather happening now, not the 2-hour outlook
+  if (/\s[-+]?TS(RA|SH|DZ|GR|GS)/.test(cur)) wx = ['Thunderstorm', '⛈️'];            // thunder with rain at the airport
+  else if (/\s(VC)?TS(\s|$)/.test(cur)) wx = ['Thunder nearby', '🌩️'];                // thunder heard, no rain falling there
+  else if (/\s[-+]?(VC)?(SH)?RA/.test(cur) || /\sSHRA/.test(cur)) wx = [/\s-/.test(cur.match(/\s[-+]?(VC)?(SH)?RA/)?.[0] || '') ? 'Light rain' : 'Rain', '🌧️'];
+  else if (/\s[-+]?DZ/.test(cur)) wx = ['Drizzle', '🌦️'];
+  else if (/\sFG\b/.test(cur)) wx = ['Fog', '🌫️'];
+  else if (/\sBR\b/.test(cur)) wx = ['Mist', '🌫️'];
   else if (/\sHZ\b/.test(line)) wx = ['Haze', '🌫️'];
   if (!wx) {
     const L = String(line);
