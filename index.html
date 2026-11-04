@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v5.1-2026-11-04">
+<meta name="ticker-version" content="v6-2026-11-04">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -416,6 +416,16 @@
   body.amb.light footer span{background:rgba(15,23,42,.22)} body.amb.light footer span.on{background:rgba(15,23,42,.22)}
   body.amb.light footer span b{background:#0f172a}
   .wx-moon:empty{display:none}
+  /* ---------- slide arrows (appear on touch, fade after a few seconds) ---------- */
+  .navbtn{position:fixed;top:50%;z-index:40;width:46px;height:46px;margin-top:-23px;border:0;border-radius:50%;
+    background:rgba(10,14,24,.38);color:#fff;font:600 26px/46px system-ui,sans-serif;text-align:center;padding:0;
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .35s}
+  .navbtn.l{left:max(10px,env(safe-area-inset-left))} .navbtn.r{right:max(10px,env(safe-area-inset-right))}
+  body.navshow .navbtn{opacity:.85;pointer-events:auto}
+  body.light .navbtn{background:rgba(255,255,255,.55);color:#1d2230}
+  body.night .navbtn{display:none}
+  body.paused footer span.on b{animation-play-state:paused}
+  footer{cursor:pointer}
 </style>
 </head>
 <body>
@@ -528,6 +538,8 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<button class="navbtn l" id="navPrev" aria-label="Previous slide">&#8249;</button>
+<button class="navbtn r" id="navNext" aria-label="Next slide">&#8250;</button>
 
 <div class="nightv" id="nightv">
   <div class="n-box" id="nBox">
@@ -1188,7 +1200,23 @@ function show(i) {
   }));
 }
 function next() { if (!slides.length) return; idx = (idx + 1) % slides.length; show(idx); }
-function start() { clearInterval(timer); if (mode !== 'night' && !locked) timer = setInterval(next, SLIDE_SECONDS * 1000); }
+function prev() { if (!slides.length) return; idx = (idx - 1 + slides.length) % slides.length; show(idx); }
+// moving by hand: go there, hold the slide for a minute so it can be read, then carry on rotating
+const MANUAL_PAUSE_SECONDS = 60;
+let resumeTimer, navHideTimer;
+function goManual(step, to) {
+  if (!slides.length || mode === 'night') return;
+  if (to != null) { idx = to; show(idx); } else if (step < 0) prev(); else next();
+  clearInterval(timer); clearTimeout(resumeTimer);
+  document.body.classList.add('paused');
+  if (!locked) resumeTimer = setTimeout(() => { document.body.classList.remove('paused'); next(); start(); }, MANUAL_PAUSE_SECONDS * 1000);
+}
+function flashNav() {
+  if (mode === 'night') return;
+  document.body.classList.add('navshow'); clearTimeout(navHideTimer);
+  navHideTimer = setTimeout(() => document.body.classList.remove('navshow'), 5000);
+}
+function start() { clearInterval(timer); clearTimeout(resumeTimer); document.body.classList.remove('paused'); if (mode !== 'night' && !locked) timer = setInterval(next, SLIDE_SECONDS * 1000); }
 function toast(msg) {
   const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
@@ -1215,12 +1243,36 @@ function applyMode(force) {
   show(idx); start();
 }
 let lastTap = 0, tapTimer;
-document.body.addEventListener('click', () => {
+let swiped = false;
+document.body.addEventListener('click', e => {
+  if (swiped) { swiped = false; return; }
   if (mode === 'night') { peekUntil = Date.now() + 60 * 1000; applyMode(true); return; }
-  const now = Date.now();
+  flashNav();
+  const now = Date.now(), x = e.clientX;
   if (now - lastTap < 350) { clearTimeout(tapTimer); lastTap = 0; setLock(!locked); return; }   // double-tap: pin / unpin
   lastTap = now;
-  tapTimer = setTimeout(() => { next(); start(); }, 350);                                        // single tap: next slide
+  tapTimer = setTimeout(() => goManual(x < innerWidth / 2 ? -1 : 1), 350);                      // tap left half: back · right half: forward
+});
+// swipe left / right
+let tx = 0, ty = 0;
+document.addEventListener('touchstart', e => { const t = e.touches[0]; tx = t.clientX; ty = t.clientY; }, { passive: true });
+document.addEventListener('touchend', e => {
+  const t = e.changedTouches[0], dx = t.clientX - tx, dy = t.clientY - ty;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy) && mode !== 'night') {
+    swiped = true; setTimeout(() => swiped = false, 600);
+    flashNav(); goManual(dx < 0 ? 1 : -1);
+  }
+}, { passive: true });
+// arrows
+['navPrev', 'navNext'].forEach((id, k) => document.getElementById(id).addEventListener('click', e => {
+  e.stopPropagation(); flashNav(); goManual(k ? 1 : -1);
+}));
+// tap a dot to jump straight to that slide
+bars.addEventListener('click', e => {
+  e.stopPropagation(); flashNav();
+  let best = 0, bd = 1e9;
+  [...bars.children].forEach((b, k) => { const r = b.getBoundingClientRect(), d = Math.abs(r.left + r.width / 2 - e.clientX); if (d < bd) { bd = d; best = k; } });
+  if (bd < 40) goManual(0, best);
 });
 document.getElementById('pill').addEventListener('click', e => { e.stopPropagation(); if (mode !== 'night') setLock(!locked); });
 applyMode(true); setInterval(() => applyMode(false), 20 * 1000);
