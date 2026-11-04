@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v7.3-2026-11-04">
+<meta name="ticker-version" content="v7.4-2026-11-04">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -882,7 +882,11 @@ function fetchGvizRows(tab) {
   });
 }
 let priceWay = 0;   // remembers which way worked
-async function getRows() {
+// The published sheet is sometimes caught mid-recalculation and every cell says "Loading...".
+// Such a copy is retried a few seconds later; the last good copy is kept on the phone for a quick start.
+const LAST_ROWS_KEY = 'deskTickerLastRows';
+const rowsLookGood = rows => rows.filter(r => num(r[1]) != null).length >= 3;
+async function getRowsOnce() {
   const ways = [() => fetchCSVRows(), () => fetchGvizRows()];
   let lastErr;
   for (let k = 0; k < ways.length; k++) {
@@ -891,11 +895,33 @@ async function getRows() {
   }
   throw lastErr;
 }
+async function getRows() {
+  for (let tryNo = 0; tryNo < 4; tryNo++) {
+    const rows = await getRowsOnce();
+    if (rowsLookGood(rows)) {
+      try { localStorage.setItem(LAST_ROWS_KEY, JSON.stringify({ at: Date.now(), header: rows.header, rows })); } catch (e) {}
+      return rows;
+    }
+    console.warn('sheet busy (Loading...), retrying');
+    await new Promise(r => setTimeout(r, 5000));
+  }
+  throw new Error('sheet still loading');
+}
+function savedRows() {
+  try {
+    const s = JSON.parse(localStorage.getItem(LAST_ROWS_KEY));
+    if (!s || Date.now() - s.at > 12 * 3600e3) return null;
+    const rows = s.rows; rows.header = s.header || []; return rows;
+  } catch (e) { return null; }
+}
 async function loadPrices() {
   if (!LIVE) return;
   const note = document.getElementById('srcNote');
   try {
-    const data = {}, rows = await getRows();
+    let rows;
+    try { rows = await getRows(); }
+    catch (e) { rows = document.querySelector('.ix-p[data-sym]').textContent === '--' && savedRows(); if (!rows) throw e; }
+    const data = {};
     try { readGoodReturns(rows); } catch (e) { console.warn('gold/silver', e); }
     try { readMetar(rows, 'col'); } catch (e) { console.warn('HAL', e); }
     rows.forEach(r => {
@@ -1045,10 +1071,19 @@ function fitNews(ol, page = 0) {   // split headlines into pages of whole headli
 }
 let newsPageTimer;
 window.addEventListener('resize', () => ['newsIN', 'newsWD'].forEach(id => fitNews(document.getElementById(id))));
+let newsRetry = 0;
 async function loadNews() {
   if (!LIVE) return;
   for (const way of [() => fetchCSVRows(NEWS_GID), () => fetchGvizRows('News')]) {
-    try { return readNews(await way(), 0, 'Google News'); } catch (e) { console.warn('news', e); }
+    try {
+      const rows = await way();
+      if (!rows.some(r => r.some(c => String(c).length > 25))) {              // the feed is still "Loading..."
+        console.warn('news busy, retrying');
+        if (newsRetry++ < 6) setTimeout(loadNews, 20000);
+        return;
+      }
+      newsRetry = 0; return readNews(rows, 0, 'Google News');
+    } catch (e) { console.warn('news', e); }
   }
 }
 function readNews(rows, at, label) {
