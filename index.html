@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v7.4-2026-11-04">
+<meta name="ticker-version" content="v7.5-2026-11-04">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1079,9 +1079,11 @@ async function loadNews() {
       const rows = await way();
       if (!rows.some(r => r.some(c => String(c).length > 25))) {              // the feed is still "Loading..."
         console.warn('news busy, retrying');
+        if (!newsReady) { try { const sv = JSON.parse(localStorage.getItem('deskTickerLastNews')); if (sv) readNews(sv, 0, 'Google News'); } catch (e) {} }
         if (newsRetry++ < 6) setTimeout(loadNews, 20000);
         return;
       }
+      try { localStorage.setItem('deskTickerLastNews', JSON.stringify(rows)); } catch (e) {}
       newsRetry = 0; return readNews(rows, 0, 'Google News');
     } catch (e) { console.warn('news', e); }
   }
