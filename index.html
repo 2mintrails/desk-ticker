@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07080c">
+<meta name="ticker-version" content="v5-2026-11-04">
+<title>Desk Ticker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#07080c; --fg:#f2efe8; --dim:#8b90a0; --line:rgba(255,255,255,.08);
+    --glass:rgba(255,255,255,.045);
+    --accent:#7aa2ff;            /* changes per slide */
+    --gold1:#fff1c1; --gold2:#f5c451; --gold3:#b8862b;
+    --silver1:#ffffff; --silver2:#c9d1dc; --silver3:#7d8796;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--fg);overflow:hidden;
+    font-family:"Space Grotesk",-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased}
+
+  /* ---------- living background ---------- */
+  .bg{position:fixed;inset:0;z-index:0;overflow:hidden}
+  .blob{position:absolute;width:70vmax;height:70vmax;border-radius:50%;filter:blur(90px);opacity:.38;
+    transition:background 1.6s ease}
+  .b1{background:var(--accent);top:-35vmax;left:-20vmax;animation:drift1 26s ease-in-out infinite}
+  .b2{background:#c06bff;bottom:-40vmax;right:-25vmax;opacity:.22;animation:drift2 32s ease-in-out infinite}
+  .b3{background:#1fd1b5;top:20%;left:45%;width:40vmax;height:40vmax;opacity:.12;animation:drift1 40s ease-in-out infinite reverse}
+  @keyframes drift1{50%{transform:translate(12vmax,8vmax) scale(1.1)}}
+  @keyframes drift2{50%{transform:translate(-10vmax,-6vmax) scale(.95)}}
+  .grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.06;
+    background-image:radial-gradient(rgba(255,255,255,.7) 1px,transparent 1px);background-size:3px 3px}
+  .vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.65) 100%)}
+
+  /* ---------- frame ---------- */
+  .app{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;
+    padding:max(10px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right))
+            max(8px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;
+    height:clamp(36px,11vh,52px);flex:none}
+  .time{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:clamp(20px,7vh,34px);letter-spacing:-.5px}
+  .time .sec{color:var(--dim);font-size:.55em;margin-left:2px}
+  .date{color:var(--dim);font-size:clamp(12px,3.6vh,16px);margin-left:12px}
+  .left{display:flex;align-items:baseline}
+  .pill{display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;
+    background:var(--glass);border:1px solid var(--line);font-size:clamp(11px,3.4vh,14px);
+    letter-spacing:1.5px;text-transform:uppercase;color:var(--fg);backdrop-filter:blur(12px)}
+  .pill i{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);
+    transition:background 1s}
+  .mkt{font-size:clamp(10px,3vh,12px);color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-right:12px}
+  .mkt b{font-weight:700}
+  .mkt .open{color:#3ddc84} .mkt .shut{color:#ff6b6b}
+  .right{display:flex;align-items:center}
+
+  .stage{position:relative;flex:1;min-height:0;margin-top:6px}
+  .slide{position:absolute;inset:0;opacity:0;transform:translateY(14px) scale(.985);pointer-events:none;
+    transition:opacity .9s ease,transform .9s cubic-bezier(.2,.7,.2,1)}
+  .slide.active{opacity:1;transform:none;pointer-events:auto}
+
+  .card{height:100%;border-radius:22px;background:var(--glass);border:1px solid var(--line);
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    box-shadow:0 20px 60px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06);overflow:hidden}
+  .tv{height:100%;padding:6px 10px}
+  .tradingview-widget-container,.tradingview-widget-container__widget{width:100%;height:100%}
+  .pair{height:100%;display:grid;grid-template-rows:1fr 1fr;gap:8px}
+  .q{padding:2px 8px}
+  /* live stock card (drawn from the Google Sheet) */
+  .sl{min-width:0;height:100%;display:flex;flex-direction:column;justify-content:center;gap:1vh;padding-left:1vw}
+  .hd{display:flex;align-items:center;gap:12px;min-width:0}
+  .logo{width:clamp(26px,9vh,40px);height:clamp(26px,9vh,40px);border-radius:10px;background:#fff;object-fit:contain;padding:3px;flex:none}
+  .badge{width:clamp(26px,9vh,40px);height:clamp(26px,9vh,40px);border-radius:10px;flex:none;display:grid;place-items:center;
+    background:var(--accent);color:#0b0d12;font-weight:700;font-size:clamp(10px,3.4vh,14px)}
+  .nm{font-weight:700;font-size:clamp(14px,5vh,22px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tk{font-size:clamp(9px,2.8vh,11px);letter-spacing:1.5px;text-transform:uppercase;color:var(--dim)}
+  .px{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .p{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:clamp(24px,11vh,50px);letter-spacing:-1px;line-height:1}
+  .chg{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:clamp(12px,4.4vh,19px);white-space:nowrap}
+  .chg.up{color:#3ddc84} .chg.down{color:#ff5a5f}
+  .chg.big{font-size:clamp(16px,7vh,30px)}
+  /* Nifty card */
+  .idx{display:grid;grid-template-columns:1.05fr 1fr;align-items:center;gap:2vw;padding:0 2.5vw 0 3.5vw}
+  .ix-l{min-width:0}
+  .spark{height:82%;display:flex;flex-direction:column;min-width:0}
+  .spark .k{font-size:clamp(9px,2.8vh,11px);letter-spacing:2px;text-transform:uppercase;color:var(--dim);margin-bottom:.8vh}
+  .spark svg{flex:1;width:100%;min-height:0;overflow:visible}
+  @keyframes ping{0%{r:5;opacity:.7}100%{r:16;opacity:0}}
+  .spark .ring{animation:ping 1.8s ease-out infinite}
+
+  .ix-top{display:flex;align-items:center;gap:12px}
+  .ix-top .dot{background:var(--accent)}
+  .src{font-size:clamp(9px,2.8vh,11px);color:var(--dim);letter-spacing:.5px}
+  .ix-name{font-size:clamp(13px,4.6vh,20px);font-weight:700;letter-spacing:3px;margin-top:1.6vh;color:var(--dim)}
+  .ix-row{display:flex;align-items:baseline;gap:2.5vw;flex-wrap:wrap}
+  .ix-p{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:clamp(28px,min(16vh,8.2vw),76px);letter-spacing:-2px;line-height:1;margin:.6vh 0 1vh}
+  .ix-sub{margin-top:1.8vh;font-size:clamp(12px,4vh,18px);color:var(--dim)}
+  .ix-l .src{display:block;margin-top:1.6vh}
+  /* metals day change */
+  .dchg{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:clamp(12px,4.2vh,18px);margin-top:1.2vh}
+  .dchg.up{color:#3ddc84} .dchg.down{color:#ff5a5f} .dchg.flat{color:var(--dim);font-weight:500}
+  .dchg span{font-family:"Space Grotesk",sans-serif;font-weight:400;color:var(--dim);margin-left:6px}
+  .ix-sub b{font-family:"JetBrains Mono",monospace;color:var(--fg);margin:0 8px}
+  .aqi .v{display:flex;align-items:baseline;gap:8px}
+  .aqi .cat{font-family:"Space Grotesk",sans-serif;font-size:clamp(10px,3.2vh,13px);font-weight:500}
+  .ind{display:grid;grid-template-columns:1fr minmax(150px,34%);align-items:center;gap:1.5vw;padding:0 1.6vw 0 .8vw}
+  .ind .tradingview-widget-container{height:auto}
+  .ev{height:78%;border-left:1px solid var(--line);padding-left:1.6vw;display:flex;flex-direction:column;justify-content:center;gap:.6vh}
+  .ev .k{font-size:clamp(9px,2.8vh,11px);letter-spacing:2px;text-transform:uppercase;color:var(--dim)}
+  .ev .t{font-size:clamp(13px,4.6vh,19px);font-weight:500;line-height:1.2}
+  .ev .w{font-family:"JetBrains Mono",monospace;font-size:clamp(11px,3.6vh,14px);color:var(--accent)}
+  .ev.none .t{color:var(--dim);font-weight:400}
+
+  .label{font-size:clamp(10px,3.2vh,13px);letter-spacing:2.5px;text-transform:uppercase;color:var(--dim)}
+  .mono{font-family:"JetBrains Mono",monospace}
+
+  /* ---------- weather ---------- */
+  .wx{height:100%;display:grid;grid-template-columns:1.1fr 1fr;align-items:center;gap:3vw;padding:0 4vw}
+  .wx-main{display:flex;align-items:center;gap:2.5vw}
+  .wx-icon{font-size:clamp(56px,30vh,140px);line-height:1;filter:drop-shadow(0 8px 30px rgba(0,0,0,.4))}
+  .wx-temp{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:clamp(56px,32vh,150px);line-height:.9;letter-spacing:-4px}
+  .wx-desc{font-size:clamp(14px,5vh,24px);margin-top:1.5vh}
+  .wx-feel{color:var(--dim);font-size:clamp(12px,3.8vh,17px);margin-top:.6vh}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:1.6vh 1.6vw}
+  .stat{padding:1.8vh 1.4vw;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+  .stat .v{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:clamp(15px,5.8vh,28px);margin-top:.5vh;white-space:nowrap}
+
+  /* ---------- metals ---------- */
+  .metals{height:100%;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .metal{position:relative;display:flex;flex-direction:column;justify-content:center;padding:0 3.2vw;overflow:hidden}
+  .metal::before{content:"";position:absolute;right:-12%;top:-30%;width:60%;aspect-ratio:1;border-radius:50%;
+    filter:blur(50px);opacity:.28}
+  .metal.gold::before{background:var(--gold2)}
+  .metal.silver::before{background:var(--silver2);opacity:.16}
+  .metal .price{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:clamp(30px,17vh,76px);
+    line-height:1;letter-spacing:-2px;margin-top:1.2vh;background-size:200% 100%;
+    -webkit-background-clip:text;background-clip:text;color:transparent;animation:shine 6s linear infinite}
+  .gold .price{background-image:linear-gradient(100deg,var(--gold3),var(--gold2) 30%,var(--gold1) 45%,var(--gold2) 60%,var(--gold3))}
+  .silver .price{background-image:linear-gradient(100deg,var(--silver3),var(--silver2) 30%,var(--silver1) 45%,var(--silver2) 60%,var(--silver3))}
+  @keyframes shine{to{background-position:-200% 0}}
+  .metal .per{font-size:clamp(13px,4.6vh,20px);color:var(--fg);opacity:.85;margin-top:1.4vh}
+  .metal .per span{color:var(--dim)}
+  .chip{display:inline-flex;align-self:flex-start;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+    font-size:clamp(10px,3vh,12px);letter-spacing:1.5px;text-transform:uppercase;border:1px solid var(--line);color:var(--dim)}
+  .chip .dot{width:6px;height:6px;border-radius:50%}
+  .gold .chip .dot{background:var(--gold2)} .silver .chip .dot{background:var(--silver2)}
+  .mnote{position:absolute;left:0;right:0;bottom:1.4vh;text-align:center;font-size:clamp(9px,2.8vh,11px);color:var(--dim);letter-spacing:.5px}
+
+  /* ---------- footer progress ---------- */
+  footer{flex:none;display:flex;gap:6px;padding-top:8px}
+  footer span{flex:1;height:3px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}
+  footer span b{display:block;height:100%;width:0;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+  footer span.done b{width:100%}
+  footer span.on b{animation:fill linear forwards}
+  @keyframes fill{from{width:0}to{width:100%}}
+
+  /* very short screens: trim chrome */
+  @media (max-height:340px){ .date{display:none} .mkt{display:none} }
+  /* portrait fallback */
+  @media (orientation:portrait){
+    .metals{grid-template-columns:1fr;gap:12px}
+    .wx{grid-template-columns:1fr;padding:3vh 6vw}
+  }
+  /* narrow or near-square screens (e.g. inside an online editor's preview): chart goes under the numbers */
+  @media (max-aspect-ratio: 13/10) {
+    .idx{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);gap:1.5vh;padding:2.5vh 4vw;align-items:stretch}
+    .spark{height:auto;min-height:0}
+    .ix-p{font-size:clamp(28px,11vw,76px)}
+  }
+  /* very short landscape screens: drop the small extras so the numbers stay big */
+  @media (max-height: 300px) { .ix-top, .ix-l .src, .spark .k { display:none } .ix-name{margin-top:0} }
+  /* ---------- currencies ---------- */
+  .fx{height:calc(100% - 3.6vh);display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .fxc{display:flex;flex-direction:column;justify-content:center;gap:1.4vh;padding:0 2vw;transition:box-shadow .6s,border-color .6s}
+  .fxc.up{border-color:rgba(61,220,132,.55);box-shadow:0 0 0 1px rgba(61,220,132,.25),0 0 40px rgba(61,220,132,.18)}
+  .fxc.down{border-color:rgba(255,90,95,.55);box-shadow:0 0 0 1px rgba(255,90,95,.25),0 0 40px rgba(255,90,95,.18)}
+  .fx-top{display:flex;align-items:center;gap:10px}
+  .flag{font-size:clamp(20px,8vh,34px);line-height:1}
+  .fx-k{font-size:clamp(11px,3.6vh,15px);letter-spacing:1.5px;text-transform:uppercase;color:var(--dim)}
+  .fx-p{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:clamp(24px,min(13vh,6.4vw),58px);letter-spacing:-1px;line-height:1}
+  .fx-c{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:clamp(13px,min(5vh,2.6vw),22px)}
+  .fx-c.up{color:#3ddc84} .fx-c.down{color:#ff5a5f} .fx-c.flat{color:var(--dim)}
+  .fx-c small{display:block;font-size:.72em;font-weight:500;opacity:.8;margin-top:.4vh}
+  @media (max-aspect-ratio: 13/10) { .fx{grid-template-columns:1fr;grid-template-rows:repeat(3,1fr)} .fxc{flex-direction:row;align-items:center;justify-content:space-between} }
+
+  /* ---------- night mode: dim, warm, black (easy on the eyes, OLED friendly) ---------- */
+  .nightv{display:none}
+  body.night{background:#000}
+  body.night .bg, body.night .grain, body.night .vignette, body.night .app{display:none}
+  body.night .nightv{display:flex;position:fixed;inset:0;align-items:center;justify-content:center;background:#000}
+  .n-box{text-align:center;color:#c8935a;opacity:.5;transition:transform 2s ease}
+  .n-time{font-family:"JetBrains Mono",monospace;font-weight:500;font-size:clamp(56px,34vh,180px);letter-spacing:-4px;line-height:1}
+  .n-date{font-size:clamp(13px,5vh,22px);margin-top:1.5vh;letter-spacing:1px}
+  .n-info{font-size:clamp(11px,4vh,17px);margin-top:1.2vh;opacity:.8}
+  /* ---------- large-cap board: six tiles per slide ---------- */
+  .grid6{height:calc(100% - 3.4vh);display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:10px}
+  .tile{display:flex;flex-direction:column;justify-content:center;gap:1vh;padding:0 1.6vw;min-width:0}
+  .tile .logo,.tile .badge{width:clamp(20px,7vh,30px);height:clamp(20px,7vh,30px);border-radius:8px}
+  .tile .nm{font-size:clamp(12px,4.2vh,17px)}
+  .tile .p{font-size:clamp(18px,min(9vh,4.2vw),36px)}
+  .tile .chg{font-size:clamp(11px,3.8vh,15px)}
+  .grid6.g4{grid-template-columns:repeat(2,1fr)}
+  .tev{font-size:clamp(10px,3.2vh,13px);color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9}
+  .tev.soon{font-weight:700;opacity:1}
+  @media (max-aspect-ratio: 13/10) { .grid6{grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(3,1fr)} }
+  /* ---------- weather v2: observed now + next 6 hours ---------- */
+  .wx2{height:100%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto auto;gap:1.2vh;padding:2.2vh 3vw 1.4vh;
+    background-image:var(--wxglow,none);transition:background-image 1.5s}
+  .wx-top{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:center;gap:3vw;min-height:0}
+  .wx2 .wx-icon{font-size:clamp(40px,20vh,104px)}
+  .wx2 .wx-temp{font-size:clamp(44px,22vh,112px)}
+  .wx2 .wx-desc{font-size:clamp(13px,4.6vh,22px);margin-top:1vh}
+  .wx2 .stats{gap:1.2vh 1.2vw}
+  .wx2 .stat{padding:1.2vh 1.2vw}
+  .wx2 .stat .v{font-size:clamp(14px,5vh,24px)}
+  .hours{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;min-width:0}
+  .hr{min-width:0;overflow:hidden;white-space:nowrap}
+  .hr{display:flex;align-items:center;justify-content:center;gap:5px;padding:.9vh 2px;border-radius:12px;
+    background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:clamp(10px,min(3vh,1.5vw),13px)}
+  .hr .tm{color:var(--dim)} .hr .ic{font-size:1.25em} .hr .tp{font-family:"JetBrains Mono",monospace;font-weight:700}
+  .hr .rn{color:#6cb6ff;font-size:.9em}
+  .wx-src{font-size:clamp(9px,2.6vh,11px);color:var(--dim);text-align:right;letter-spacing:.3px}
+  @media (max-height:330px){ .hr .rn{display:none} }
+  @media (max-aspect-ratio: 13/10) { .wx-top{grid-template-columns:1fr} .hours{grid-template-columns:repeat(3,1fr)} }
+
+  /* ---------- live feel: tiles tint with the day's direction, prices flash when they tick ---------- */
+  .tile{transition:border-color .8s, background-image .8s}
+  .tile.up{border-color:rgba(61,220,132,.32);background-image:linear-gradient(160deg,rgba(61,220,132,.13),transparent 58%)}
+  .tile.down{border-color:rgba(255,90,95,.32);background-image:linear-gradient(160deg,rgba(255,90,95,.13),transparent 58%)}
+  @keyframes flashUp{0%{color:#3ddc84;text-shadow:0 0 18px rgba(61,220,132,.8)}100%{color:inherit;text-shadow:none}}
+  @keyframes flashDown{0%{color:#ff5a5f;text-shadow:0 0 18px rgba(255,90,95,.8)}100%{color:inherit;text-shadow:none}}
+  .flash-up{animation:flashUp 1.6s ease-out} .flash-down{animation:flashDown 1.6s ease-out}
+
+  /* =================== CALM THEME — same information, less noise =================== */
+  body.calm{background:#0c0d10;--fg:#e9e7e2;--dim:#7d828c;--line:rgba(255,255,255,.06);--up:#4fd18b;--down:#f2686c}
+  body.calm .bg, body.calm .grain, body.calm .vignette{display:none}
+  /* flat cards, hairline edges, no blur or shadow */
+  body.calm .card{background:#14161a;border:1px solid var(--line);box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;border-radius:16px}
+  /* quiet crossfade instead of slide-and-zoom */
+  body.calm .slide{transform:none;transition:opacity 1.1s ease}
+  /* header: plain text, no pill */
+  body.calm .time{font-weight:500;letter-spacing:0}
+  body.calm .pill{background:none;border:0;backdrop-filter:none;padding:0;color:var(--dim);letter-spacing:2px}
+  body.calm .pill i{box-shadow:none;width:6px;height:6px}
+  body.calm .mkt b{font-weight:500}
+  /* progress: one thin dim line */
+  body.calm footer{gap:4px}
+  body.calm footer span{height:2px;background:rgba(255,255,255,.06)}
+  body.calm footer span b{background:rgba(255,255,255,.35);box-shadow:none}
+  /* numbers: lighter weight, colour only for direction */
+  body.calm .p, body.calm .ix-p, body.calm .fx-p, body.calm .wx-temp, body.calm .metal .price, body.calm .n-time{font-weight:500}
+  body.calm .chg.up, body.calm .fx-c.up, body.calm .dchg.up{color:var(--up)}
+  body.calm .chg.down, body.calm .fx-c.down, body.calm .dchg.down{color:var(--down)}
+  body.calm .chg, body.calm .fx-c, body.calm .dchg{font-weight:500}
+  /* tiles: no tinted fill — a slim edge marker shows direction */
+  body.calm .tile, body.calm .tile.up, body.calm .tile.down{background-image:none;border-color:var(--line);position:relative}
+  body.calm .tile.up::before, body.calm .tile.down::before{content:"";position:absolute;left:0;top:22%;bottom:22%;width:2px;border-radius:2px}
+  body.calm .tile.up::before{background:var(--up)} body.calm .tile.down::before{background:var(--down)}
+  body.calm .logo{width:clamp(18px,6vh,26px)!important;height:clamp(18px,6vh,26px)!important;border-radius:6px;opacity:.9}
+  body.calm .badge{background:#2a2d33;color:var(--fg);width:clamp(18px,6vh,26px)!important;height:clamp(18px,6vh,26px)!important;border-radius:6px;font-size:10px}
+  body.calm .tk{letter-spacing:1px}
+  body.calm .tev{color:var(--dim)} body.calm .tev.soon{color:var(--fg);font-weight:500}
+  body.calm .flash-up, body.calm .flash-down{animation-duration:.9s}
+  @keyframes calmUp{0%{color:var(--up)}100%{color:inherit}} @keyframes calmDown{0%{color:var(--down)}100%{color:inherit}}
+  body.calm .flash-up{animation-name:calmUp} body.calm .flash-down{animation-name:calmDown}
+  /* Nifty: plain line, faint fill */
+  body.calm .ix-name{color:var(--dim);font-weight:500}
+  body.calm .chip{border:0;padding:0;color:var(--dim)}
+  body.calm .chip .dot{display:none}
+  body.calm .spark .ring{display:none}
+  /* currencies: no glow, direction in text only */
+  body.calm .fxc, body.calm .fxc.up, body.calm .fxc.down{border-color:var(--line);box-shadow:none}
+  body.calm .flag{filter:saturate(.75)}
+  /* weather: no colour glow, softer icons */
+  body.calm .wx2{background-image:none}
+  body.calm .wx-icon, body.calm .hr .ic{filter:saturate(.7)}
+  body.calm .stat, body.calm .hr{background:none;border:1px solid var(--line)}
+  body.calm .hr .rn{color:#7fb2e6}
+  /* metals: keep the gold/silver colour, drop the shimmer and halo */
+  body.calm .metal::before{display:none}
+  body.calm .metal .price{animation:none;background-image:none;-webkit-background-clip:border-box;background-clip:border-box}
+  body.calm .gold .price{color:#e2bf6a} body.calm .silver .price{color:#c9cfd8}
+  body.calm .chip{font-size:clamp(10px,3vh,12px)}
+  /* ---------- sun & moon ---------- */
+  .wx-sun{color:var(--dim);font-size:clamp(11px,3.4vh,15px);margin-top:.5vh}
+  /* ---------- headlines ---------- */
+  .news2{height:calc(100% - 3.6vh);display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .ncol{padding:2.4vh 2vw;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  .nhd{font-size:clamp(10px,3vh,12px);letter-spacing:2.5px;text-transform:uppercase;color:var(--dim);margin-bottom:1.4vh}
+  .nlist{list-style:none;display:flex;flex-direction:column;gap:1.3vh;min-height:0;flex:1;overflow:hidden}
+  .nlist li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:baseline}
+  .nlist .no{font-family:"JetBrains Mono",monospace;color:var(--dim);font-size:clamp(10px,3vh,12px)}
+  .nlist .tt{font-size:clamp(12px,3.9vh,16px);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .nlist .sr{display:block;color:var(--dim);font-size:clamp(9px,2.8vh,11px);margin-top:.3vh;letter-spacing:.3px}
+  @media (max-aspect-ratio: 13/10) { .news2{grid-template-columns:1fr} }
+  .solo-news{height:calc(100% - 3.6vh);padding:2.4vh 2.6vw}
+  .solo-news .nlist{gap:1.5vh}
+  .nhead{display:flex;align-items:center;gap:10px;font-size:clamp(13px,4.6vh,22px);font-weight:600;margin-bottom:1.4vh;
+    padding-bottom:1.1vh;border-bottom:1px solid var(--line);flex:none}
+  @media (max-height:340px){ .solo-news .nlist{gap:1.1vh} .solo-news .sr{margin-top:0} }
+  .nflag{font-size:1.15em;line-height:1}
+  .solo-news .tt{font-size:clamp(12px,min(4.4vh,2.3vw),19px);-webkit-line-clamp:2;line-height:1.25}
+  .solo-news .sr{font-size:clamp(9px,2.8vh,12px)}
+  /* ---------- pinned slide ---------- */
+  #pill{cursor:pointer}
+  body.locked #lockIc::before{content:"🔒";margin-right:6px;font-size:.95em}
+  body.locked footer span.on b{animation:none!important;width:100%;opacity:.45}
+  .toast{position:fixed;left:50%;bottom:4.5vh;transform:translate(-50%,10px);opacity:0;pointer-events:none;z-index:5;
+    padding:8px 16px;border-radius:999px;background:rgba(20,22,26,.92);border:1px solid rgba(255,255,255,.12);
+    color:#e9e7e2;font-size:clamp(11px,3.6vh,14px);transition:opacity .35s, transform .35s}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  body.night .toast{display:none}
+  /* ---------- stock tiles: colour wash by direction, stronger for bigger moves ---------- */
+  body.calm .tile.up{background-image:linear-gradient(135deg,rgba(79,209,139,var(--a,.08)) 0%,rgba(79,209,139,calc(var(--a,.08) * .35)) 55%,rgba(79,209,139,0) 100%);
+    border-color:rgba(79,209,139,calc(var(--a,.08) * 1.4))}
+  body.calm .tile.down{background-image:linear-gradient(135deg,rgba(242,104,108,var(--a,.08)) 0%,rgba(242,104,108,calc(var(--a,.08) * .35)) 55%,rgba(242,104,108,0) 100%);
+    border-color:rgba(242,104,108,calc(var(--a,.08) * 1.4))}
+  body.calm .tile.big.up{box-shadow:0 0 22px rgba(79,209,139,.18)}
+  body.calm .tile.big.down{box-shadow:0 0 22px rgba(242,104,108,.18)}
+  body.calm .tile.up::before, body.calm .tile.down::before{display:none}
+  body:not(.calm) .tile.up{background-image:linear-gradient(160deg,rgba(61,220,132,var(--a,.13)),transparent 58%)}
+  body:not(.calm) .tile.down{background-image:linear-gradient(160deg,rgba(255,90,95,var(--a,.13)),transparent 58%)}
+
+  /* =================== AMBIENT (smart-display style; no third-party logos or names) =================== */
+  .scene{position:fixed;inset:0;z-index:0;opacity:0;transition:opacity 1.6s ease;background-size:cover}
+  .scene.on{opacity:1}
+  body:not(.amb) .scene{display:none}
+  .hwx{display:none}
+  body.amb{--fg:#fff;--dim:rgba(255,255,255,.72);--line:rgba(255,255,255,.14);--up:#6ee7a8;--down:#ff8f94;--grid:rgba(255,255,255,.35);--gridtxt:rgba(255,255,255,.7);
+    background:#0b1220;color:#fff;font-family:Manrope,"Space Grotesk",sans-serif}
+  body.amb .bg, body.amb .grain{display:none}
+  body.amb .vignette{display:block;opacity:.55}
+  /* header: time top-left, weather top-right */
+  body.amb .time{font-family:Manrope,sans-serif;font-weight:700;font-size:clamp(20px,8vh,40px);letter-spacing:-.5px;text-shadow:0 2px 12px rgba(0,0,0,.35)}
+  body.amb .time .sec{color:rgba(255,255,255,.75);font-weight:600}
+  body.amb .date{color:rgba(255,255,255,.8);font-weight:500}
+  body.amb .hwx{display:block;font-weight:700;font-size:clamp(14px,5vh,22px);margin-right:16px;text-shadow:0 2px 10px rgba(0,0,0,.35)}
+  body.amb .mkt{color:rgba(255,255,255,.75)}
+  body.amb .pill{color:rgba(255,255,255,.85);font-weight:700;letter-spacing:1.5px}
+  body.amb .pill i{background:#fff;box-shadow:none}
+  /* soft translucent cards */
+  body.amb .card{background:rgba(10,14,24,.30);border:0;border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,.18);
+    backdrop-filter:blur(22px) saturate(1.2);-webkit-backdrop-filter:blur(22px) saturate(1.2)}
+  body.amb .slide{transition:opacity 1s ease}
+  /* big, friendly type */
+  body.amb .p, body.amb .ix-p, body.amb .fx-p, body.amb .wx-temp, body.amb .metal .price, body.amb .stat .v,
+  body.amb .hr .tp, body.amb .chg, body.amb .fx-c, body.amb .dchg, body.amb .n-time{font-family:Manrope,sans-serif}
+  body.amb .p, body.amb .ix-p, body.amb .fx-p, body.amb .wx-temp{font-weight:700;color:#fff;letter-spacing:-1px;text-shadow:0 2px 14px rgba(0,0,0,.25)}
+  body.amb .ix-p{font-size:clamp(36px,min(19vh,9vw),92px)}
+  body.amb .nm{font-weight:700} body.amb .tk, body.amb .label, body.amb .k, body.amb .chip, body.amb .ix-name, body.amb .fx-k, body.amb .nhd{color:rgba(255,255,255,.72)}
+  body.amb .chg, body.amb .fx-c, body.amb .dchg{font-weight:700}
+  body.amb .chg.up, body.amb .fx-c.up, body.amb .dchg.up{color:#6ee7a8} body.amb .chg.down, body.amb .fx-c.down, body.amb .dchg.down{color:#ff8f94}
+  body.amb .badge{background:rgba(255,255,255,.18);color:#fff}
+  body.amb .logo{border-radius:50%!important;padding:4px}
+  /* stock tiles: glassy, with a soft colour glow for the direction */
+  body.amb .tile, body.amb .tile.up, body.amb .tile.down{background-image:none!important;border:0}
+  body.amb .tile.up{box-shadow:inset 0 0 0 1px rgba(110,231,168,calc(var(--a,.1) * 2)),0 10px 30px rgba(0,0,0,.18);
+    background-color:rgba(20,80,55,calc(.18 + var(--a,.1)))}
+  body.amb .tile.down{box-shadow:inset 0 0 0 1px rgba(255,143,148,calc(var(--a,.1) * 2)),0 10px 30px rgba(0,0,0,.18);
+    background-color:rgba(110,25,35,calc(.18 + var(--a,.1)))}
+  body.amb .tev{color:rgba(255,255,255,.75)} body.amb .tev.soon{color:#ffd28a;font-weight:700}
+  /* currencies, weather, news, metals */
+  body.amb .fxc, body.amb .fxc.up, body.amb .fxc.down{box-shadow:0 10px 30px rgba(0,0,0,.18)}
+  body.amb .flag{filter:none}
+  body.amb .wx2{background-image:none}
+  body.amb .stat, body.amb .hr{background:rgba(255,255,255,.10);border:0;border-radius:16px}
+  body.amb .hr .tm{color:rgba(255,255,255,.75)} body.amb .hr .rn{color:#9fd3ff}
+  body.amb .wx-icon, body.amb .hr .ic{filter:drop-shadow(0 4px 12px rgba(0,0,0,.25))}
+  body.amb .wx-feel, body.amb .wx-sun, body.amb .wx-src{color:rgba(255,255,255,.78)}
+  body.amb .nhead{border-bottom-color:rgba(255,255,255,.18);font-weight:800}
+  body.amb .nlist .no{color:rgba(255,255,255,.6)} body.amb .nlist .tt{font-weight:600} body.amb .nlist .sr{color:rgba(255,255,255,.65)}
+  body.amb .gold .price{color:#ffd77a} body.amb .silver .price{color:#e6ebf2}
+  body.amb .metal .price{font-weight:800}
+  body.amb .mnote, body.amb .src{color:rgba(255,255,255,.72)}
+  body.amb #wAqi, body.amb #wAqiCat{filter:brightness(1.15)}
+  /* progress: small dots, the current one a short pill */
+  body.amb footer{justify-content:center;gap:7px}
+  body.amb footer span{flex:none;width:7px;height:7px;border-radius:7px;background:rgba(255,255,255,.35);transition:width .4s}
+  body.amb footer span.on{width:26px;background:rgba(255,255,255,.35)}
+  body.amb footer span b{background:#fff;box-shadow:none}
+  body.amb footer span.done b{width:0}
+  body.amb .toast{background:rgba(10,14,24,.75);backdrop-filter:blur(14px);border:0}
+  /* the night clock stays black and dim */
+  body.amb.night{background:#000} body.amb.night .scene{display:none}
+
+  /* ---------- ambient · daytime (sunrise → sunset): light scenes, dark text ---------- */
+  body.amb.light{--fg:#0f172a;--dim:#475569;--line:rgba(15,23,42,.10);--up:#047857;--down:#be123c;--grid:rgba(15,23,42,.25);--gridtxt:rgba(15,23,42,.55);
+    background:#eef2f7;color:#0f172a}
+  body.amb.light .vignette{display:none}
+  body.amb.light .time, body.amb.light .hwx, body.amb.light .p, body.amb.light .ix-p, body.amb.light .fx-p, body.amb.light .wx-temp{color:#0f172a;text-shadow:none}
+  body.amb.light .time .sec, body.amb.light .date, body.amb.light .mkt, body.amb.light .pill{color:#334155}
+  body.amb.light .pill i{background:#0f172a}
+  body.amb.light .card{background:rgba(255,255,255,.55);box-shadow:0 8px 24px rgba(15,23,42,.08)}
+  body.amb.light .tk, body.amb.light .label, body.amb.light .k, body.amb.light .chip, body.amb.light .ix-name, body.amb.light .fx-k, body.amb.light .nhd,
+  body.amb.light .wx-feel, body.amb.light .wx-sun, body.amb.light .wx-src, body.amb.light .mnote, body.amb.light .src, body.amb.light .hr .tm,
+  body.amb.light .nlist .no, body.amb.light .nlist .sr, body.amb.light .tev{color:#475569}
+  body.amb.light .tev.soon{color:#b45309}
+  body.amb.light .chg.up, body.amb.light .fx-c.up, body.amb.light .dchg.up{color:#047857}
+  body.amb.light .chg.down, body.amb.light .fx-c.down, body.amb.light .dchg.down{color:#be123c}
+  body.amb.light .badge{background:rgba(15,23,42,.08);color:#0f172a}
+  body.amb.light .tile.up{background-color:rgba(16,185,129,calc(.06 + var(--a,.1) * .8));box-shadow:inset 0 0 0 1px rgba(4,120,87,calc(var(--a,.1) * 1.6)),0 8px 24px rgba(15,23,42,.08)}
+  body.amb.light .tile.down{background-color:rgba(244,63,94,calc(.06 + var(--a,.1) * .8));box-shadow:inset 0 0 0 1px rgba(190,18,60,calc(var(--a,.1) * 1.6)),0 8px 24px rgba(15,23,42,.08)}
+  body.amb.light .stat, body.amb.light .hr{background:rgba(255,255,255,.55)}
+  body.amb.light .hr .rn{color:#0369a1}
+  body.amb.light .nhead{border-bottom-color:rgba(15,23,42,.12)}
+  body.amb.light .gold .price{color:#92400e} body.amb.light .silver .price{color:#475569}
+  body.amb.light #wAqi, body.amb.light #wAqiCat{filter:brightness(.7) saturate(1.3)}
+  body.amb.light footer span{background:rgba(15,23,42,.22)} body.amb.light footer span.on{background:rgba(15,23,42,.22)}
+  body.amb.light footer span b{background:#0f172a}
+  .wx-moon:empty{display:none}
+</style>
+</head>
+<body>
+<div class="scene" id="sceneA"></div><div class="scene" id="sceneB"></div>
+<div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<div class="grain"></div><div class="vignette"></div>
+
+<div class="app">
+  <header>
+    <div class="left"><div class="time" id="time">--:--</div><div class="date" id="date"></div></div>
+    <div class="right">
+      <div class="hwx" id="hWx"></div>
+      <div class="mkt" id="mkt"></div>
+      <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
+    </div>
+  </header>
+
+  <div class="stage">
+
+    <!-- 1. NIFTY 50 — live from your Google Sheet (Google Finance). Until SHEET_URL is set,
+         this falls back to TradingView's Sensex chart. -->
+    <section class="slide active" data-title="Nifty 50" data-accent="#ff8a3d">
+      <div class="card idx" id="idxCard">
+        <div class="ix-l">
+          <div class="ix-top"><span class="chip"><span class="dot"></span>NSE · Index</span></div>
+          <div class="ix-name">NIFTY 50</div>
+          <div class="ix-p" data-sym="INDEXNSE:NIFTY_50" data-f="price">--</div>
+          <div class="chg big" data-sym="INDEXNSE:NIFTY_50" data-f="chg"></div>
+          <div class="ix-sub">Sensex <b data-sym="INDEXBOM:SENSEX" data-f="price">--</b>
+            <span class="chg" data-sym="INDEXBOM:SENSEX" data-f="chg"></span></div>
+          <div class="src" id="srcNote"></div>
+        </div>
+        <div class="spark"><div class="k" id="sparkLbl">Today · live</div><svg id="sparkSvg"></svg></div>
+      </div>
+    </section>
+
+    <!-- 2. STOCK SLIDES are generated by the script from IN_STOCKS and US_STOCKS. -->
+    <div id="stockSlot" hidden></div>
+
+    <!-- CURRENCIES vs INR — from the sheet (rows CURRENCY:USDINR, EURINR, AEDINR) -->
+    <section class="slide" data-title="Currencies · ₹" data-accent="#2dd4bf">
+      <div class="fx">
+        <div class="card fxc"><div class="fx-top"><span class="flag">🇺🇸</span><span class="fx-k">1 US Dollar</span></div>
+          <div class="fx-p" data-sym="CURRENCY:USDINR" data-f="price">--</div><div class="fx-c" data-sym="CURRENCY:USDINR" data-f="fx"></div></div>
+        <div class="card fxc"><div class="fx-top"><span class="flag">🇪🇺</span><span class="fx-k">1 Euro</span></div>
+          <div class="fx-p" data-sym="CURRENCY:EURINR" data-f="price">--</div><div class="fx-c" data-sym="CURRENCY:EURINR" data-f="fx"></div></div>
+        <div class="card fxc"><div class="fx-top"><span class="flag">🇦🇪</span><span class="fx-k">1 UAE Dirham</span></div>
+          <div class="fx-p" data-sym="CURRENCY:AEDINR" data-f="price">--</div><div class="fx-c" data-sym="CURRENCY:AEDINR" data-f="fx"></div></div>
+      </div>
+      <div class="mnote" id="fxNote">Waiting for rates…</div>
+    </section>
+
+    <!-- HEADLINES — India and world, from Google News via the sheet's "News" tab -->
+    <section class="slide" data-title="India News" data-accent="#9aa3b2" data-needs="news">
+      <div class="card ncol solo-news"><div class="nhead"><span class="nflag">🇮🇳</span>India News</div><ol class="nlist" id="newsIN"></ol></div>
+      <div class="mnote news-note"></div>
+    </section>
+    <section class="slide" data-title="Global News" data-accent="#9aa3b2" data-needs="news">
+      <div class="card ncol solo-news"><div class="nhead"><span class="nflag">🌍</span>Global News</div><ol class="nlist" id="newsWD"></ol></div>
+      <div class="mnote news-note"></div>
+    </section>
+
+    <!-- 3. WEATHER -->
+    <section class="slide" data-title="Koramangala, Bengaluru" data-accent="#38c8ff">
+      <div class="card wx2" id="wxCard">
+        <div class="wx-top">
+          <div class="wx-main">
+            <div class="wx-icon" id="wIcon">⛅</div>
+            <div>
+              <div class="wx-temp" id="wTemp">--°</div>
+              <div class="wx-desc" id="wDesc">Loading…</div>
+              <div class="wx-feel" id="wFeel"></div>
+              <div class="wx-sun" id="wSun"></div>
+              <div class="wx-sun wx-moon" id="wMoon"></div>
+            </div>
+          </div>
+          <div class="stats">
+            <div class="stat"><div class="label" id="wHLLbl">High / Low</div><div class="v" id="wHL">--</div></div>
+            <div class="stat"><div class="label" id="wRainLbl">Rain chance</div><div class="v" id="wRain">--</div></div>
+            <div class="stat"><div class="label">Humidity</div><div class="v" id="wHum">--</div></div>
+            <div class="stat aqi"><div class="label">AQI · India</div><div class="v"><span id="wAqi">--</span><span class="cat" id="wAqiCat"></span></div></div>
+          </div>
+        </div>
+        <div class="hours" id="wHours"></div>
+        <div class="wx-src" id="wSrc"></div>
+      </div>
+    </section>
+
+    <!-- 4. GOLD & SILVER -->
+    <section class="slide" data-title="Bullion · Bengaluru" data-accent="#f5c451">
+      <div class="metals">
+        <div class="card metal gold">
+          <div class="chip"><span class="dot"></span>Gold 24K · 10 g</div>
+          <div class="price" id="gold">₹ --</div>
+          <div class="per"><span id="goldG">--</span> <span>per gram</span></div>
+          <div class="dchg flat" id="goldD"></div>
+        </div>
+        <div class="card metal silver">
+          <div class="chip"><span class="dot"></span>Silver · 1 kg</div>
+          <div class="price" id="silver">₹ --</div>
+          <div class="per"><span id="silverG">--</span> <span>per gram</span></div>
+          <div class="dchg flat" id="silverD"></div>
+        </div>
+      </div>
+      <div class="mnote" id="mNote">Estimated from international spot × USD/INR</div>
+    </section>
+
+  </div>
+  <footer id="bars"></footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="nightv" id="nightv">
+  <div class="n-box" id="nBox">
+    <div class="n-time" id="nTime">--:--</div>
+    <div class="n-date" id="nDate"></div>
+    <div class="n-info" id="nInfo"></div>
+    <div class="n-info" id="nSky"></div>
+  </div>
+</div>
+
+<script>
+/* ---------- SETTINGS ---------- */
+const SLIDE_SECONDS = 15;
+// Look: 'calm' (minimal, quiet) or 'vivid' (glows, tints, animated background).
+const THEME = 'ambient';   // 'ambient' (smart-display look), 'calm' or 'vivid'
+// Screen modes (IST, 24-hour). Day: Indian stocks. Evening: US stocks. Night: dim clock only.
+// Tap the screen at night to peek at the normal slides for a minute.
+const MODES = { day: '06:00', evening: '18:30', night: '23:30' };
+// Pin a slide: double-tap anywhere (or tap the slide name, top-right). Tap again to move between slides while pinned.
+// The pin lifts by itself after this many minutes (0 = stay pinned until you double-tap again).
+const LOCK_MINUTES = 30;
+const LAT = 12.9352, LON = 77.6245;        // Koramangala, Bengaluru
+// Weather: "NOW" (big temperature, humidity, wind, conditions) is MEASURED at HAL Airport, ~2–3 km away.
+// The FORECAST (high/low, rain, next 6 hours) comes from WEATHER_SOURCE: 'metno' (MET Norway) or 'openmeteo'.
+// The two are never mixed into one number. If HAL's report is older than HAL_MAX_AGE minutes, "now" says so.
+const WEATHER_SOURCE = 'metno';
+const HAL_MAX_AGE = 120;   // the sheet re-imports HAL's report about once an hour
+
+// LIVE PRICES: paste the "Publish to web" CSV link of your Google Sheet between the quotes.
+// Leave it empty to use TradingView instead (Sensex chart + BSE end-of-day quotes).
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQvtAtoM3GTJ--tbsHV5cWMPhFrtaofoAyvqSbRt2H2-n2_pUiQ5YYnaVsXRgRTe1ieAnODMXPw1joB/pub?gid=1087668592&single=true&output=csv';
+const NEWS_GID = '202194850';   // the News tab, read through the same "Publish to web" link
+// The sheet's ID (from its normal editing link). Used when the page runs somewhere that
+// can't read the published link directly (online editors, files opened from the phone).
+// Needs the sheet shared as "Anyone with the link — Viewer".
+const SHEET_ID = '1B6h8FjOD4prRnpne8n7_UlDhlEEg68yE3HcvUDrD4us';
+const MAIN_TAB = 'Sheet1';
+const PRICE_REFRESH_SECONDS = 60;
+
+// Your watchlist (prices only, no quantities). sym = the exact symbol in column A of the sheet; tv = TradingView fallback symbol;
+// dom = company website (used for the logo); ev = key in EVENTS below.
+const IN_STOCKS = [
+  { sym:'NSE:M&M',        tv:'BSE:M_M',        name:'Mahindra & Mahindra', tick:'M&M',        dom:'mahindra.com',    ev:'mm' },
+  { sym:'NSE:SONACOMS',   tv:'BSE:SONACOMS',   name:'Sona BLW Precision',  tick:'SONACOMS',   dom:'sonacomstar.com', ev:'sona' },
+  { sym:'NSE:BAJFINANCE', tv:'BSE:BAJFINANCE', name:'Bajaj Finance',       tick:'BAJFINANCE', dom:'bajajfinserv.in', ev:'bajfin' },
+  { sym:'NSE:BHARTIARTL', tv:'BSE:BHARTIARTL', name:'Bharti Airtel',       tick:'BHARTIARTL', dom:'airtel.in',       ev:'airtel' },
+  { sym:'NSE:HDFCBANK',   tv:'BSE:HDFCBANK',   name:'HDFC Bank',           tick:'HDFCBANK',   dom:'hdfcbank.com',    ev:'hdfc' },
+  { sym:'NSE:TCS',        tv:'BSE:TCS',        name:'TCS',                 tick:'TCS',        dom:'tcs.com',         ev:'tcs' },
+  { sym:'NSE:INOXINDIA',  tv:'BSE:INOXINDIA',  name:'INOX India',          tick:'INOXINDIA',  dom:'inoxindia.com',   ev:'inox' },
+  { sym:'NSE:TITAN',      tv:'BSE:TITAN',      name:'Titan Company',       tick:'TITAN',      dom:'titancompany.in', ev:'titan' },
+  { sym:'NSE:POLYMED',    tv:'BSE:POLYMED',    name:'Poly Medicure',       tick:'POLYMED',    dom:'polymedicure.com', ev:'polymed' },
+  { sym:'NSE:ITC',        tv:'BSE:ITC',        name:'ITC',                 tick:'ITC',        dom:'itcportal.com',   ev:'itc' },
+  { sym:'NSE:ABREL',      tv:'BSE:ABREL',      name:'Aditya Birla Real Estate', tick:'ABREL', dom:'adityabirlarealestate.com', ev:'abrel' },
+  { sym:'NSE:TATACONSUM', tv:'BSE:TATACONSUM', name:'Tata Consumer',       tick:'TATACONSUM', dom:'tataconsumer.com', ev:'tatacons' },
+];
+// Large caps you hold, shown six to a slide as a compact board (prices only).
+const LARGE_CAPS = [
+  { sym:'NSE:RELIANCE',   tv:'BSE:RELIANCE',   name:'Reliance',        tick:'RELIANCE',   dom:'ril.com' },
+  { sym:'NSE:LT',         tv:'BSE:LT',         name:'Larsen & Toubro', tick:'LT',         dom:'larsentoubro.com' },
+  { sym:'NSE:ICICIBANK',  tv:'BSE:ICICIBANK',  name:'ICICI Bank',      tick:'ICICIBANK',  dom:'icicibank.com' },
+  { sym:'NSE:INFY',       tv:'BSE:INFY',       name:'Infosys',         tick:'INFY',       dom:'infosys.com' },
+  { sym:'NSE:HINDUNILVR', tv:'BSE:HINDUNILVR', name:'Hindustan Unilever', tick:'HINDUNILVR', dom:'hul.co.in' },
+  { sym:'NSE:SUNPHARMA',  tv:'BSE:SUNPHARMA',  name:'Sun Pharma',      tick:'SUNPHARMA',  dom:'sunpharma.com' },
+  { sym:'NSE:TMCV',       tv:'BSE:TMCV',       name:'Tata Motors',     tick:'TMCV',       dom:'tatamotors.com' },
+  { sym:'NSE:TATASTEEL',  tv:'BSE:TATASTEEL',  name:'Tata Steel',      tick:'TATASTEEL',  dom:'tatasteel.com' },
+  { sym:'NSE:TATAPOWER',  tv:'BSE:TATAPOWER',  name:'Tata Power',      tick:'TATAPOWER',  dom:'tatapower.com' },
+  { sym:'NSE:INDIGO',     tv:'BSE:INDIGO',     name:'IndiGo',          tick:'INDIGO',     dom:'goindigo.in' },
+  { sym:'NSE:BEL',        tv:'BSE:BEL',        name:'Bharat Electronics', tick:'BEL',     dom:'bel-india.in' },
+  { sym:'NSE:RECLTD',     tv:'BSE:RECLTD',     name:'REC',             tick:'RECLTD',     dom:'recindia.nic.in' },
+  { sym:'NSE:CIPLA',      tv:'BSE:CIPLA',      name:'Cipla',           tick:'CIPLA',      dom:'cipla.com' },
+  { sym:'NSE:DRREDDY',    tv:'BSE:DRREDDY',    name:"Dr. Reddy's",     tick:'DRREDDY',    dom:'drreddys.com' },
+  { sym:'NSE:VBL',        tv:'BSE:VBL',        name:'Varun Beverages', tick:'VBL',        dom:'varunbeverages.com' },
+  { sym:'NSE:AMBUJACEM',  tv:'BSE:AMBUJACEM',  name:'Ambuja Cements',  tick:'AMBUJACEM',  dom:'ambujacement.com' },
+];
+const US_STOCKS = [
+  { sym:'NYSE:TSM',     tv:'NYSE:TSM',        name:'TSMC',       tick:'TSM',  dom:'tsmc.com',       ev:'tsm' },
+  { sym:'NASDAQ:NVDA',  tv:'NASDAQ:NVDA',     name:'Nvidia',     tick:'NVDA', dom:'nvidia.com',     ev:'nvda' },
+  { sym:'NYSE:CRM',     tv:'NYSE:CRM',        name:'Salesforce', tick:'CRM',  dom:'salesforce.com', ev:'crm' },
+  { sym:'NASDAQ:MSFT',  tv:'NASDAQ:MSFT',     name:'Microsoft',  tick:'MSFT', dom:'microsoft.com',  ev:'msft' },
+  { sym:'NASDAQ:AAPL',  tv:'NASDAQ:AAPL',     name:'Apple',      tick:'AAPL', dom:'apple.com',      ev:'aapl' },
+  { sym:'NASDAQ:GOOGL', tv:'NASDAQ:GOOGL',    name:'Alphabet (Google)', tick:'GOOGL', dom:'google.com', ev:'googl' },
+  { sym:'NASDAQ:AMZN',  tv:'NASDAQ:AMZN',     name:'Amazon',     tick:'AMZN', dom:'amazon.com',     ev:'amzn' },
+  { sym:'INDEXSP:.INX', tv:'FOREXCOM:SPXUSD', name:'S&P 500',    tick:'Index', badge:'S&P',         ev:'spx' },
+];
+// Calibration to the rate you trust (GoodReturns Bangalore). On CAL.date the page
+// (or the day after) works out the exact factor from the live spot price and remembers it; after that,
+// prices move with international spot. To recalibrate: put in today's GoodReturns
+// rates and today's date (YYYY-MM-DD), then reload once.
+const CAL = { date:'2026-11-02', gold24kPerGram:13937, silverPerKg:200000 };
+// Used only if calibration hasn't happened on this device yet.
+const DEFAULT_GOLD_FACTOR = 1.17, DEFAULT_SILVER_FACTOR = 1.32;
+
+/* ---------- BUILD STOCK SLIDES ---------- */
+const LIVE = !!SHEET_URL.trim();
+function tvWidget(file, cfg) {
+  const box = document.createElement('div'); box.className = 'tradingview-widget-container';
+  box.innerHTML = '<div class="tradingview-widget-container__widget"></div>';
+  const sc = document.createElement('script'); sc.async = true;
+  sc.src = 'https://s3.tradingview.com/external-embedding/' + file;
+  sc.textContent = JSON.stringify(cfg); box.appendChild(sc); return box;
+}
+function stockCard(st) {
+  const card = document.createElement('div'); card.className = 'card ind';
+  if (LIVE) {
+    const sl = document.createElement('div'); sl.className = 'sl';
+    const hd = document.createElement('div'); hd.className = 'hd';
+    if (st.dom) {
+      const img = document.createElement('img'); img.className = 'logo'; img.alt = '';
+      img.src = 'https://www.google.com/s2/favicons?domain=' + st.dom + '&sz=128';
+      img.onerror = () => { const b = document.createElement('div'); b.className = 'badge'; b.textContent = st.name.slice(0, 2).toUpperCase(); img.replaceWith(b); };
+      hd.appendChild(img);
+    } else { const b = document.createElement('div'); b.className = 'badge'; b.textContent = st.badge || st.name.slice(0, 2); hd.appendChild(b); }
+    const t = document.createElement('div'); t.style.minWidth = '0';
+    t.innerHTML = '<div class="nm"></div><div class="tk"></div>';
+    t.querySelector('.nm').textContent = st.name; t.querySelector('.tk').textContent = st.sym.split(':')[0] + ' · ' + st.tick;
+    hd.appendChild(t);
+    const px = document.createElement('div'); px.className = 'px';
+    px.innerHTML = '<span class="p" data-f="price">--</span><span class="chg" data-f="chg"></span>';
+    px.querySelectorAll('[data-f]').forEach(e => e.dataset.sym = st.sym);
+    sl.append(hd, px); card.appendChild(sl);
+  } else {
+    card.appendChild(tvWidget('embed-widget-single-quote.js',
+      { symbol: st.tv, width: '100%', isTransparent: true, colorTheme: 'dark', locale: 'en' }));
+  }
+  const ev = document.createElement('div'); ev.className = 'ev'; ev.dataset.ev = st.ev; card.appendChild(ev);
+  return card;
+}
+function buildStockSlides(list, title, accent, mode) {
+  const slot = document.getElementById('stockSlot');
+  for (let i = 0; i < list.length; i += 2) {
+    const sec = document.createElement('section'); sec.className = 'slide';
+    sec.dataset.title = title; sec.dataset.accent = accent; sec.dataset.mode = mode;
+    const pair = document.createElement('div'); pair.className = 'pair';
+    list.slice(i, i + 2).forEach(st => pair.appendChild(stockCard(st)));
+    sec.appendChild(pair); slot.before(sec);
+  }
+}
+function tileCard(st) {
+  const card = document.createElement('div'); card.className = 'card tile';
+  if (!LIVE) { card.appendChild(tvWidget('embed-widget-single-quote.js',
+      { symbol: st.tv, width: '100%', isTransparent: true, colorTheme: 'dark', locale: 'en' })); return card; }
+  const hd = document.createElement('div'); hd.className = 'hd';
+  const img = document.createElement('img'); img.className = 'logo'; img.alt = '';
+  img.src = 'https://www.google.com/s2/favicons?domain=' + st.dom + '&sz=128';
+  img.onerror = () => { const b = document.createElement('div'); b.className = 'badge'; b.textContent = st.name.slice(0, 2).toUpperCase(); img.replaceWith(b); };
+  const t = document.createElement('div'); t.style.minWidth = '0';
+  t.innerHTML = '<div class="nm"></div><div class="tk"></div>';
+  t.querySelector('.nm').textContent = st.name; t.querySelector('.tk').textContent = st.tick;
+  hd.append(img, t);
+  const p = document.createElement('div'); p.className = 'p'; p.dataset.sym = st.sym; p.dataset.f = 'price'; p.textContent = '--';
+  const c = document.createElement('div'); c.className = 'chg'; c.dataset.sym = st.sym; c.dataset.f = 'chg';
+  card.append(hd, p, c);
+  if (st.ev) { const e = document.createElement('div'); e.className = 'tev'; e.dataset.ev = st.ev; card.appendChild(e); }
+  return card;
+}
+function buildGridSlides(list, title, accent, mode, per) {
+  const slot = document.getElementById('stockSlot');
+  const n = Math.ceil(list.length / per), size = Math.ceil(list.length / n);   // balanced slides
+  for (let i = 0; i < list.length; i += size) {
+    const part = list.slice(i, i + size);
+    const sec = document.createElement('section'); sec.className = 'slide';
+    sec.dataset.title = title; sec.dataset.accent = accent; sec.dataset.mode = mode;
+    const g = document.createElement('div'); g.className = 'grid6' + (part.length <= 4 ? ' g4' : '');
+    part.forEach(st => g.appendChild(tileCard(st)));
+    const note = document.createElement('div'); note.className = 'mnote stock-note';
+    note.dataset.mkt = mode === 'evening' ? 'us' : 'in';
+    note.textContent = LIVE ? 'Waiting for prices…' : '';
+    sec.append(g, note); slot.before(sec);
+  }
+}
+buildGridSlides(IN_STOCKS, 'Watchlist · India', '#ff8a3d', 'day', 6);
+buildGridSlides(LARGE_CAPS, 'Large caps · India', '#f5b041', 'day', 6);
+buildGridSlides(US_STOCKS, 'Watchlist · US', '#7aa2ff', 'evening', 6);
+if (!LIVE) {   // no sheet yet: Sensex 1-month chart from TradingView
+  const c = document.getElementById('idxCard'); c.className = 'card tv'; c.innerHTML = '';
+  c.closest('.slide').dataset.title = 'Sensex · 1 month';
+  c.appendChild(tvWidget('embed-widget-mini-symbol-overview.js', { symbol:'BSE:SENSEX', width:'100%', height:'100%',
+    locale:'en', dateRange:'1M', colorTheme:'dark', isTransparent:true, autosize:true,
+    trendLineColor:'rgba(255,138,61,1)', underLineColor:'rgba(255,138,61,0.25)', underLineBottomColor:'rgba(255,138,61,0)' }));
+}
+
+/* ---------- LIVE PRICES from the published Google Sheet ---------- */
+function parseCSV(text) {
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += ch;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+const num = v => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g, '')); return isFinite(n) ? n : null; };
+function money(sym, n) {
+  const us = /^(NYSE|NASDAQ)/.test(sym), idx = /^INDEX/.test(sym);
+  const txt = n.toLocaleString(us ? 'en-US' : 'en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return idx ? txt : (us ? '$' : '₹') + txt;
+}
+let lastLive = null, lastPrev = null;
+// Intraday Nifty: the page records the live price each time it refreshes (on this phone),
+// so the line builds through the session. 9:15 → 15:30 IST = 375 minutes.
+const SESSION_MIN = 375;
+function istParts() {
+  const t = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Kolkata' }));
+  return { date: todayIST(), min: t.getHours() * 60 + t.getMinutes() - 555, day: t.getDay() };
+}
+let memIntra = null;
+function intraday(price) {
+  const now = istParts();
+  let st = memIntra;
+  try { st = st || JSON.parse(localStorage.getItem('deskTickerNiftyIntra')); } catch (e) {}
+  const open = now.day >= 1 && now.day <= 5 && now.min >= 0 && now.min <= SESSION_MIN;
+  if (open) {
+    if (!st || st.date !== now.date) st = { date: now.date, pts: [] };
+    const last = st.pts[st.pts.length - 1];
+    if (last && last[0] === now.min) last[1] = price; else st.pts.push([now.min, price]);
+    st.pts.sort((a, b) => a[0] - b[0]);
+    memIntra = st;
+    try { localStorage.setItem('deskTickerNiftyIntra', JSON.stringify(st)); } catch (e) {}
+  }
+  return { st, open, now };
+}
+function drawSpark() {
+  const svg = document.getElementById('sparkSvg'); if (!svg || lastLive == null) return;
+  const { st, open, now } = intraday(lastLive);
+  const showToday = st && (st.date === now.date || !open);
+  let pts = showToday && st ? st.pts.slice() : [];
+  const lbl = document.getElementById('sparkLbl');
+  if (lbl) lbl.textContent = open ? 'Today · live' : (pts.length ? 'Last session' : 'Market closed');
+  const W = svg.clientWidth || 300, H = svg.clientHeight || 150, padL = 6, padR = 14, padT = 14, padB = 20;
+  if (!pts.length) pts = [[open ? Math.max(0, now.min) : SESSION_MIN, lastLive]];
+  const vals = pts.map(p => p[1]).concat(lastPrev != null ? [lastPrev] : []);
+  let lo = Math.min(...vals), hi = Math.max(...vals); if (hi - lo < 1) { lo -= 20; hi += 20; }
+  const padV = (hi - lo) * 0.08; lo -= padV; hi += padV;
+  const X = m => padL + Math.min(Math.max(m, 0), SESSION_MIN) * (W - padL - padR) / SESSION_MIN;
+  const Y = v => padT + (hi - v) * (H - padT - padB) / (hi - lo);
+  const line = pts.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join(' ');
+  const up = lastPrev == null || lastLive >= lastPrev, col = up ? '#3ddc84' : '#ff5a5f';
+  const lp = pts[pts.length - 1], lx = X(lp[0]), ly = Y(lp[1]);
+  // dotted link from prev close at 9:15 to the first recorded point, if the page started late
+  const gap = lastPrev != null && pts[0][0] > 2
+    ? `<path d="M${X(0)} ${Y(lastPrev)} L${X(pts[0][0])} ${Y(pts[0][1])}" stroke="var(--accent)" stroke-opacity=".5" stroke-width="2" stroke-dasharray="2 5" fill="none"/>` : '';
+  const tick = (m, t) => `<text x="${X(m)}" y="${H - 4}" fill="var(--gridtxt,rgba(255,255,255,.4))" font-size="10" font-family="Manrope, Space Grotesk" text-anchor="${m === 0 ? 'start' : m === SESSION_MIN ? 'end' : 'middle'}">${t}</text>`;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML =
+    `<defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity="${THEME === 'calm' ? .12 : .28}"/>` +
+    `<stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>` +
+    (lastPrev != null ? `<line x1="${padL}" x2="${W - padR}" y1="${Y(lastPrev)}" y2="${Y(lastPrev)}" stroke="var(--grid,rgba(255,255,255,.25))" stroke-dasharray="4 5"/>` +
+      `<text x="${W - padR}" y="${Y(lastPrev) - 6}" text-anchor="end" fill="var(--gridtxt,rgba(255,255,255,.45))" font-size="11" font-family="Manrope, Space Grotesk">Prev close ${lastPrev.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</text>` : '') +
+    (pts.length > 1 ? `<path d="${line} L${lx.toFixed(1)} ${H - padB} L${X(pts[0][0]).toFixed(1)} ${H - padB} Z" fill="url(#sg)"/>` : '') +
+    gap +
+    `<path d="${line}" fill="none" stroke="${col}" stroke-width="${THEME === 'calm' ? 1.8 : 2.5}" stroke-linejoin="round" stroke-linecap="round"/>` +
+    (open ? `<circle class="ring" cx="${lx}" cy="${ly}" r="5" fill="${col}"/>` : '') +
+    `<circle cx="${lx}" cy="${ly}" r="5.5" fill="${col}" stroke="#0b0d12" stroke-width="2"/>` +
+    tick(0, '9:15') + tick(165, '12:00') + tick(SESSION_MIN, '3:30');
+}
+window.addEventListener('resize', drawSpark);
+try { new ResizeObserver(() => drawSpark()).observe(document.getElementById('sparkSvg')); } catch (e) {}
+// GoodReturns Bangalore rates imported into the sheet: gold table in I:K, silver table in M:P.
+// Row 1 of each is the latest day, e.g. "₹13,937 (+49)" = rate (change vs previous day).
+let GR = null;
+function parseRate(v) {
+  const m = String(v || '').match(/([\d,]+(?:\.\d+)?)\s*(?:\(\s*([+\-−]?[\d,]+(?:\.\d+)?)\s*\))?/);
+  if (!m) return null;
+  const price = parseFloat(m[1].replace(/,/g, ''));
+  const chg = m[2] != null ? parseFloat(m[2].replace(/,/g, '').replace('−', '-')) : null;
+  return isFinite(price) && price > 0 ? { price, chg } : null;
+}
+function grDate(v) {
+  const m = String(v || '').match(/Date\((\d+),(\d+),(\d+)/);
+  const d = m ? new Date(+m[1], +m[2], +m[3]) : new Date(String(v));
+  return isNaN(d) ? '' : d.toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+}
+function readGoodReturns(rows) {
+  const r = rows.find(x => parseRate(x[9]) && parseRate(x[15]));
+  if (!r) return;
+  const g = parseRate(r[9]), sv = parseRate(r[15]);
+  GR = { gold: g.price, goldChg: g.chg, silver: sv.price, silverChg: sv.chg, date: grDate(r[8] || r[12]) };
+  renderGR();
+}
+function renderGR() {
+  if (!GR) return;
+  document.getElementById('gold').textContent    = inr(GR.gold * 10);
+  document.getElementById('goldG').textContent   = inr(GR.gold);
+  document.getElementById('silver').textContent  = inr(GR.silver);
+  document.getElementById('silverG').textContent = inr(GR.silver / 1000);
+  showDelta('goldD', GR.gold * 10, GR.goldChg != null ? (GR.gold - GR.goldChg) * 10 : null);
+  showDelta('silverD', GR.silver, GR.silverChg != null ? GR.silver - GR.silverChg : null);
+  document.getElementById('mNote').textContent = 'GoodReturns Bangalore · rates for ' + (GR.date || 'today');
+}
+// Way 1: the published CSV link (works when the page is served from a normal website).
+async function fetchCSVRows(gid) {
+  const url = gid ? SHEET_URL.replace(/gid=\d+/, 'gid=' + gid) : SHEET_URL;
+  const res = await fetch(url + (url.includes('?') ? '&' : '?') + '_=' + Date.now(), { cache: 'no-store' });
+  if (!res.ok) throw new Error('csv ' + res.status);
+  const all = parseCSV(await res.text()), rows = all.slice(1);
+  rows.header = all[0] || [];
+  return rows;
+}
+// Way 2: Google's chart-data feed loaded as a script (works inside sandboxes too).
+let gvizN = 0;
+function fetchGvizRows(tab) {
+  return new Promise((resolve, reject) => {
+    const cb = '__deskSheet' + (++gvizN), sc = document.createElement('script');
+    const done = () => { delete window[cb]; sc.remove(); clearTimeout(t); };
+    const t = setTimeout(() => { done(); reject(new Error('gviz timeout')); }, 15000);
+    window[cb] = d => {
+      done();
+      if (!d || d.status === 'error' || !d.table) return reject(new Error('gviz ' + (d && d.errors ? d.errors[0].reason : 'error')));
+      const rows = d.table.rows.map(r => (r.c || []).map(c => c == null ? '' : (c.v == null ? '' : c.v)));
+      rows.header = d.table.cols.map(c => c.label || '');
+      resolve(rows);
+    };
+    sc.onerror = () => { done(); reject(new Error('gviz blocked')); };
+    sc.src = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?' + 'sheet=' + encodeURIComponent(tab || MAIN_TAB) +
+      '&headers=1&tqx=responseHandler:' + cb + '&_=' + Date.now();
+    document.head.appendChild(sc);
+  });
+}
+let priceWay = 0;   // remembers which way worked
+async function getRows() {
+  const ways = [() => fetchCSVRows(), () => fetchGvizRows()];
+  let lastErr;
+  for (let k = 0; k < ways.length; k++) {
+    const i = (priceWay + k) % ways.length;
+    try { const rows = await ways[i](); priceWay = i; return rows; } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}
+async function loadPrices() {
+  if (!LIVE) return;
+  const note = document.getElementById('srcNote');
+  try {
+    const data = {}, rows = await getRows();
+    try { readGoodReturns(rows); } catch (e) { console.warn('gold/silver', e); }
+    try { readMetar(rows, 'col'); } catch (e) { console.warn('HAL', e); }
+    rows.forEach(r => {
+      const sym = String(r[0] || '').trim(); if (!sym || sym === 'Symbol') return;
+      const price = num(r[1]), change = num(r[2]);
+      // work out % from price and change so the two always agree (Google updates its fields at slightly different times)
+      const pct = price != null && change != null && price !== change ? change / (price - change) * 100 : num(r[3]);
+      data[sym] = { price, change, pct };
+    });
+    const nf = data['INDEXNSE:NIFTY_50'];
+    if (nf && nf.price != null) {
+      lastLive = nf.price; lastPrev = nf.change != null ? nf.price - nf.change : null;
+      drawSpark();
+    }
+    document.querySelectorAll('[data-sym]').forEach(el => {
+      const d = data[el.dataset.sym]; if (!d || d.price == null) return;
+      if (el.dataset.f === 'price') {
+        const prev = parseFloat(el.dataset.v);
+        el.textContent = money(el.dataset.sym, d.price);
+        if (isFinite(prev) && prev !== d.price) {
+          el.classList.remove('flash-up', 'flash-down'); void el.offsetWidth;
+          el.classList.add(d.price > prev ? 'flash-up' : 'flash-down');
+        }
+        el.dataset.v = d.price;
+      }
+      else if (el.dataset.f === 'fx') {
+        const ch = d.change ?? 0, pct = d.pct ?? 0, dir = Math.abs(ch) < 0.005 ? 'flat' : ch > 0 ? 'up' : 'down';
+        el.className = 'fx-c ' + dir;
+        el.closest('.fxc').className = 'card fxc ' + (dir === 'flat' ? '' : dir);
+        el.innerHTML = '';
+        el.append(dir === 'flat' ? 'No change' : (dir === 'up' ? '▲ ₹' : '▼ ₹') + Math.abs(ch).toFixed(2));
+        const sm = document.createElement('small');
+        sm.textContent = dir === 'flat' ? 'vs yesterday' : (dir === 'up' ? '+' : '−') + Math.abs(pct).toFixed(2) + '% vs yesterday';
+        el.appendChild(sm);
+      }
+      else if (d.pct != null) {
+        const up = d.pct >= 0;
+        el.className = el.className.replace(/\b(up|down)\b/g, '').trim() + (up ? ' up' : ' down');
+        const tile = el.closest('.tile');
+        if (tile) {
+          tile.classList.toggle('up', up && d.pct > 0); tile.classList.toggle('down', !up);
+          // tint strength follows the size of the move: ~0.5% faint, 3%+ strongest
+          const k = Math.min(Math.abs(d.pct), 3) / 3;
+          tile.style.setProperty('--a', (0.06 + 0.26 * k).toFixed(3));
+          tile.classList.toggle('big', Math.abs(d.pct) >= 3);
+        }
+        el.textContent = (up ? '▲ ' : '▼ ') + Math.abs(d.pct).toFixed(2) + '%' +
+          (d.change != null ? '  (' + (up ? '+' : '−') + Math.abs(d.change).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ')' : '');
+      }
+    });
+    if (note) note.textContent = 'Google Finance · updated ' + new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+    const at = new Date().toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' });
+    document.querySelectorAll('.stock-note').forEach(n => n.textContent = 'Google Finance · last refreshed ' + at +
+      ' · prices about 15–20 min behind ' + (n.dataset.mkt === 'us' ? 'the US market' : 'NSE'));
+    const fxN = document.getElementById('fxNote');
+    if (fxN && data['CURRENCY:USDINR']) fxN.textContent = 'Google Finance · last refreshed ' +
+      new Date().toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' }) + ' · change vs previous day';
+  } catch (e) {
+    if (note) note.textContent = 'Live prices unavailable (' + e.message + ') · retrying';
+    document.querySelectorAll('.stock-note').forEach(n => {
+      if (!/couldn’t refresh/.test(n.textContent)) n.textContent += ' · couldn’t refresh just now';
+    });
+    const fxN = document.getElementById('fxNote');
+    if (fxN && !/refreshed/.test(fxN.textContent)) fxN.textContent = 'Rates unavailable right now · retrying';
+    else if (fxN && !/couldn’t update/.test(fxN.textContent)) fxN.textContent += ' · couldn’t update just now';
+  }
+}
+loadPrices(); setInterval(loadPrices, PRICE_REFRESH_SECONDS * 1000);
+
+/* ---------- SUN & MOON (calculated on the phone for Koramangala; no internet needed) ---------- */
+function sunTimes(dateIST) {             // dateIST: 'YYYY-MM-DD'
+  const [y, mo, d] = dateIST.split('-').map(Number), rad = Math.PI / 180;
+  const J = Date.UTC(y, mo - 1, d, 12) / 864e5 + 2440587.5, n = Math.round(J - 2451545 + 0.0008), Js = n - LON / 360;
+  const M = (357.5291 + 0.98560028 * Js) % 360;
+  const C = 1.9148 * Math.sin(M * rad) + 0.02 * Math.sin(2 * M * rad) + 0.0003 * Math.sin(3 * M * rad);
+  const L = (M + C + 180 + 102.9372) % 360;
+  const Jt = 2451545 + Js + 0.0053 * Math.sin(M * rad) - 0.0069 * Math.sin(2 * L * rad);
+  const sd = Math.sin(L * rad) * Math.sin(23.44 * rad), cd = Math.cos(Math.asin(sd));
+  const w = Math.acos((Math.sin(-0.833 * rad) - Math.sin(LAT * rad) * sd) / (Math.cos(LAT * rad) * cd)) / rad;
+  const toD = j => new Date((j - 2440587.5) * 864e5);
+  return { rise: toD(Jt - w / 360), set: toD(Jt + w / 360) };
+}
+function moonPhase(t = Date.now()) {
+  const syn = 29.530588853, age = (((t / 864e5 + 2440587.5 - 2451550.1) % syn) + syn) % syn;
+  return [['New moon','🌑'],['Waxing crescent','🌒'],['First quarter','🌓'],['Waxing gibbous','🌔'],
+          ['Full moon','🌕'],['Waning gibbous','🌖'],['Last quarter','🌗'],['Waning crescent','🌘']][Math.floor(age / syn * 8 + 0.5) % 8];
+}
+// Moon altitude for Koramangala (simplified lunar position; rise/set within ~10 min of published times)
+function moonAlt(t) {
+  const r = Math.PI / 180, ob = r * 23.4397, d = t / 864e5 - 0.5 + 2440588 - 2451545;
+  const L = r * (218.316 + 13.176396 * d), M = r * (134.963 + 13.064993 * d), F = r * (93.272 + 13.229350 * d);
+  const l = L + r * 6.289 * Math.sin(M), b = r * 5.128 * Math.sin(F);
+  const ra = Math.atan2(Math.sin(l) * Math.cos(ob) - Math.tan(b) * Math.sin(ob), Math.cos(l));
+  const dec = Math.asin(Math.sin(b) * Math.cos(ob) + Math.cos(b) * Math.sin(ob) * Math.sin(l));
+  const H = r * (280.16 + 360.9856235 * d) + r * LON - ra, phi = r * LAT;
+  return Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H)) / r + 0.124;
+}
+function moonInfo(t0 = Date.now()) {
+  let prev = moonAlt(t0), rise = null, set = null;
+  for (let k = 1; k <= 30 * 30 && !(rise && set); k++) {        // look ahead 30 h in 2-minute steps
+    const t = t0 + k * 12e4, a = moonAlt(t);
+    if (prev < 0 && a >= 0 && !rise) rise = new Date(t);
+    if (prev >= 0 && a < 0 && !set) set = new Date(t);
+    prev = a;
+  }
+  return { up: moonAlt(t0) >= 0, rise, set };
+}
+let moonNow = { up: false };
+function renderSky() {
+  const tf = d => d.toLocaleTimeString('en-IN', { timeZone:'Asia/Kolkata', hour:'numeric', minute:'2-digit' });
+  const today = new Date().toLocaleDateString('en-CA', { timeZone:'Asia/Kolkata' });
+  const t = sunTimes(today), now = new Date();
+  const tomorrow = new Date(Date.parse(today) + 864e5).toISOString().slice(0, 10);
+  const nextRise = now < t.rise ? t.rise : sunTimes(tomorrow).rise;
+  const ws = document.getElementById('wSun');
+  if (ws) ws.textContent = 'Sunrise ' + tf(t.rise) + ' · Sunset ' + tf(t.set);
+  const [mn, me] = moonPhase();
+  moonNow = moonInfo();
+  const moonTxt = me + ' ' + mn + ' · ' + (moonNow.up ? 'moon up' + (moonNow.set ? ', sets ' + tf(moonNow.set) : '')
+                                                       : (moonNow.rise ? 'rises ' + tf(moonNow.rise) : 'below the horizon'));
+  // weather slide: show the moon whenever it's up, and every evening/night (with its rise time if not up yet)
+  const dark = now >= t.set || now < t.rise;
+  const wm = document.getElementById('wMoon');
+  if (wm) wm.textContent = (moonNow.up || dark) ? moonTxt : '';
+  const ns = document.getElementById('nSky');
+  if (ns) ns.textContent = 'Sunrise ' + tf(nextRise) + '  ·  ' + moonTxt;
+}
+renderSky(); setInterval(renderSky, 5 * 60 * 1000);
+
+/* ---------- HEADLINES (sheet tab "News": column A = India, B = World; titles end in " - Source") ---------- */
+let newsReady = false;
+function fitNews(ol, page = 0) {   // split headlines into pages of whole headlines that fit; show one page
+  if (!ol || !ol._all || !ol.clientHeight) return 1;
+  const pages = []; let cur = [];
+  ol.replaceChildren();
+  for (const li of ol._all) {
+    ol.appendChild(li);
+    if (ol.scrollHeight > ol.clientHeight + 1 && cur.length) { pages.push(cur); cur = []; ol.replaceChildren(li); }
+    cur.push(li);
+  }
+  if (cur.length) pages.push(cur);
+  const use = pages.slice(0, 2), k = Math.min(page, use.length - 1);
+  const offset = use.slice(0, k).reduce((n, p) => n + p.length, 0);
+  ol.replaceChildren(...use[k]);
+  [...ol.children].forEach((li, j) => li.querySelector('.no').textContent = String(offset + j + 1).padStart(2, '0'));
+  return use.length;
+}
+let newsPageTimer;
+window.addEventListener('resize', () => ['newsIN', 'newsWD'].forEach(id => fitNews(document.getElementById(id))));
+async function loadNews() {
+  if (!LIVE) return;
+  for (const way of [() => fetchCSVRows(NEWS_GID), () => fetchGvizRows('News')]) {
+    try { return readNews(await way(), 0, 'Google News'); } catch (e) { console.warn('news', e); }
+  }
+}
+function readNews(rows, at, label) {
+  const pick = col => rows.map(r => String(r[col] || '').trim())
+    .filter(x => x && !/^(India|World)$/i.test(x) && !/^(#N\/A|#ERROR|Loading)/i.test(x)).slice(0, 7);
+  const fill = (id, items) => {
+    const ol = document.getElementById(id); if (!ol || !items.length) return 0;
+    ol.innerHTML = '';
+    items.forEach((t, i) => {
+      const k = t.lastIndexOf(' - '), title = k > 20 ? t.slice(0, k) : t, src = k > 20 ? t.slice(k + 3) : '';
+      const li = document.createElement('li');
+      li.innerHTML = '<span class="no"></span><span><span class="tt"></span><span class="sr"></span></span>';
+      li.querySelector('.no').textContent = String(i + 1).padStart(2, '0');
+      li.querySelector('.tt').textContent = title; li.querySelector('.sr').textContent = src;
+      ol.appendChild(li);
+    });
+    ol._all = [...ol.children]; requestAnimationFrame(() => fitNews(ol));
+    return items.length;
+  };
+  const got = fill('newsIN', pick(0)) + fill('newsWD', pick(1));
+  if (got) {
+    document.querySelectorAll('.news-note').forEach(n => n.textContent = label + (at ? ' · updated ' +
+      new Date(at).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' }) : ' · refreshes every few minutes'));
+    if (!newsReady) { newsReady = true; if (typeof applyMode === 'function' && mode) applyMode(true); }
+  }
+}
+
+/* ---------- UPCOMING EVENTS for your stocks (edit freely; past events hide themselves) ----------
+   date: YYYY-MM-DD.  Last checked 2 Nov 2026 (5pm). */
+const EVENTS = {
+  mm:     [{ date:'2026-11-05', text:'Q2 FY27 results' }],
+  sona:   [],   // Q2 results already out (26 Oct)
+  bajfin: [],   // Q2 results already out (19 Oct)
+  airtel: [{ date:'2026-11-05', text:'Q2 FY27 results' }, { date:'2026-11-06', text:'Earnings call' }],
+  hdfc:   [],
+  tcs:    [],   // Q2 out 8 Oct; ₹12 interim dividend paid 30 Oct
+  inox:   [{ date:'2026-11-04', text:'Q2 FY27 results' }],
+  titan:  [{ date:'2026-11-05', text:'Q2 FY27 results' }],
+  polymed:[{ date:'2026-11-14', text:'Q2 results due (date TBC)' }],
+  itc:    [{ date:'2026-11-02', text:'Q2 FY27 results' }],
+  abrel:  [],   // Q2 results already out
+  tatacons:[],  // Q2 results already out
+  // US — dates in IST (US after-close results land early next morning in India)
+  tsm:    [{ date:'2026-11-10', text:'October sales update' }, { date:'2026-12-10', text:'November sales update' }],
+  nvda:   [{ date:'2026-11-18', text:'Q3 earnings (overnight)' }],
+  crm:    [{ date:'2026-12-03', text:'Q3 earnings (expected)' }],
+  msft:   [],
+  aapl:   [{ date:'2026-11-10', text:'Dividend ex-date (expected)' }],
+  googl:  [],
+  amzn:   [],
+  spx:    [],
+};
+function renderEvents() {
+  const today = new Date(new Date().toLocaleDateString('en-CA', { timeZone:'Asia/Kolkata' }));
+  document.querySelectorAll('.ev').forEach(el => {
+    const next = (EVENTS[el.dataset.ev] || [])
+      .map(e => ({ ...e, d:new Date(e.date) })).filter(e => e.d >= today).sort((a, b) => a.d - b.d)[0];
+    if (!next) { el.className = 'ev none'; el.innerHTML = '<div class="k">Next event</div><div class="t">Nothing scheduled</div>'; return; }
+    const days = Math.round((next.d - today) / 864e5);
+    const when = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : 'in ' + days + ' days';
+    el.className = 'ev';
+    el.innerHTML = '<div class="k">Next event</div><div class="t"></div><div class="w"></div>';
+    el.querySelector('.t').textContent = next.text;
+    el.querySelector('.w').textContent = next.d.toLocaleDateString('en-IN', { weekday:'short', day:'numeric', month:'short' }) + ' · ' + when;
+  });
+}
+function renderTileEvents() {
+  const today = new Date(new Date().toLocaleDateString('en-CA', { timeZone:'Asia/Kolkata' }));
+  document.querySelectorAll('.tev').forEach(el => {
+    const next = (EVENTS[el.dataset.ev] || []).map(e => ({ ...e, d:new Date(e.date) }))
+      .filter(e => e.d >= today).sort((a, b) => a.d - b.d)[0];
+    if (!next) { el.textContent = ''; return; }
+    const days = Math.round((next.d - today) / 864e5);
+    const when = days === 0 ? 'today' : days === 1 ? 'tomorrow' : next.d.toLocaleDateString('en-IN', { weekday:'short', day:'numeric', month:'short' });
+    el.textContent = '● ' + next.text + ' · ' + when;
+    el.classList.toggle('soon', days <= 2);
+  });
+}
+renderEvents(); renderTileEvents(); setInterval(() => { renderEvents(); renderTileEvents(); }, 60 * 60 * 1000);
+
+document.body.classList.toggle('calm', THEME === 'calm' || THEME === 'ambient');
+document.body.classList.toggle('amb', THEME === 'ambient');
+
+/* ---------- AMBIENT SCENES: a soft full-screen colour scene per slide, cross-faded ---------- */
+const GLOSS = 'radial-gradient(90% 70% at 85% 0%,rgba(255,255,255,.16),transparent 60%),radial-gradient(70% 60% at 0% 100%,rgba(0,0,0,.35),transparent 70%),';
+const SCENES = {
+  nifty:  'linear-gradient(135deg,#0b1d2a 0%,#12385a 55%,#1f6390 100%)',
+  india:  'linear-gradient(135deg,#1e120b 0%,#5c2a12 55%,#a5521f 100%)',
+  us:     'linear-gradient(135deg,#0f0c29 0%,#302b63 55%,#4b4590 100%)',
+  fx:     'linear-gradient(135deg,#071f1c 0%,#10514a 55%,#1b8072 100%)',
+  news:   'linear-gradient(135deg,#17151f 0%,#36324a 55%,#5f5a7d 100%)',
+  gold:   'linear-gradient(135deg,#1d1507 0%,#4d3a12 55%,#86641f 100%)',
+  clear:  'linear-gradient(160deg,#164a7a 0%,#2f80c4 55%,#7dbdea 100%)',
+  night:  'linear-gradient(160deg,#070b1f 0%,#17214a 55%,#2b3c78 100%)',
+  cloud:  'linear-gradient(160deg,#252c36 0%,#46525f 55%,#6c7a89 100%)',
+  rain:   'linear-gradient(160deg,#16222c 0%,#2a4558 55%,#3f6680 100%)',
+  storm:  'linear-gradient(160deg,#150f22 0%,#33244c 55%,#58406f 100%)',
+};
+// Daytime (sunrise → sunset) uses these lighter scenes with dark text.
+const SCENES_LIGHT = {
+  nifty:'linear-gradient(135deg,#e6f0fb 0%,#c9def5 55%,#9fc4ec 100%)',  india:'linear-gradient(135deg,#fdf0e3 0%,#f9d9b8 55%,#f2b98a 100%)',
+  us:'linear-gradient(135deg,#ecebfb 0%,#d4d2f5 55%,#b3b0ea 100%)',     fx:'linear-gradient(135deg,#e3f7f3 0%,#bfeee4 55%,#8fdccd 100%)',
+  news:'linear-gradient(135deg,#f3f4f7 0%,#e2e5ec 55%,#c9cfdb 100%)',   gold:'linear-gradient(135deg,#fdf6e3 0%,#f7e5b5 55%,#ecd083 100%)',
+  clear:'linear-gradient(160deg,#e3f2fd 0%,#bfe3fb 55%,#8ccdf5 100%)',  night:'linear-gradient(160deg,#e9ecf5 0%,#d3d9ea 55%,#b7c1dc 100%)',
+  cloud:'linear-gradient(160deg,#f0f2f5 0%,#dde2e8 55%,#c3cbd5 100%)',  rain:'linear-gradient(160deg,#e6edf3 0%,#cbd8e3 55%,#a8bccd 100%)',
+  storm:'linear-gradient(160deg,#efeaf8 0%,#dcd2f0 55%,#bfb0e2 100%)',
+};
+const GLOSS_LIGHT = 'radial-gradient(90% 70% at 85% 0%,rgba(255,255,255,.55),transparent 60%),';
+let isLight = false;
+function daylightNow() {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone:'Asia/Kolkata' }), t = sunTimes(today), now = new Date();
+  return now >= t.rise && now < t.set;
+}
+function applyLight(force) {
+  const want = THEME === 'ambient' && mode !== 'night' && daylightNow();
+  if (want === isLight && !force) return;
+  isLight = want; document.body.classList.toggle('light', want);
+  sceneNow = ''; if (slides[idx]) setScene(sceneFor(slides[idx]));
+  drawSpark();
+}
+function sceneFor(sl) {
+  const t = sl ? sl.dataset.title : '';
+  if (/Nifty|Sensex/.test(t)) return 'nifty';
+  if (/US/.test(t)) return 'us';
+  if (/India|Large caps/.test(t) && !/News/.test(t)) return 'india';
+  if (/Currenc/.test(t)) return 'fx';
+  if (/News/.test(t)) return 'news';
+  if (/Bullion/.test(t)) return 'gold';
+  if (/Koramangala/.test(t)) return wxKind;
+  return 'nifty';
+}
+let sceneOn = 'A', sceneNow = '', wxKind = 'clear';
+function setScene(name) {
+  if (THEME !== 'ambient' || name === sceneNow) return;
+  sceneNow = name;
+  const next = document.getElementById(sceneOn === 'A' ? 'sceneB' : 'sceneA'), cur = document.getElementById('scene' + sceneOn);
+  next.style.backgroundImage = isLight ? GLOSS_LIGHT + SCENES_LIGHT[name] : GLOSS + SCENES[name];
+  next.classList.add('on'); cur.classList.remove('on');
+  sceneOn = sceneOn === 'A' ? 'B' : 'A';
+}
+
+/* ---------- ROTATION + DAY / EVENING / NIGHT MODES ---------- */
+const allSlides = [...document.querySelectorAll('.slide')];
+const bars = document.getElementById('bars');
+let slides = [], idx = 0, timer, mode = null, peekUntil = 0, locked = false, lockTimer, toastTimer;
+const hm = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+function modeNow() {
+  const t = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Kolkata' })), m = t.getHours() * 60 + t.getMinutes();
+  const d = hm(MODES.day), e = hm(MODES.evening), n = hm(MODES.night);
+  const base = (m >= n || m < d) ? 'night' : (m >= e ? 'evening' : 'day');
+  return base === 'night' && Date.now() < peekUntil ? 'evening' : base;
+}
+function show(i) {
+  allSlides.forEach(s => s.classList.toggle('active', s === slides[i]));
+  [...bars.children].forEach((b, k) => {
+    b.className = k < i ? 'done' : '';
+    const fill = b.firstChild; fill.style.animation = 'none'; void fill.offsetWidth; fill.style.animation = '';
+    if (k === i) { b.className = 'on'; fill.style.animationDuration = SLIDE_SECONDS + 's'; }
+  });
+  document.getElementById('title').textContent = slides[i].dataset.title;
+  document.documentElement.style.setProperty('--accent', slides[i].dataset.accent);
+  if (slides[i].querySelector('#sparkSvg')) requestAnimationFrame(drawSpark);
+  setScene(sceneFor(slides[i]));
+  clearInterval(newsPageTimer);
+  slides[i].querySelectorAll('.nlist').forEach(ol => requestAnimationFrame(() => {
+    let pg = 0;                                     // flip between pages every half slide (keeps flipping when pinned)
+    if (fitNews(ol, 0) > 1) newsPageTimer = setInterval(() => fitNews(ol, pg = 1 - pg), SLIDE_SECONDS * 500);
+  }));
+}
+function next() { if (!slides.length) return; idx = (idx + 1) % slides.length; show(idx); }
+function start() { clearInterval(timer); if (mode !== 'night' && !locked) timer = setInterval(next, SLIDE_SECONDS * 1000); }
+function toast(msg) {
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+function setLock(on, quiet) {
+  locked = on; document.body.classList.toggle('locked', on); clearTimeout(lockTimer);
+  if (on && LOCK_MINUTES > 0) lockTimer = setTimeout(() => setLock(false), LOCK_MINUTES * 60 * 1000);
+  if (slides.length) show(idx);
+  start();
+  if (!quiet) toast(on ? 'Pinned · double-tap to resume' : 'Rotation resumed');
+}
+function applyMode(force) {
+  const m = modeNow(); if (m === mode && !force) return;
+  if (m !== mode && locked) setLock(false, true);      // a new part of the day starts unpinned
+  const keep = slides[idx];
+  mode = m;
+  document.body.classList.toggle('night', m === 'night');
+  applyLight(true);
+  if (m === 'night') { clearInterval(timer); nightTick(); return; }
+  slides = allSlides.filter(s => (!s.dataset.mode || s.dataset.mode === m) && !(s.dataset.needs === 'news' && !newsReady));
+  bars.innerHTML = '';
+  slides.forEach(() => { const s = document.createElement('span'); s.appendChild(document.createElement('b')); bars.appendChild(s); });
+  idx = locked && slides.includes(keep) ? slides.indexOf(keep) : 0;
+  show(idx); start();
+}
+let lastTap = 0, tapTimer;
+document.body.addEventListener('click', () => {
+  if (mode === 'night') { peekUntil = Date.now() + 60 * 1000; applyMode(true); return; }
+  const now = Date.now();
+  if (now - lastTap < 350) { clearTimeout(tapTimer); lastTap = 0; setLock(!locked); return; }   // double-tap: pin / unpin
+  lastTap = now;
+  tapTimer = setTimeout(() => { next(); start(); }, 350);                                        // single tap: next slide
+});
+document.getElementById('pill').addEventListener('click', e => { e.stopPropagation(); if (mode !== 'night') setLock(!locked); });
+applyMode(true); setInterval(() => applyMode(false), 20 * 1000);
+applyLight(); setInterval(applyLight, 20 * 1000);
+
+/* night screen: big dim clock, date, weather, AQI and Nifty's last close; drifts a little to protect the screen */
+function nightTick() {
+  if (mode !== 'night') return;
+  const d = new Date();
+  document.getElementById('nTime').textContent = d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:false });
+  document.getElementById('nDate').textContent = d.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long' });
+  const t = id => (document.getElementById(id) || {}).textContent || '';
+  const parts = [];
+  if (t('wTemp') && t('wTemp') !== '--°') parts.push(t('wTemp') + ' ' + t('wDesc'));
+  if (t('wAqi') && t('wAqi') !== '--') parts.push('AQI ' + t('wAqi') + ' ' + t('wAqiCat'));
+  const nf = document.querySelector('.ix-p[data-sym]');
+  if (nf && nf.textContent !== '--') parts.push('Nifty ' + nf.textContent);
+  document.getElementById('nInfo').textContent = parts.join('  ·  ');
+  if (d.getMinutes() % 5 === 0 && d.getSeconds() === 0) document.getElementById('nBox').style.transform =
+    `translate(${(Math.random() * 6 - 3).toFixed(1)}vw, ${(Math.random() * 8 - 4).toFixed(1)}vh)`;
+}
+everySecond(nightTick);
+
+/* ---------- CLOCK + MARKET STATUS ---------- */
+function tick() {
+  const d = new Date();
+  const hm = d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true });
+  document.getElementById('time').innerHTML = hm.replace(/\s?(am|pm)/i, '<span class="sec">$1</span>');
+  document.getElementById('date').textContent =
+    d.toLocaleDateString('en-IN', { weekday:'short', day:'numeric', month:'short' });
+  // NSE cash market: Mon–Fri 9:15–15:30 IST (holidays not tracked)
+  const ist = new Date(d.toLocaleString('en-US', { timeZone:'Asia/Kolkata' }));
+  const mins = ist.getHours() * 60 + ist.getMinutes(), day = ist.getDay();
+  const open = day >= 1 && day <= 5 && mins >= 555 && mins < 930;
+  document.getElementById('mkt').innerHTML = 'NSE <b class="' + (open ? 'open">● Open' : 'shut">● Closed') + '</b>';
+}
+// update on every second boundary so a new minute shows the moment it starts
+function everySecond(fn) { fn(); setTimeout(() => { fn(); setInterval(fn, 1000); }, 1000 - (Date.now() % 1000) + 5); }
+everySecond(tick);
+
+/* ---------- WEATHER (Open-Meteo, no key) ---------- */
+const WMO = {0:['Clear sky','☀️'],1:['Mostly clear','🌤️'],2:['Partly cloudy','⛅'],3:['Overcast','☁️'],
+  45:['Fog','🌫️'],48:['Fog','🌫️'],51:['Light drizzle','🌦️'],53:['Drizzle','🌦️'],55:['Heavy drizzle','🌧️'],
+  61:['Light rain','🌦️'],63:['Rain','🌧️'],65:['Heavy rain','🌧️'],80:['Rain showers','🌦️'],
+  81:['Rain showers','🌧️'],82:['Heavy showers','⛈️'],95:['Thunderstorm','⛈️'],96:['Thunderstorm','⛈️'],99:['Thunderstorm','⛈️']};
+// Forecast (high/low, rain chance, next hours) from Open-Meteo; "now" from a real station report
+// (HAL airport VOBG, ~4 km from Koramangala; Kempegowda VOBL as backup) imported in the sheet's column R.
+let wxModel = null, wxObs = null, wxObsAll = [];
+const rhFrom = (t, td) => Math.round(100 * Math.exp(17.625 * td / (243.04 + td)) / Math.exp(17.625 * t / (243.04 + t)));
+function heatIndex(t, rh) {             // feels-like for warm, humid air (°C); below 27°C it's just the temperature
+  if (t < 27) return t;
+  const f = t * 9 / 5 + 32;
+  const hi = -42.379 + 2.04901523 * f + 10.14333127 * rh - .22475541 * f * rh - .00683783 * f * f - .05481717 * rh * rh
+    + .00122874 * f * f * rh + .00085282 * f * rh * rh - .00000199 * f * f * rh * rh;
+  return (hi - 32) * 5 / 9;
+}
+function parseMetar(line) {
+  const m = String(line).match(/\b(VOBG|VOBL)\s+(\d{2})(\d{2})(\d{2})Z/); if (!m) return null;
+  const tt = String(line).match(/\s(M?\d{2})\/(M?\d{2})(\s|$)/); if (!tt) return null;
+  const n = v => v[0] === 'M' ? -parseInt(v.slice(1)) : parseInt(v);
+  const now = new Date();
+  let obs = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), +m[2], +m[3], +m[4]));
+  if (obs - now > 864e5) obs = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, +m[2], +m[3], +m[4]));
+  const w = String(line).match(/\s(\d{3}|VRB)(\d{2,3})(?:G\d{2,3})?KT/);
+  const t = n(tt[1]), td = n(tt[2]);
+  let wx = null;
+  if (/\s[-+]?TS(RA|SH|DZ|GR|GS)/.test(line)) wx = ['Thunderstorm', '⛈️'];            // thunder with rain at the airport
+  else if (/\s(VC)?TS(\s|$)/.test(line)) wx = ['Thunder nearby', '🌩️'];                // thunder heard, no rain falling there
+  else if (/\s[-+]?(VC)?(SH)?RA/.test(line) || /\sSHRA/.test(line)) wx = [/\s-/.test(line.match(/\s[-+]?(VC)?(SH)?RA/)?.[0] || '') ? 'Light rain' : 'Rain', '🌧️'];
+  else if (/\s[-+]?DZ/.test(line)) wx = ['Drizzle', '🌦️'];
+  else if (/\sFG\b/.test(line)) wx = ['Fog', '🌫️'];
+  else if (/\sBR\b/.test(line)) wx = ['Mist', '🌫️'];
+  else if (/\sHZ\b/.test(line)) wx = ['Haze', '🌫️'];
+  if (!wx) {
+    const L = String(line);
+    if (/\bOVC\d/.test(L)) wx = ['Overcast', '☁️'];
+    else if (/\bBKN\d/.test(L)) wx = ['Mostly cloudy', '☁️'];
+    else if (/\b(SCT|FEW)\d/.test(L)) wx = ['Partly cloudy', '⛅'];
+    else if (/\b(CAVOK|NSC|SKC|CLR|NCD)\b/.test(L)) wx = ['Clear', '☀️'];
+    if (wx) wx.cloudOnly = true;
+  }
+  return { stn: m[1], t, td, rh: rhFrom(t, td), wind: w ? Math.round(+w[2] * 1.852) : null, at: obs, age: (now - obs) / 6e4, wx };
+}
+let halLines = { tab: [], col: [] };
+function readMetar(rows, from) {
+  halLines[from] = rows.map(r => r[from === 'tab' ? 0 : 17] || '').concat(rows.header ? [rows.header[from === 'tab' ? 0 : 17] || ''] : []);
+  const obs = halLines.tab.concat(halLines.col).map(l => parseMetar(l)).filter(o => o && o.stn === 'VOBG' && o.age >= 0)
+    .sort((a, b) => a.age - b.age);
+  wxObs = obs[0] || null;
+  renderWeather();
+}
+const WX_GLOW = { clear:'radial-gradient(120% 90% at 10% 0%,rgba(255,190,90,.20),transparent 60%)',
+  night:'radial-gradient(120% 90% at 10% 0%,rgba(110,120,255,.20),transparent 60%)',
+  cloud:'radial-gradient(120% 90% at 10% 0%,rgba(170,185,210,.16),transparent 60%)',
+  rain:'radial-gradient(120% 90% at 10% 0%,rgba(60,140,255,.24),transparent 60%)',
+  storm:'radial-gradient(120% 90% at 10% 0%,rgba(150,95,255,.26),transparent 60%)' };
+function nightIcon(ic, day) {          // no sun icons after dark
+  if (day) return ic;
+  return { '☀️':'🌙', '🌤️':'🌙', '⛅':'☁️', '🌦️':'🌧️' }[ic] || ic;
+}
+function renderWeather() {
+  const c = wxModel && wxModel.current, dl = wxModel && wxModel.daily;
+  if (!c) return;   // forecast not loaded yet
+  const isDay = c ? c.is_day : (() => { const h = +new Date().toLocaleString('en-US', { timeZone:'Asia/Kolkata', hour:'numeric', hour12:false }); return h >= 6 && h < 18 ? 1 : 0; })();
+  const o = wxObs && wxObs.age <= HAL_MAX_AGE ? wxObs : null;      // measured "now", if HAL's report is recent
+  let [desc, icon] = o ? (o.wx || ['Clear', '☀️']) : (WMO[c.weather_code] || ['—', '🌡️']);
+  icon = nightIcon(icon, isDay);
+  if (!isDay && icon === '🌙') icon = moonNow.up ? moonPhase()[1] : '✨';
+  const t = o ? o.t : c.temperature_2m, rh = Math.round(o ? o.rh : c.relative_humidity_2m);
+  const wind = o && o.wind != null ? o.wind : Math.round(c.wind_speed_10m);
+  const feels = o ? heatIndex(t, rh) : (c.apparent_temperature ?? heatIndex(t, rh));
+  document.getElementById('wIcon').textContent = icon;
+  document.getElementById('wTemp').textContent = Math.round(t) + '°';
+  document.getElementById('wDesc').textContent = desc;
+  document.getElementById('wFeel').textContent = 'Feels like ' + Math.round(feels) + '°C · Wind ' + wind + ' km/h';
+  const met = wxModel && wxModel.src === 'metno';
+  document.getElementById('wHLLbl').textContent = 'High / Low';
+  document.getElementById('wRainLbl').textContent = met ? 'Rain next 12h' : 'Rain today';
+  if (dl) {
+    document.getElementById('wHL').textContent = Math.round(dl.temperature_2m_max[0]) + '° / ' + Math.round(dl.temperature_2m_min[0]) + '°';
+    document.getElementById('wRain').textContent = met
+      ? (dl.rain12 < 0.2 ? 'Unlikely' : dl.rain12 < 2.5 ? 'Light' : dl.rain12 < 10 ? 'Moderate' : 'Heavy')
+      : dl.precipitation_probability_max[0] + '% chance';
+  } else {
+    document.getElementById('wHL').textContent = '…'; document.getElementById('wRain').textContent = '…';
+  }
+  document.getElementById('wHum').textContent = rh + '%';
+  const kind = /Thunder/.test(desc) ? 'storm' : /rain|drizzle|shower/i.test(desc) ? 'rain' : /cloud|overcast|fog|mist|haze/i.test(desc) ? 'cloud' : isDay ? 'clear' : 'night';
+  document.getElementById('wxCard').style.setProperty('--wxglow', WX_GLOW[kind]);
+  wxKind = kind;
+  const hw = document.getElementById('hWx'); if (hw) hw.textContent = icon + ' ' + Math.round(t) + '°';
+  if (THEME === 'ambient' && slides[idx] && /Koramangala/.test(slides[idx].dataset.title)) setScene(sceneFor(slides[idx]));
+  const fmt = d => d.toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' });
+  document.getElementById('wSrc').textContent =
+    (o ? 'Now: measured at HAL Airport, ' + fmt(o.at)
+       : 'Now: forecast estimate' + (wxObs ? ' (HAL report from ' + fmt(wxObs.at) + ' is too old)' : ' (no HAL report yet)')) +
+    ' · Forecast: ' + (met ? 'MET Norway' : 'Open-Meteo');
+  // next 6 hours
+  const h = wxModel && wxModel.hourly; if (!h || !h.time) return;
+  const nowKey = new Date().toLocaleString('sv-SE', { timeZone:'Asia/Kolkata' }).slice(0, 13).replace(' ', 'T');
+  let i0 = h.time.findIndex(x => x.slice(0, 13) > nowKey); if (i0 < 0) i0 = 0;
+  const box = document.getElementById('wHours'); box.innerHTML = '';
+  h.time.slice(i0, i0 + 6).forEach((tm, k) => {
+    const i = i0 + k, hh = +tm.slice(11, 13);
+    const code = h.weather_code[i], rainy = code >= 51 && code <= 82;
+    const mm = met ? h.rain_mm[i] : (h.precipitation ? h.precipitation[i] : null), pp = met ? null : h.precipitation_probability[i];
+    let ic = (WMO[code] || ['', '🌡️'])[1];
+    const hrT = Date.parse(tm + ':00+05:30');
+    if (rainy && !((mm ?? 0) >= 0.3 || (pp ?? 0) >= 50)) ic = h.is_day[i] ? '⛅' : '☁️';   // a trace of drizzle isn't "rain"
+    ic = nightIcon(ic, h.is_day[i]);
+    if (!h.is_day[i] && ic === '🌙') ic = moonAlt(hrT) >= 0 ? moonPhase(hrT)[1] : '✨';
+    const d = document.createElement('div'); d.className = 'hr';
+    d.innerHTML = '<span class="tm"></span><span class="ic"></span><span class="tp"></span><span class="rn"></span>';
+    d.querySelector('.tm').textContent = (hh % 12 || 12) + (hh < 12 ? 'am' : 'pm');
+    d.querySelector('.ic').textContent = ic;
+    d.querySelector('.tp').textContent = Math.round(h.temperature_2m[i]) + '°';
+    d.querySelector('.rn').textContent = met
+      ? (h.rain_mm[i] >= 0.2 ? h.rain_mm[i].toFixed(1) + 'mm' : '')
+      : (h.precipitation_probability[i] >= 20 ? h.precipitation_probability[i] + '%' : '');
+    box.appendChild(d);
+  });
+}
+// MET Norway symbol → our weather codes (for the backup forecast)
+function metCode(sym) {
+  sym = String(sym || '').replace(/_(day|night|polartwilight)$/, '');
+  if (/thunder/.test(sym)) return 95;
+  if (/^heavyrain/.test(sym)) return /showers/.test(sym) ? 82 : 65;
+  if (/^lightrain/.test(sym)) return /showers/.test(sym) ? 80 : 61;
+  if (/^rain/.test(sym)) return /showers/.test(sym) ? 81 : 63;
+  return { clearsky:0, fair:1, partlycloudy:2, cloudy:3, fog:45 }[sym] ?? 3;
+}
+async function loadMetNo() {
+  const j = await (await fetch(`https://api.met.no/weatherapi/locationforecast/2.0/complete?lat=${LAT.toFixed(3)}&lon=${LON.toFixed(3)}`)).json();
+  const ts = j.properties.timeseries;
+  const ist = d => new Date(new Date(d).toLocaleString('en-US', { timeZone:'Asia/Kolkata' }));
+  const key = d => { const t = ist(d), p = n => String(n).padStart(2, '0'); return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}T${p(t.getHours())}:00`; };
+  const isDay = d => { const h = ist(d).getHours(); return h >= 6 && h < 18 ? 1 : 0; };
+  const sym = x => (x.data.next_1_hours || x.data.next_6_hours || {}).summary?.symbol_code;
+  const hrs = ts.filter(x => x.data.next_1_hours).slice(0, 24);
+  const t0 = ts[0].data.instant.details;
+  const temps = hrs.map(x => x.data.instant.details.air_temperature);
+  return {
+    src: 'metno',
+    current: { temperature_2m: t0.air_temperature, apparent_temperature: t0.apparent_air_temperature ?? t0.air_temperature,
+      relative_humidity_2m: Math.round(t0.relative_humidity), wind_speed_10m: t0.wind_speed * 3.6,
+      weather_code: metCode(sym(ts[0])), is_day: isDay(ts[0].time) },
+    hourly: { time: hrs.map(x => key(x.time)), temperature_2m: temps,
+      weather_code: hrs.map(x => metCode(sym(x))), is_day: hrs.map(x => isDay(x.time)),
+      rain_mm: hrs.map(x => x.data.next_1_hours.details.precipitation_amount || 0) },
+    daily: { temperature_2m_max: [Math.max(...temps)], temperature_2m_min: [Math.min(...temps)],
+      rain12: hrs.slice(0, 12).reduce((a, x) => a + (x.data.next_1_hours.details.precipitation_amount || 0), 0) },
+  };
+}
+async function loadOpenMeteo() {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
+    `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day` +
+    `&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day&forecast_hours=12` +
+    `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FKolkata`;
+  const res = await fetch(url), j = await res.json();
+  if (!res.ok || !j.current) throw new Error(j.reason || ('HTTP ' + res.status));
+  j.src = 'openmeteo'; return j;
+}
+async function loadWeather() {
+  try {
+    wxModel = await (WEATHER_SOURCE === 'openmeteo' ? loadOpenMeteo() : loadMetNo());
+    renderWeather();
+  } catch (e) {
+    if (!wxModel) document.getElementById('wDesc').textContent = 'Weather loading…';
+    setTimeout(loadWeather, 2 * 60 * 1000);          // keep the last reading on screen and try again shortly
+  }
+}
+loadWeather(); setInterval(loadWeather, 10 * 60 * 1000);
+
+/* ---------- AQI (Open-Meteo air quality, no key) — Indian CPCB scale from 24-hour PM2.5 / PM10 ---------- */
+const AQI_BANDS = [[50,'Good','#3ddc84'],[100,'Satisfactory','#a3e635'],[200,'Moderate','#facc15'],
+  [300,'Poor','#fb923c'],[400,'Very poor','#ef4444'],[500,'Severe','#c026d3']];
+function subIndex(c, bp) {   // bp: concentration breakpoints matching AQI 0,50,100,200,300,400,500
+  const I = [0, 50, 100, 200, 300, 400, 500];
+  for (let k = 1; k < bp.length; k++) if (c <= bp[k]) return I[k-1] + (I[k] - I[k-1]) * (c - bp[k-1]) / (bp[k] - bp[k-1]);
+  return 500;
+}
+async function loadAQI() {
+  try {
+    const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}&longitude=${LON}` +
+      `&hourly=pm2_5,pm10&past_days=1&forecast_days=1&timezone=Asia%2FKolkata`;
+    const a = await (await fetch(url)).json();
+    const nowKey = new Date().toLocaleString('sv-SE', { timeZone:'Asia/Kolkata' }).slice(0, 13).replace(' ', 'T');
+    let end = a.hourly.time.findIndex(t => t.slice(0, 13) === nowKey); if (end < 0) end = a.hourly.time.length - 1;
+    const avg = arr => { const v = arr.slice(Math.max(0, end - 23), end + 1).filter(x => x != null); return v.reduce((s, x) => s + x, 0) / v.length; };
+    const aqi = Math.round(Math.max(subIndex(avg(a.hourly.pm2_5), [0,30,60,90,120,250,380]),
+                                    subIndex(avg(a.hourly.pm10),  [0,50,100,250,350,430,510])));
+    if (!isFinite(aqi)) throw new Error('no AQI data');
+    const band = AQI_BANDS.find(b => aqi <= b[0]) || AQI_BANDS[5];
+    const el = document.getElementById('wAqi'); el.textContent = aqi; el.style.color = band[2];
+    const cat = document.getElementById('wAqiCat'); cat.textContent = band[1]; cat.style.color = band[2];
+  } catch (e) { document.getElementById('wAqi').textContent = '--'; }
+}
+loadAQI(); setInterval(loadAQI, 30 * 60 * 1000);
+
+/* ---------- GOLD & SILVER (gold-api.com + open.er-api.com, no key) ---------- */
+const OZ = 31.1035;
+const CAL_KEY = 'deskTickerCal:' + CAL.date + ':' + CAL.gold24kPerGram + ':' + CAL.silverPerKg;
+let memCal = null;
+function todayIST() { return new Date().toLocaleDateString('en-CA', { timeZone:'Asia/Kolkata' }); }
+function factors(rawGold, rawSilver) {
+  let saved = memCal;
+  try { saved = saved || JSON.parse(localStorage.getItem(CAL_KEY)); } catch (e) {}
+  if (saved) return saved;
+  const ageDays = (Date.parse(todayIST()) - Date.parse(CAL.date)) / 864e5;
+  if (ageDays >= 0 && ageDays <= 1) {   // calibrate on CAL.date or the day after
+    const fresh = { gold: CAL.gold24kPerGram / rawGold, silver: (CAL.silverPerKg / 1000) / rawSilver };
+    memCal = fresh;
+    try { localStorage.setItem(CAL_KEY, JSON.stringify(fresh)); } catch (e) {}
+    return fresh;
+  }
+  return { gold: DEFAULT_GOLD_FACTOR, silver: DEFAULT_SILVER_FACTOR };
+}
+const inr = n => '₹' + Math.round(n).toLocaleString('en-IN');
+// Day-on-day change: the page remembers the last price it showed each day (on this phone)
+// and compares today's price with yesterday's last one.
+let memDay = null, memPrev = null;
+function dayChange(gold10, silverKg) {
+  const today = todayIST();
+  let day = memDay, prev = memPrev;
+  try { day = day || JSON.parse(localStorage.getItem('deskTickerMetalDay')); prev = prev || JSON.parse(localStorage.getItem('deskTickerMetalPrev')); } catch (e) {}
+  if (day && day.date !== today) { prev = day; day = null; }
+  day = { date: today, gold: gold10, silver: silverKg };
+  memDay = day; memPrev = prev;
+  try { localStorage.setItem('deskTickerMetalDay', JSON.stringify(day)); if (prev) localStorage.setItem('deskTickerMetalPrev', JSON.stringify(prev)); } catch (e) {}
+  return prev;
+}
+function showDelta(id, now, before) {
+  const el = document.getElementById(id);
+  if (before == null) { el.className = 'dchg flat'; el.textContent = GR ? '' : 'Change vs yesterday from tomorrow'; return; }
+  const d = now - before, pct = d / before * 100;
+  if (Math.abs(d) < 1) { el.className = 'dchg flat'; el.textContent = 'No change vs yesterday'; return; }
+  el.className = 'dchg ' + (d > 0 ? 'up' : 'down');
+  el.innerHTML = '';
+  el.append((d > 0 ? '▲ ' : '▼ ') + '₹' + Math.round(Math.abs(d)).toLocaleString('en-IN') + ' (' + Math.abs(pct).toFixed(2) + '%)');
+  const sp = document.createElement('span'); sp.textContent = 'vs yesterday'; el.appendChild(sp);
+}
+async function loadMetals() {
+  if (GR) return renderGR();          // exact GoodReturns rates from the sheet win over the estimate
+  try {
+    const [xau, xag, fx] = await Promise.all([
+      fetch('https://api.gold-api.com/price/XAU').then(r => r.json()),
+      fetch('https://api.gold-api.com/price/XAG').then(r => r.json()),
+      fetch('https://open.er-api.com/v6/latest/USD').then(r => r.json())
+    ]);
+    const usdInr = fx.rates.INR;
+    const rawGold = xau.price / OZ * usdInr, rawSilver = xag.price / OZ * usdInr;
+    const f = factors(rawGold, rawSilver);
+    const goldPerG   = rawGold * f.gold;
+    const silverPerG = rawSilver * f.silver;
+    document.getElementById('gold').textContent    = inr(goldPerG * 10);
+    document.getElementById('goldG').textContent   = inr(goldPerG);
+    document.getElementById('silver').textContent  = inr(silverPerG * 1000);
+    document.getElementById('silverG').textContent = inr(silverPerG);
+    const prevDay = dayChange(goldPerG * 10, silverPerG * 1000);
+    showDelta('goldD', goldPerG * 10, prevDay && prevDay.gold);
+    showDelta('silverD', silverPerG * 1000, prevDay && prevDay.silver);
+    document.getElementById('mNote').textContent =
+      `Estimate · USD/INR ${usdInr.toFixed(2)} · updated ${new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}`;
+  } catch (e) { if (GR) return renderGR(); document.getElementById('mNote').textContent = 'Metal prices unavailable right now'; }
+}
+loadMetals(); setInterval(loadMetals, 5 * 60 * 1000);
+
+loadNews(); setInterval(loadNews, 5 * 60 * 1000);
+
+/* ---------- KEEP SCREEN ON (where supported) ---------- */
+async function keepAwake() { try { await navigator.wakeLock.request('screen'); } catch (e) {} }
+keepAwake(); document.addEventListener('visibilitychange', () => { if (!document.hidden) keepAwake(); });
+
+/* ---------- APP: keep the screen awake + work offline ---------- */
+let wakeLock = null;
+async function keepAwake() {
+  try { if ('wakeLock' in navigator && document.visibilityState === 'visible' && !wakeLock) {
+    wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch (e) {}
+}
+keepAwake(); document.addEventListener('visibilitychange', keepAwake); document.addEventListener('click', keepAwake);
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+// pick up a new version of the display by itself (checked every 30 min)
+setInterval(() => { if (navigator.onLine) fetch(location.href, { cache: 'no-store' }).then(r => r.text()).then(t => {
+  const v = (t.match(/<meta name="ticker-version" content="([^"]+)"/) || [])[1];
+  if (v && v !== document.querySelector('meta[name="ticker-version"]').content) location.reload();
+}).catch(() => {}); }, 30 * 60 * 1000);
+</script>
+</body>
+</html>
