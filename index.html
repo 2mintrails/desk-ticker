@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v7.2-2026-11-04">
+<meta name="ticker-version" content="v7.3-2026-11-04">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -554,6 +554,20 @@
 </div>
 
 <script>
+/* ---------- DEBUG: open the page with ?debug to see what loads and what fails ---------- */
+if (/debug/.test(location.search)) {
+  const box = document.createElement('pre');
+  box.style.cssText = 'position:fixed;left:6px;right:6px;bottom:6px;max-height:55vh;overflow:auto;z-index:99;margin:0;padding:8px;' +
+    'background:rgba(0,0,0,.85);color:#9f9;font:11px/1.35 monospace;white-space:pre-wrap;border-radius:8px';
+  const log = (...a) => { box.textContent += new Date().toLocaleTimeString() + ' ' + a.map(x => x && x.stack ? x.message : typeof x === 'object' ? JSON.stringify(x) : String(x)).join(' ') + '\n'; };
+  document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
+  const w = console.warn, e = console.error; console.warn = (...a) => { log('WARN', ...a); w(...a); }; console.error = (...a) => { log('ERR', ...a); e(...a); };
+  addEventListener('error', ev => log('JS ERROR', ev.message, ev.filename + ':' + ev.lineno));
+  addEventListener('unhandledrejection', ev => log('PROMISE', ev.reason));
+  const f = window.fetch; window.fetch = async (u, o) => { try { const r = await f(u, o); log(r.status, String(u).slice(0, 90)); return r; } catch (x) { log('FAIL', String(u).slice(0, 90), x.message); throw x; } };
+  log('version', document.querySelector('meta[name="ticker-version"]')?.content, navigator.userAgent.slice(0, 80));
+  setTimeout(() => log('state', { prices: document.querySelector('.ix-p[data-sym]')?.textContent, temp: document.getElementById('wTemp')?.textContent, gold: document.getElementById('gold')?.textContent, news: newsReady }), 12000);
+}
 /* ---------- SETTINGS ---------- */
 const SLIDE_SECONDS = 15;
 // Look: 'calm' (minimal, quiet) or 'vivid' (glows, tints, animated background).
