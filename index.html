@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v7-2026-11-04">
+<meta name="ticker-version" content="v7.1-2026-11-04">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1451,7 +1451,15 @@ function metCode(sym) {
   return { clearsky:0, fair:1, partlycloudy:2, cloudy:3, fog:45 }[sym] ?? 3;
 }
 async function loadMetNo() {
-  const j = await (await fetch(`https://api.met.no/weatherapi/locationforecast/2.0/complete?lat=${LAT.toFixed(3)}&lon=${LON.toFixed(3)}`)).json();
+  // MET Norway sometimes serves a cut-off reply for one exact point; try the point and two neighbours ~100 m away
+  let j = null;
+  for (const [dy, dx] of [[0, 0], [0, 0.001], [0.001, 0]]) {
+    try {
+      const r = await fetch(`https://api.met.no/weatherapi/locationforecast/2.0/complete?lat=${(LAT + dy).toFixed(3)}&lon=${(LON + dx).toFixed(3)}`);
+      j = JSON.parse(await r.text()); if (j && j.properties) break;
+    } catch (e) { j = null; }
+  }
+  if (!j || !j.properties) throw new Error('met.no unavailable');
   const ts = j.properties.timeseries;
   const ist = d => new Date(new Date(d).toLocaleString('en-US', { timeZone:'Asia/Kolkata' }));
   const key = d => { const t = ist(d), p = n => String(n).padStart(2, '0'); return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}T${p(t.getHours())}:00`; };
@@ -1483,7 +1491,8 @@ async function loadOpenMeteo() {
 }
 async function loadWeather() {
   try {
-    wxModel = await (WEATHER_SOURCE === 'openmeteo' ? loadOpenMeteo() : loadMetNo());
+    const first = WEATHER_SOURCE === 'openmeteo' ? loadOpenMeteo : loadMetNo, second = first === loadMetNo ? loadOpenMeteo : loadMetNo;
+    try { wxModel = await first(); } catch (e) { console.warn('weather', e); wxModel = await second(); }   // other forecast as a backup
     renderWeather();
   } catch (e) {
     if (!wxModel) document.getElementById('wDesc').textContent = 'Weather loading…';
