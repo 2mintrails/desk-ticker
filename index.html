@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v6-2026-11-04">
+<meta name="ticker-version" content="v6.1-2026-11-04">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -426,6 +426,9 @@
   body.night .navbtn{display:none}
   body.paused footer span.on b{animation-play-state:paused}
   footer{cursor:pointer}
+  /* stock slides: keep the "last refreshed" line in its own strip under the tiles */
+  .slide > .grid6{height:calc(100% - max(3.4vh, 22px))}
+  .stock-note{bottom:2px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 8px}
 </style>
 </head>
 <body>
