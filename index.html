@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v9.4-2026-11-05">
+<meta name="ticker-version" content="v9.5-2026-11-05">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1733,7 +1733,7 @@ const WMO = {0:['Clear sky','☀️'],1:['Mostly clear','🌤️'],2:['Partly cl
   81:['Rain showers','🌧️'],82:['Heavy showers','⛈️'],95:['Thunderstorm','⛈️'],96:['Thunderstorm','⛈️'],99:['Thunderstorm','⛈️']};
 // Forecast (high/low, rain chance, next hours) from Open-Meteo; "now" from a real station report
 // (HAL airport VOBG, ~4 km from Koramangala; Kempegowda VOBL as backup) imported in the sheet's column R.
-let wxModel = null, wxObs = null, wxObsAll = [];
+let wxModel = null, wxObs = null, wxObsAll = [], wxBias = 0;
 const rhFrom = (t, td) => Math.round(100 * Math.exp(17.625 * td / (243.04 + td)) / Math.exp(17.625 * t / (243.04 + t)));
 function heatIndex(t, rh) {             // feels-like for warm, humid air (°C); below 27°C it's just the temperature
   if (t < 27) return t;
@@ -1806,10 +1806,26 @@ function renderWeather() {
   document.getElementById('wDesc').textContent = desc;
   document.getElementById('wFeel').textContent = 'Feels like ' + Math.round(feels) + '°C · Wind ' + wind + ' km/h';
   const met = wxModel && wxModel.src === 'metno';
+  // Forecast models run ~3–5° cool over Bengaluru by day. Correct them with HAL's measured reading:
+  // bias = measured − forecast at the report time; applied in full for the next 3 hours, fading to half by 12 hours.
+  wxBias = 0;
+  const hb = wxModel && wxModel.hourly;
+  if (o && hb && hb.time) {
+    const key = new Date(o.at).toLocaleString('sv-SE', { timeZone:'Asia/Kolkata' }).slice(0, 13).replace(' ', 'T');
+    const j = hb.time.findIndex(x => x.slice(0, 13) === key);
+    const fc = j >= 0 ? hb.temperature_2m[j] : (Math.abs(Date.now() - o.at) < 90 * 60e3 ? c.temperature_2m : null);
+    if (fc != null) wxBias = Math.max(-6, Math.min(6, o.t - fc));
+  }
+  const adj = (temp, hoursAhead) => temp + wxBias * (hoursAhead <= 3 ? 1 : Math.max(0.5, 1 - (hoursAhead - 3) / 18));
   document.getElementById('wHLLbl').textContent = 'High / Low';
   document.getElementById('wRainLbl').textContent = met ? 'Rain next 12h' : 'Rain today';
   if (dl) {
-    document.getElementById('wHL').textContent = Math.round(dl.temperature_2m_max[0]) + '° / ' + Math.round(dl.temperature_2m_min[0]) + '°';
+    let hi = dl.temperature_2m_max[0], lo = dl.temperature_2m_min[0];
+    if (wxBias && hb && hb.temperature_2m) {            // recompute from the corrected next 24 hours, and include "now"
+      const n0 = Date.now(), ts = hb.time.map((x, k) => [Date.parse(x + ':00+05:30'), hb.temperature_2m[k]]).filter(([t]) => t >= n0 - 3600e3 && t <= n0 + 24 * 3600e3);
+      if (ts.length) { const v = ts.map(([t, x]) => adj(x, (t - n0) / 3600e3)).concat([t]); hi = Math.max(...v); lo = Math.min(...v); }
+    }
+    document.getElementById('wHL').textContent = Math.round(hi) + '° / ' + Math.round(lo) + '°';
     document.getElementById('wRain').textContent = met
       ? (dl.rain12 < 0.2 ? 'Unlikely' : dl.rain12 < 2.5 ? 'Light' : dl.rain12 < 10 ? 'Moderate' : 'Heavy')
       : dl.precipitation_probability_max[0] + '% chance';
@@ -1827,7 +1843,7 @@ function renderWeather() {
     (away ? 'Now: forecast estimate for your location'
        : o ? 'Now: measured at HAL Airport, ' + fmt(o.at)
        : 'Now: forecast estimate' + (wxObs ? ' (HAL report from ' + fmt(wxObs.at) + ' is too old)' : ' (no HAL report yet)')) +
-    ' · Forecast: ' + (met ? 'MET Norway' : 'Open-Meteo');
+    ' · Forecast: ' + (met ? 'MET Norway' : 'Open-Meteo') + (Math.abs(wxBias) >= 0.5 ? ', adjusted to HAL (' + (wxBias > 0 ? '+' : '−') + Math.abs(wxBias).toFixed(0) + '°)' : '');
   // next 6 hours
   const h = wxModel && wxModel.hourly; if (!h || !h.time) return;
   const nowKey = new Date().toLocaleString('sv-SE', { timeZone:'Asia/Kolkata' }).slice(0, 13).replace(' ', 'T');
@@ -1846,7 +1862,7 @@ function renderWeather() {
     d.innerHTML = '<span class="tm"></span><span class="ic"></span><span class="tp"></span><span class="rn"></span>';
     d.querySelector('.tm').textContent = (hh % 12 || 12) + (hh < 12 ? 'am' : 'pm');
     d.querySelector('.ic').textContent = ic;
-    d.querySelector('.tp').textContent = Math.round(h.temperature_2m[i]) + '°';
+    d.querySelector('.tp').textContent = Math.round(adj(h.temperature_2m[i], (hrT - Date.now()) / 3600e3)) + '°';
     d.querySelector('.rn').textContent = met
       ? (h.rain_mm[i] >= 0.2 ? h.rain_mm[i].toFixed(1) + 'mm' : '')
       : (h.precipitation_probability[i] >= 20 ? h.precipitation_probability[i] + '%' : '');
