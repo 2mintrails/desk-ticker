@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v9.9-2026-11-05">
+<meta name="ticker-version" content="v10.1-2026-11-05">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Desk Ticker">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&family=Manrope:wght@400;500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen:wght@400;700&family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#07080c; --fg:#f2efe8; --dim:#8b90a0; --line:rgba(255,255,255,.08);
@@ -469,6 +469,186 @@
   /* stock slides: keep the "last refreshed" line in its own strip under the tiles */
   .slide > .grid6{height:calc(100% - max(3.4vh, 22px))}
   .stock-note{bottom:2px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 8px}
+  .tape{display:none}
+  body.led{--fg:#f4f4f4;--dim:#8d8d8d;--line:rgba(255,255,255,.08);--up:#2bff6a;--down:#ff3b3b;--yellow:#ffd400;--cyan:#2bd5ff;--orange:#ff9a1a;
+    --grid:rgba(255,255,255,.28);--gridtxt:#8d8d8d;background:#0d0d0d;color:var(--fg);font-family:"Pixelify Sans","Silkscreen",monospace}
+  body.led .bg, body.led .grain, body.led .vignette{display:none}
+  /* the LED dot grid over everything: lit pixels show as dots, the rest as dark unlit LEDs */
+  body.led::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:7;
+    background-image:radial-gradient(circle at 50% 50%,transparent 0 1.15px,rgba(0,0,0,.58) 1.5px);background-size:3px 3px}
+  body.led *{text-shadow:0 0 5px currentColor}
+  body.led .card, body.led .tile, body.led .fxc, body.led .stat, body.led .hr{text-shadow:none}
+  /* header */
+  body.led .time{font-family:"Pixelify Sans",monospace;font-weight:600;font-size:clamp(24px,9vh,42px);color:var(--yellow);text-shadow:0 0 8px rgba(255,212,0,.6);letter-spacing:1px}
+  body.led .time .sec{color:var(--yellow)}
+  body.led .date, body.led .mkt, body.led .pill{font-family:Silkscreen,monospace;color:#a9a9a9;letter-spacing:1px;text-transform:uppercase;font-size:clamp(11px,3.8vh,15px)}
+  body.led .pill{background:none;border:0;color:var(--cyan)} body.led .pill i{background:var(--cyan);border-radius:0;box-shadow:none}
+  body.led .mkt .open{color:var(--up)} body.led .mkt .shut{color:var(--down)}
+  /* no frames: content sits straight on the black panel */
+  body.led .card{background:transparent;border:0;border-radius:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+  body.led .card::after{display:none}
+  body.led .tile, body.led .fxc, body.led .metal, body.led .ncol, body.led .wx2, body.led .idx{background:rgba(255,255,255,.035)}
+  /* type */
+  body.led .p, body.led .ix-p, body.led .fx-p, body.led .wx-temp, body.led .metal .price, body.led .stat .v,
+  body.led .chg, body.led .fx-c, body.led .dchg, body.led .hr .tp, body.led .n-time, body.led .ix-sub b{font-family:"Pixelify Sans",monospace;font-weight:600;letter-spacing:.5px}
+  body.led .p{font-size:clamp(24px,min(11vh,5vw),48px);color:#fff}
+  body.led .ix-p{font-size:clamp(40px,min(21vh,9.5vw),100px);color:#fff}
+  body.led .fx-p{font-size:clamp(30px,min(15vh,7.5vw),68px)}
+  body.led .wx-temp{font-size:clamp(52px,25vh,124px);color:#fff}
+  body.led .metal .price{animation:none;background-image:none;-webkit-background-clip:border-box;background-clip:border-box}
+  body.led .chg.up, body.led .fx-c.up, body.led .dchg.up{color:var(--up)} body.led .chg.down, body.led .fx-c.down, body.led .dchg.down{color:var(--down)}
+  body.led .nm{font-family:Silkscreen,monospace;font-weight:700;text-transform:uppercase;font-size:clamp(11px,min(4vh,1.9vw),16px);color:var(--cyan)}
+  body.led .tk, body.led .label, body.led .k, body.led .chip, body.led .ix-name, body.led .fx-k, body.led .nhd, body.led .tev,
+  body.led .mnote, body.led .src, body.led .wx-src, body.led .hr .tm{font-family:"Pixelify Sans",monospace;color:#a9a9a9;letter-spacing:.3px}
+  body.led .tk, body.led .label, body.led .k, body.led .chip, body.led .fx-k{font-size:clamp(11px,3.6vh,14px);text-transform:uppercase}
+  body.led .tev, body.led .mnote, body.led .src, body.led .wx-src{font-size:clamp(11px,3.4vh,14px)}
+  body.led .hr{font-size:clamp(11px,min(3.4vh,1.6vw),14px)}
+  body.led .chg{font-size:clamp(13px,min(4.6vh,2.2vw),19px)}
+  body.led .ix-name{color:var(--cyan);font-family:Silkscreen,monospace;font-size:clamp(14px,5vh,22px)}
+  body.led .wx-feel, body.led .wx-sun, body.led .wx-desc, body.led .per{font-family:"Pixelify Sans",monospace;color:#b5b5b5}
+  body.led .wx-feel, body.led .wx-sun{font-size:clamp(12px,4vh,17px)}
+  body.led .wx-desc{color:var(--yellow)}
+  body.led .tev.soon{color:var(--orange)}
+  /* pixel logos and icons */
+  body.led .logo{background:transparent;border-radius:0!important;padding:0;image-rendering:pixelated;image-rendering:crisp-edges;filter:none}
+  body.led .badge{background:transparent;color:var(--cyan);border:0;font-family:Silkscreen,monospace}
+  body.led .flag, body.led .wx-icon, body.led .hr .ic, body.led .nflag{filter:saturate(1.4)}
+  /* tiles: direction as a pixel bar on the left, brighter for bigger moves */
+  body.led .tile, body.led .tile.up, body.led .tile.down{background-image:none!important;border:0;box-shadow:none;position:relative}
+  body.led .tile.up::before, body.led .tile.down::before{display:block;content:"";position:absolute;left:0;top:14%;bottom:14%;width:4px;border-radius:0;opacity:calc(.45 + var(--a,.1) * 1.8)}
+  body.led .tile.up::before{background:var(--up)} body.led .tile.down::before{background:var(--down)}
+  body.led .tile[data-badge]::after{display:none}
+  body.led .fxc, body.led .fxc.up, body.led .fxc.down{box-shadow:none}
+  body.led .stat, body.led .hr{background:rgba(255,255,255,.04);border:0;border-radius:0}
+  body.led .hr .rn{color:var(--cyan)}
+  body.led .nhead{font-family:Silkscreen,monospace;text-transform:uppercase;border-bottom:2px dotted rgba(255,255,255,.18);color:var(--yellow)}
+  body.led .nlist .no{font-family:"Pixelify Sans",monospace;color:var(--orange)}
+  body.led .nlist .tt{font-family:"Pixelify Sans",monospace;font-weight:500}
+  body.led .nlist .sr{font-family:"Pixelify Sans",monospace;color:var(--cyan);font-size:clamp(10px,3vh,13px)}
+  body.led .gold .price{color:var(--yellow)} body.led .silver .price{color:#dfe6ee}
+  body.led .metal::before{display:none}
+  body.led svg text{font-family:"Pixelify Sans",monospace!important;font-size:12px}
+  body.led .spark svg path{shape-rendering:crispEdges}
+  body.led #wAqi, body.led #wAqiCat{filter:saturate(1.4)}
+  body.led .dchg span, body.led .aqi .cat{font-family:"Pixelify Sans",monospace}
+  /* scrolling ticker tape */
+  body.led .tape{display:block;flex:none;overflow:hidden;white-space:nowrap;margin-top:6px;height:clamp(18px,7vh,30px);
+    font-family:"Pixelify Sans",monospace;font-weight:600;font-size:clamp(13px,5vh,22px);line-height:clamp(18px,7vh,30px);
+    background:rgba(255,255,255,.035)}
+  body.led .tape-in{display:inline-block;animation:tapeScroll 40s linear infinite}
+  body.led .tape-in > span{display:inline-block;padding-right:2em}
+  @keyframes tapeScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  body.led .tl{color:var(--cyan)} body.led .tv{color:#fff} body.led .tu{color:var(--up)} body.led .td{color:var(--down)} body.led .ts{color:var(--orange)}
+  body.led footer{gap:5px;padding-top:5px}
+  body.led footer span{width:6px!important;height:6px!important;border-radius:0!important;background:#3a3a3a!important}
+  body.led footer span.on{width:6px!important;background:var(--yellow)!important} body.led footer span b{display:none}
+  body.led.locked .tape{outline:1px solid var(--yellow)}
+  body.led .toast{background:#000;border:1px solid var(--yellow);border-radius:0;color:var(--yellow);font-family:Silkscreen,monospace}
+  /* night: amber pixel clock on black, dots kept */
+  body.led .n-box{color:#ff9a1a;font-family:"Pixelify Sans",monospace}
+  body.led.night .tape{display:none}
+  body.retro{--fg:#39ff6a;--dim:#1fa64a;--line:rgba(57,255,106,.35);--up:#39ff6a;--down:#ff4d4d;--amber:#ffb000;
+    --grid:rgba(57,255,106,.35);--gridtxt:#1fa64a;
+    background:#030603;color:var(--fg);font-family:"Share Tech Mono",monospace}
+  body.retro .bg, body.retro .grain{display:none}
+  body.retro .vignette{display:block;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.75) 100%);opacity:1}
+  /* scanlines + faint phosphor glow over everything */
+  body.retro::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:6;
+    background:repeating-linear-gradient(to bottom,rgba(0,0,0,.28) 0 1px,transparent 1px 3px)}
+  body.retro *{text-shadow:0 0 6px rgba(57,255,106,.45)}
+  body.retro.night::after{display:none}
+  /* header */
+  body.retro .time{font-family:VT323,monospace;font-weight:400;font-size:clamp(26px,10vh,46px);color:var(--amber);
+    text-shadow:0 0 8px rgba(255,176,0,.6);letter-spacing:1px}
+  body.retro .time .sec{color:var(--amber)}
+  body.retro .date{color:var(--dim);text-transform:uppercase;letter-spacing:2px}
+  body.retro .pill{background:none;border:1px solid var(--line);border-radius:0;color:var(--fg);padding:4px 10px;letter-spacing:2px}
+  body.retro .pill i{background:var(--amber);border-radius:0;box-shadow:none}
+  body.retro .pill::before{content:"> ";color:var(--amber)}
+  body.retro .mkt{color:var(--dim)} body.retro .mkt .open{color:var(--up)} body.retro .mkt .shut{color:var(--down)}
+  /* boxy frames */
+  body.retro .card{background:rgba(6,24,10,.55);border:1px solid var(--line);border-radius:0;
+    box-shadow:inset 0 0 24px rgba(57,255,106,.07);backdrop-filter:none;-webkit-backdrop-filter:none}
+  body.retro .card::after{content:"";position:absolute;inset:3px;border:1px solid rgba(57,255,106,.12);pointer-events:none}
+  body.retro .card{position:relative}
+  /* type: pixel font for numbers, terminal mono for text */
+  body.retro .p, body.retro .ix-p, body.retro .fx-p, body.retro .wx-temp, body.retro .metal .price, body.retro .stat .v,
+  body.retro .chg, body.retro .fx-c, body.retro .dchg, body.retro .hr .tp, body.retro .n-time, body.retro .ix-sub b{
+    font-family:VT323,monospace;font-weight:400;letter-spacing:1px}
+  body.retro .p{font-size:clamp(28px,min(12vh,5.4vw),52px)}
+  body.retro .ix-p{font-size:clamp(44px,min(22vh,10vw),104px)}
+  body.retro .fx-p{font-size:clamp(34px,min(16vh,8vw),72px)}
+  body.retro .wx-temp{font-size:clamp(56px,26vh,130px)}
+  body.retro .metal .price{font-size:clamp(40px,20vh,92px);animation:none;background-image:none;-webkit-background-clip:border-box;background-clip:border-box}
+  body.retro .chg, body.retro .fx-c, body.retro .dchg{font-size:clamp(16px,5.6vh,24px)}
+  body.retro .chg.up, body.retro .fx-c.up, body.retro .dchg.up{color:var(--up)}
+  body.retro .chg.down, body.retro .fx-c.down, body.retro .dchg.down{color:var(--down);text-shadow:0 0 6px rgba(255,77,77,.5)}
+  body.retro .nm{font-weight:400;text-transform:uppercase;letter-spacing:1px}
+  body.retro .tk, body.retro .label, body.retro .k, body.retro .chip, body.retro .ix-name, body.retro .fx-k, body.retro .nhd,
+  body.retro .tev, body.retro .mnote, body.retro .src, body.retro .wx-feel, body.retro .wx-sun, body.retro .wx-src, body.retro .hr .tm{color:var(--dim)}
+  body.retro .label::before, body.retro .k::before{content:"> "}
+  body.retro .tev.soon{color:var(--amber);text-shadow:0 0 6px rgba(255,176,0,.5)}
+  /* monochrome phosphor logos, flags and weather icons */
+  body.retro .logo{background:#031; border-radius:0!important;filter:grayscale(1) sepia(1) hue-rotate(70deg) saturate(4) brightness(.95)}
+  body.retro .badge{background:transparent;border:1px solid var(--line);color:var(--fg);border-radius:0}
+  body.retro .flag, body.retro .wx-icon, body.retro .hr .ic{filter:grayscale(1) sepia(1) hue-rotate(70deg) saturate(4) brightness(1.05)}
+  /* stock tiles: direction shown by the frame colour */
+  body.retro .tile, body.retro .tile.up, body.retro .tile.down{background-image:none!important}
+  body.retro .tile.up{border-color:rgba(57,255,106,calc(.35 + var(--a,.1) * 1.8));box-shadow:inset 0 0 calc(10px + var(--a,.1) * 80px) rgba(57,255,106,calc(var(--a,.1) * .6))}
+  body.retro .tile.down{border-color:rgba(255,77,77,calc(.35 + var(--a,.1) * 1.8));box-shadow:inset 0 0 calc(10px + var(--a,.1) * 80px) rgba(255,77,77,calc(var(--a,.1) * .6))}
+  body.retro .tile.up::before, body.retro .tile.down::before{display:none}
+  /* currencies, weather, news, metals */
+  body.retro .fxc, body.retro .fxc.up, body.retro .fxc.down{box-shadow:inset 0 0 24px rgba(57,255,106,.07)}
+  body.retro .fxc.up{border-color:rgba(57,255,106,.7)} body.retro .fxc.down{border-color:rgba(255,77,77,.7)}
+  body.retro .stat, body.retro .hr{background:transparent;border:1px solid var(--line);border-radius:0}
+  body.retro .hr .rn{color:var(--amber)}
+  body.retro .nhead{border-bottom:1px dashed var(--line);text-transform:uppercase;letter-spacing:2px;font-weight:400}
+  body.retro .nflag{filter:grayscale(1) sepia(1) hue-rotate(70deg) saturate(4)}
+  body.retro .nlist .no{color:var(--amber);text-shadow:0 0 6px rgba(255,176,0,.5)}
+  body.retro .nlist .tt{font-weight:400}
+  body.retro .gold .price{color:var(--amber);text-shadow:0 0 10px rgba(255,176,0,.55)}
+  body.retro .silver .price{color:#d7e3d7;text-shadow:0 0 10px rgba(215,227,215,.4)}
+  body.retro .metal::before{display:none}
+  body.retro svg text{font-family:VT323,monospace!important;font-size:14px}
+  body.retro #wAqi, body.retro #wAqiCat{filter:none}
+  /* block-style progress bar */
+  body.retro footer{gap:4px}
+  body.retro footer span{height:8px;border-radius:0;background:rgba(57,255,106,.12)}
+  body.retro footer span b{background:var(--fg);box-shadow:0 0 8px rgba(57,255,106,.6)}
+  body.retro .toast{background:#030603;border:1px solid var(--fg);border-radius:0;color:var(--fg);font-family:"Share Tech Mono",monospace}
+  body.retro .toast::before{content:"> "}
+  /* night clock: amber VT323 on black */
+  body.retro .n-box{color:#ffb000;font-family:VT323,monospace}
+  body.retro .n-time{font-weight:400}
+  body.retro .dchg span, body.retro .aqi .cat, body.retro .per span, body.retro .per{font-family:"Share Tech Mono",monospace}
+  /* retro look: the newer parts */
+  body.retro .viewbtn{font-family:"Share Tech Mono",monospace;border-radius:0;background:transparent;border:1px solid var(--line);color:var(--fg)}
+  body.retro .viewmenu{border-radius:0;background:#000;border:1px solid var(--line)} body.retro .viewmenu button{color:var(--fg);font-family:"Share Tech Mono",monospace;border-radius:0}
+  body.retro .viewmenu button.on{background:rgba(57,255,106,.15)} body.retro .viewmenu .sep{height:1px;margin:6px 4px;background:var(--line)}
+  body.retro .navbtn{border-radius:0;background:rgba(0,0,0,.7);color:var(--fg)}
+  body.retro .pan, body.retro .pfest, body.retro .mood-v, body.retro .mood-s, body.retro .mood-leg, body.retro .spx-s, body.retro .spx-k{font-family:"Share Tech Mono",monospace;color:var(--dim)}
+  body.retro .pfest b, body.retro .pan b{color:var(--amber)}
+  body.retro .mood-k, body.retro .spx-p, body.retro .mood-v b{font-family:VT323,monospace;font-weight:400}
+  body.retro .gauge{color:var(--fg)} body.retro .badge.emo{background:transparent!important;filter:grayscale(1) brightness(1.4) sepia(1) hue-rotate(70deg) saturate(4)}
+  body.retro .spx-p{color:var(--fg)} body.retro .spx-c.up, body.retro .mood-v .chg.up{color:var(--up)} body.retro .spx-c.down, body.retro .mood-v .chg.down{color:var(--down)}
+  /* calm look: minimal dark, no backgrounds */
+  body.plain .viewmenu .sep{height:1px;margin:6px 4px;background:rgba(255,255,255,.12)}
+  .viewmenu .sep{height:1px;margin:6px 4px;background:rgba(127,127,127,.25)}
+  /* pixel look: the newer parts of the display */
+  body.led .viewbtn{font-family:Silkscreen,monospace;text-transform:uppercase;border-radius:0;background:transparent;border:1px solid var(--cyan);color:var(--cyan)}
+  body.led .viewmenu{border-radius:0;background:#000;border:1px solid var(--cyan);box-shadow:none}
+  body.led .viewmenu button{font-family:Silkscreen,monospace;text-transform:uppercase;font-size:12px;border-radius:0;color:#ddd}
+  body.led .viewmenu button.on{background:rgba(43,213,255,.18);color:var(--cyan)}
+  body.led .viewmenu .sep{height:1px;margin:6px 4px;background:rgba(255,255,255,.15)}
+  body.led .navbtn{border-radius:0;background:rgba(0,0,0,.65);color:var(--yellow);font-family:Silkscreen,monospace;backdrop-filter:none}
+  body.led .pan, body.led .pfest{font-family:"Pixelify Sans",monospace;color:#a9a9a9}
+  body.led .pfest b, body.led .pan b{color:var(--orange)}
+  body.led .badge.emo{background:transparent!important;filter:saturate(1.3)}
+  body.led .mood-k, body.led .spx-p, body.led .mood-v b{font-family:"Pixelify Sans",monospace;font-weight:600}
+  body.led .mood-v, body.led .mood-s, body.led .mood-leg, body.led .spx-s, body.led .spx-k{font-family:"Pixelify Sans",monospace;color:#bdbdbd}
+  body.led .gauge{color:#f4f4f4} body.led .gauge path{stroke-linecap:butt}
+  body.led .spx-p{color:#fff} body.led .spx-c.up{color:var(--up)} body.led .spx-c.down{color:var(--down)}
+  body.led .mood-v .chg.up{color:var(--up)} body.led .mood-v .chg.down{color:var(--down)}
 </style>
 </head>
 <body>
@@ -484,7 +664,7 @@
       <div class="mkt" id="mkt"></div>
       <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
       <div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
-        <div class="viewmenu" id="viewMenu"><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button></div></div>
+        <div class="viewmenu" id="viewMenu"><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><button data-look="pixel">👾 Pixel</button><button data-look="ambient">✨ Ambient</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button></div></div>
     </div>
   </header>
 
@@ -583,6 +763,7 @@
     </section>
 
   </div>
+  <div class="tape" id="tapeBox"><div class="tape-in" id="tape"></div></div>
   <footer id="bars"></footer>
 </div>
 
@@ -617,7 +798,12 @@ if (/debug/.test(location.search)) {
 /* ---------- SETTINGS ---------- */
 const SLIDE_SECONDS = 15;
 // Look: 'calm' (minimal, quiet) or 'vivid' (glows, tints, animated background).
-const THEME = 'ambient';   // 'ambient' (smart-display look), 'calm' or 'vivid'
+// Look (each phone remembers its choice): 'pixel' LED-matrix panel like a Tidbyt/Radar, 'ambient' smart-display,
+// 'retro' green CRT terminal, 'calm' minimal dark.
+const LOOKS = { pixel: 'led', ambient: 'ambient', retro: 'retro', calm: 'calm' };
+let LOOK = 'ambient';
+try { const l = localStorage.getItem('deskTickerLook'); if (LOOKS[l]) LOOK = l; } catch (e) {}
+const THEME = LOOKS[LOOK];
 // Screen modes (IST, 24-hour). Day: Indian stocks. Evening: US stocks. Night: dim clock only.
 // Tap the screen at night to peek at the normal slides for a minute.
 const MODES = { day: '06:00', evening: '18:30', night: '23:30' };
@@ -713,7 +899,7 @@ function stockCard(st) {
     const hd = document.createElement('div'); hd.className = 'hd';
     if (st.dom) {
       const img = document.createElement('img'); img.className = 'logo'; img.alt = '';
-      img.src = 'https://www.google.com/s2/favicons?domain=' + st.dom + '&sz=128';
+      img.src = 'https://www.google.com/s2/favicons?domain=' + st.dom + '&sz=' + (THEME === 'led' ? 16 : 128);
       img.onerror = () => { const b = document.createElement('div'); b.className = 'badge'; b.textContent = st.name.slice(0, 2).toUpperCase(); img.replaceWith(b); };
       hd.appendChild(img);
     } else { const b = document.createElement('div'); b.className = 'badge'; b.textContent = st.badge || st.name.slice(0, 2); hd.appendChild(b); }
@@ -751,7 +937,7 @@ function tileCard(st) {
   if (st.icon) { img = document.createElement('div'); img.className = 'badge emo'; img.textContent = st.icon; }
   else {
     img = document.createElement('img'); img.className = 'logo'; img.alt = '';
-    img.src = 'https://www.google.com/s2/favicons?domain=' + st.dom + '&sz=128';
+    img.src = 'https://www.google.com/s2/favicons?domain=' + st.dom + '&sz=' + (THEME === 'led' ? 16 : 128);
     img.onerror = () => { const b = document.createElement('div'); b.className = 'badge'; b.textContent = st.name.slice(0, 2).toUpperCase(); img.replaceWith(b); };
   }
   const t = document.createElement('div'); t.style.minWidth = '0';
@@ -1082,6 +1268,7 @@ async function loadPrices() {
       document.querySelectorAll('[data-basket="' + b.sym + '"]').forEach(el => { el.textContent = (avg >= 0 ? '+' : '−') + Math.abs(avg).toFixed(2) + '%'; });
     });
     if (data['INDEXNSE:INDIA_VIX']) setVixGauge(data['INDEXNSE:INDIA_VIX'].price);
+    tapeData = data; try { buildTape(); } catch (e) {}
     const nf = data['INDEXNSE:NIFTY_50'];
     if (nf && nf.price != null) {
       lastLive = nf.price; lastPrev = nf.change != null ? nf.price - nf.change : null;
@@ -1147,6 +1334,32 @@ async function loadPrices() {
     if (fxN && !/refreshed/.test(fxN.textContent)) fxN.textContent = 'Rates unavailable right now · retrying';
     else if (fxN && !/couldn’t update/.test(fxN.textContent)) fxN.textContent += ' · couldn’t update just now';
   }
+}
+let tapeData = {}, tapeKey = '';
+function buildTape() {
+  const box = document.getElementById('tape'); if (!box || THEME !== 'led') return;
+  const items = [
+    ['NIFTY', 'INDEXNSE:NIFTY_50', 0], ['SENSEX', 'INDEXBOM:SENSEX', 0], ['S&P 500', 'INDEXSP:.INX', 0],
+    ['USD/INR', 'CURRENCY:USDINR', 2], ['EUR/INR', 'CURRENCY:EURINR', 2], ['AED/INR', 'CURRENCY:AEDINR', 2],
+  ];
+  const parts = [];
+  items.forEach(([label, sym, dp]) => {
+    const d = tapeData[sym]; if (!d || d.price == null) return;
+    const up = (d.pct ?? 0) >= 0;
+    parts.push(`<span class="tl">${label}</span> <span class="tv">${d.price.toLocaleString('en-IN', { minimumFractionDigits: dp, maximumFractionDigits: dp })}</span> ` +
+      `<span class="${up ? 'tu' : 'td'}">${up ? '▲' : '▼'}${Math.abs(d.pct ?? 0).toFixed(2)}%</span>`);
+  });
+  if (GR) {
+    const gu = (GR.goldChg ?? 0) >= 0, su = (GR.silverChg ?? 0) >= 0;
+    parts.push(`<span class="tl">GOLD 24K</span> <span class="tv">₹${GR.gold.toLocaleString('en-IN')}/g</span> <span class="${gu ? 'tu' : 'td'}">${gu ? '▲' : '▼'}₹${Math.abs(GR.goldChg ?? 0)}</span>`);
+    parts.push(`<span class="tl">SILVER</span> <span class="tv">₹${GR.silver.toLocaleString('en-IN')}/kg</span> <span class="${su ? 'tu' : 'td'}">${su ? '▲' : '▼'}₹${Math.abs(GR.silverChg ?? 0).toLocaleString('en-IN')}</span>`);
+  }
+  if (!parts.length) return;
+  const line = parts.join('<span class="ts"> ◆ </span>') + '<span class="ts"> ◆ </span>';
+  if (line === tapeKey) return;              // unchanged: don't restart the scroll
+  tapeKey = line;
+  box.innerHTML = '<span>' + line + '</span><span>' + line + '</span>';   // two copies for a seamless loop
+  box.style.animationDuration = Math.max(25, parts.length * 6) + 's';
 }
 let lastSheetOk = Date.now();
 loadPrices(); setInterval(loadPrices, PRICE_REFRESH_SECONDS * 1000);
@@ -1349,8 +1562,10 @@ function renderTileEvents() {
 }
 renderEvents(); renderTileEvents(); setInterval(() => { renderEvents(); renderTileEvents(); }, 60 * 60 * 1000);
 
-document.body.classList.toggle('calm', THEME === 'calm' || THEME === 'ambient');
+document.body.classList.toggle('calm', true);
+document.body.classList.toggle('retro', THEME === 'retro');
 document.body.classList.toggle('amb', THEME === 'ambient');
+document.body.classList.toggle('led', THEME === 'led');
 
 /* ---------- AMBIENT SCENES: a soft full-screen colour scene per slide, cross-faded ---------- */
 const GLOSS = 'radial-gradient(90% 70% at 85% 0%,rgba(255,255,255,.16),transparent 60%),radial-gradient(70% 60% at 0% 100%,rgba(0,0,0,.35),transparent 70%),';
@@ -1563,13 +1778,22 @@ function autoView() {
 function setView(v) {
   VIEW = v; try { localStorage.setItem('deskTickerView', v); } catch (e) {}
   document.getElementById('viewBtn').textContent = (v === 'in' ? '🇮🇳 Stocks' : v === 'us' ? '🇺🇸 Stocks' : 'All') + ' ▾';
-  document.querySelectorAll('#viewMenu button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  document.querySelectorAll('#viewMenu button[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   if (typeof applyMode === 'function' && mode) { idx = 0; applyMode(true); }
 }
 document.getElementById('viewBtn').addEventListener('click', e => { e.stopPropagation(); document.getElementById('viewMenu').classList.toggle('open'); });
-document.querySelectorAll('#viewMenu button').forEach(b => b.addEventListener('click', e => {
+document.querySelectorAll('#viewMenu button[data-v]').forEach(b => b.addEventListener('click', e => {
   e.stopPropagation(); document.getElementById('viewMenu').classList.remove('open'); setView(b.dataset.v);
 }));
+document.querySelectorAll('#viewMenu button[data-look]').forEach(b => {
+  b.classList.toggle('on', b.dataset.look === LOOK);
+  b.addEventListener('click', e => {
+    e.stopPropagation();
+    if (b.dataset.look === LOOK) return document.getElementById('viewMenu').classList.remove('open');
+    try { localStorage.setItem('deskTickerLook', b.dataset.look); } catch (x) {}
+    location.reload();
+  });
+});
 document.addEventListener('click', () => document.getElementById('viewMenu').classList.remove('open'));
 setTimeout(() => { setView(VIEW); autoView(); setInterval(autoView, 30 * 1000); }, 0);
 
