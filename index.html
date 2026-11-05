@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v7.6-2026-11-04">
+<meta name="ticker-version" content="v7.7-2026-11-05">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -823,6 +823,10 @@ try { new ResizeObserver(() => drawSpark()).observe(document.getElementById('spa
 // GoodReturns Bangalore rates imported into the sheet: gold table in I:K, silver table in M:P.
 // Row 1 of each is the latest day, e.g. "₹13,937 (+49)" = rate (change vs previous day).
 let GR = null;
+try {   // start with the last GoodReturns rates seen on this phone (up to 2 days old) instead of an estimate
+  const sv = JSON.parse(localStorage.getItem('deskTickerGR'));
+  if (sv && Date.now() - sv.at < 48 * 3600e3) GR = sv.GR;
+} catch (e) {}
 function parseRate(v) {
   const m = String(v || '').match(/([\d,]+(?:\.\d+)?)\s*(?:\(\s*([+\-−]?[\d,]+(?:\.\d+)?)\s*\))?/);
   if (!m) return null;
@@ -840,6 +844,7 @@ function readGoodReturns(rows) {
   if (!r) return;
   const g = parseRate(r[9]), sv = parseRate(r[15]);
   GR = { gold: g.price, goldChg: g.chg, silver: sv.price, silverChg: sv.chg, date: grDate(r[8] || r[12]) };
+  try { localStorage.setItem('deskTickerGR', JSON.stringify({ at: Date.now(), GR })); } catch (e) {}
   renderGR();
 }
 function renderGR() {
@@ -934,6 +939,7 @@ async function loadPrices() {
     const nf = data['INDEXNSE:NIFTY_50'];
     if (nf && nf.price != null) {
       lastLive = nf.price; lastPrev = nf.change != null ? nf.price - nf.change : null;
+      lastSheetOk = Date.now();
       drawSpark();
     }
     document.querySelectorAll('[data-sym]').forEach(el => {
@@ -989,7 +995,21 @@ async function loadPrices() {
     else if (fxN && !/couldn’t update/.test(fxN.textContent)) fxN.textContent += ' · couldn’t update just now';
   }
 }
+let lastSheetOk = Date.now();
 loadPrices(); setInterval(loadPrices, PRICE_REFRESH_SECONDS * 1000);
+// Phones (iPhone especially) can pause or starve a page that has been open for hours. Two safety nets:
+// coming back to the screen refreshes everything at once, and if no good sheet read has landed for
+// 12 minutes the app reloads itself (at most once every 15 minutes).
+function refreshAll() { loadPrices(); loadNews(); loadWeather(); loadAQI(); }
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshAll(); });
+addEventListener('pageshow', e => { if (e.persisted) refreshAll(); });
+setInterval(() => {
+  if (!LIVE || !navigator.onLine || Date.now() - lastSheetOk < 12 * 60 * 1000) return;
+  let last = 0; try { last = +sessionStorage.getItem('deskTickerReloadAt') || 0; } catch (e) {}
+  if (Date.now() - last < 15 * 60 * 1000) { refreshAll(); return; }
+  try { sessionStorage.setItem('deskTickerReloadAt', Date.now()); } catch (e) {}
+  location.reload();
+}, 60 * 1000);
 
 /* ---------- SUN & MOON (calculated on the phone for Koramangala; no internet needed) ---------- */
 function sunTimes(dateIST) {             // dateIST: 'YYYY-MM-DD'
@@ -1105,10 +1125,16 @@ function readNews(rows, at, label) {
     ol._all = [...ol.children]; requestAnimationFrame(() => fitNews(ol));
     return items.length;
   };
+  const sig = pick(0).concat(pick(1)).join('|');
+  if (sig && !at) {                         // when did this exact set of headlines first appear on this phone?
+    let sv = null; try { sv = JSON.parse(localStorage.getItem('deskTickerNewsAt')); } catch (e) {}
+    if (sv && sv.sig === sig) at = sv.at;
+    else { at = Date.now(); try { localStorage.setItem('deskTickerNewsAt', JSON.stringify({ sig, at })); } catch (e) {} }
+  }
   const got = fill('newsIN', pick(0)) + fill('newsWD', pick(1));
   if (got) {
-    document.querySelectorAll('.news-note').forEach(n => n.textContent = label + (at ? ' · updated ' +
-      new Date(at).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' }) : ' · refreshes every few minutes'));
+    document.querySelectorAll('.news-note').forEach(n => n.textContent = label + (at ? ' · new headlines at ' +
+      new Date(at).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' }) : ''));
     if (!newsReady) { newsReady = true; if (typeof applyMode === 'function' && mode) applyMode(true); }
   }
 }
