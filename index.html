@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v10.3-2026-11-06">
+<meta name="ticker-version" content="v10.5-2026-11-06">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -219,6 +219,8 @@
   .tile .p{font-size:clamp(18px,min(9vh,4.2vw),36px)}
   .tile .chg{font-size:clamp(11px,3.8vh,15px)}
   .grid6.g4{grid-template-columns:repeat(2,1fr)}
+  .w52{font-size:clamp(10px,3.2vh,13px);font-weight:600;letter-spacing:.3px;margin-top:.4vh} .w52:empty{display:none}
+  .w52.hi{color:var(--up)} .w52.lo{color:var(--down)} .w52.near{opacity:.75;font-weight:500}
   .tev{font-size:clamp(10px,3.2vh,13px);color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9}
   .tev.soon{font-weight:700;opacity:1}
   @media (max-aspect-ratio: 13/10) { .grid6{grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(3,1fr)} }
@@ -1004,6 +1006,7 @@ function tileCard(st) {
   else { p.dataset.sym = st.sym; p.dataset.f = 'price'; }
   const c = document.createElement('div'); c.className = 'chg'; c.dataset.sym = st.sym; c.dataset.f = 'chg';
   card.append(hd, p, c);
+  if (!st.basket && !st.icon) { const w = document.createElement('div'); w.className = 'w52'; w.dataset.w52 = st.sym; card.appendChild(w); }
   if (st.ev) { const e = document.createElement('div'); e.className = 'tev'; e.dataset.ev = st.ev; card.appendChild(e); }
   return card;
 }
@@ -1064,7 +1067,8 @@ function buildGridSlides(list, title, accent, mode, per, view) {
   for (let i = 0; i < list.length; i += size) {
     const part = list.slice(i, i + size);
     const sec = document.createElement('section'); sec.className = 'slide';
-    sec.dataset.title = title; sec.dataset.accent = accent; if (mode) sec.dataset.mode = mode;
+    const ab = n > 1 && !list[0].icon ? ' · ' + part[0].name[0].toUpperCase() + '–' + part[part.length - 1].name[0].toUpperCase() : '';
+    sec.dataset.title = title + ab; sec.dataset.accent = accent; if (mode) sec.dataset.mode = mode;
     if (view) { sec.dataset.views = view.replace('-only', ''); if (/-only$/.test(view)) sec.dataset.only = '1'; }   // which stock mode(s) show it
     const g = document.createElement('div'); g.className = 'grid6' + (part.length <= 4 ? ' g4' : '') + (part.length <= 2 ? ' g2' : '');
     part.forEach(st => g.appendChild(tileCard(st)));
@@ -1084,12 +1088,13 @@ const SECTORS = [
   { sym: 'BASKET:DEFENCE', name: 'Defence', tick: 'HAL · BEL · BDL · Mazagon', icon: '🛡️', basket: ['NSE:HAL', 'NSE:BEL', 'NSE:BDL', 'NSE:MAZDOCK'] },
   NSE('NIFTY_CONSUMPTION', 'Retail & Consumer', '🛍️'), NSE('NIFTY_INFRA', 'Nifty Infra', '🏗️')];
 const BASKETS = SECTORS.filter(x => x.basket);
-buildGridSlides(IN_STOCKS, 'Watchlist · India', '#ff8a3d', '', 6, 'in-only');   // Indian stock mode only
-buildGridSlides(LARGE_CAPS, 'Large caps · India', '#f5b041', '', 6, 'in-only');
+const byName = l => l.slice().sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+buildGridSlides(byName(IN_STOCKS), 'Watchlist · India', '#ff8a3d', '', 4, 'in-only');   // Indian stock mode only
+buildGridSlides(byName(LARGE_CAPS), 'Large caps · India', '#f5b041', '', 4, 'in-only');
 buildGridSlides(SECTORS, 'Sectors · India', '#ffb347', '', 4, 'in-only');
 buildMoodSlide();
 buildSpxSlide();
-buildGridSlides(US_STOCKS, 'Watchlist · US', '#7aa2ff', '', 6, 'us-only');   // US stock mode only
+buildGridSlides(byName(US_STOCKS), 'Watchlist · US', '#7aa2ff', '', 4, 'us-only');   // US stock mode only
 if (!LIVE) {   // no sheet yet: Sensex 1-month chart from TradingView
   const c = document.getElementById('idxCard'); c.className = 'card tv'; c.innerHTML = '';
   c.closest('.slide').dataset.title = 'Sensex · 1 month';
@@ -1313,7 +1318,7 @@ async function loadPrices() {
       const price = num(r[1]), change = num(r[2]);
       // work out % from price and change so the two always agree (Google updates its fields at slightly different times)
       const pct = price != null && change != null && price !== change ? change / (price - change) * 100 : num(r[3]);
-      data[sym] = { price, change, pct };
+      data[sym] = { price, change, pct, hi52: num(r[4]), lo52: num(r[5]) };   // E/F: 52-week high/low (optional)
     });
     BASKETS.forEach(b => {      // e.g. Defence = average % move of its stocks
       const ps = b.basket.map(x => data[x] && data[x].pct).filter(v => v != null && isFinite(v));
@@ -1324,6 +1329,17 @@ async function loadPrices() {
     });
     if (data['INDEXNSE:INDIA_VIX']) setVixGauge(data['INDEXNSE:INDIA_VIX'].price);
     tapeData = data; try { buildTape(); } catch (e) {}
+    // 52-week markers on stock tiles: at (within 1%) or near (within 3%) the 52-week high or low
+    document.querySelectorAll('.w52[data-w52]').forEach(el => {
+      const d = data[el.dataset.w52]; let txt = '', cls = '';
+      if (d && d.price != null && d.hi52 && d.lo52) {
+        if (d.price >= d.hi52 * 0.99) { txt = '▲ At 52-week high'; cls = 'hi'; }
+        else if (d.price >= d.hi52 * 0.97) { txt = 'Near 52-week high'; cls = 'hi near'; }
+        else if (d.price <= d.lo52 * 1.01) { txt = '▼ At 52-week low'; cls = 'lo'; }
+        else if (d.price <= d.lo52 * 1.03) { txt = 'Near 52-week low'; cls = 'lo near'; }
+      }
+      el.textContent = txt; el.className = 'w52 ' + cls;
+    });
     const nf = data['INDEXNSE:NIFTY_50'];
     if (nf && nf.price != null) {
       lastLive = nf.price; lastPrev = nf.change != null ? nf.price - nf.change : null;
@@ -1364,7 +1380,7 @@ async function loadPrices() {
         }
         if (/^BASKET:/.test(el.dataset.sym)) { el.textContent = (up ? '▲ ' : '▼ ') + 'average of ' + (BASKETS.find(b => b.sym === el.dataset.sym) || { basket: [] }).basket.length + ' stocks today'; return; }
         el.textContent = (up ? '▲ ' : '▼ ') + Math.abs(d.pct).toFixed(2) + '%' +
-          (d.change != null ? '  (' + (up ? '+' : '−') + Math.abs(d.change).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ')' : '');
+          (d.change != null && !el.closest('.tile') ? '  (' + (up ? '+' : '−') + Math.abs(d.change).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ')' : '');
       }
     });
     if (note) note.textContent = 'Google Finance · updated ' + new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
