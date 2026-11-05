@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v9.3-2026-11-05">
+<meta name="ticker-version" content="v9.4-2026-11-05">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -845,7 +845,7 @@ buildGridSlides(LARGE_CAPS, 'Large caps · India', '#f5b041', '', 6, 'in-only');
 buildGridSlides(SECTORS, 'Sectors · India', '#ffb347', '', 4, 'in-only');
 buildMoodSlide();
 buildSpxSlide();
-buildGridSlides(US_STOCKS, 'Watchlist · US', '#7aa2ff', 'evening', 6, 'us');
+buildGridSlides(US_STOCKS, 'Watchlist · US', '#7aa2ff', '', 6, 'us-only');   // US stock mode only
 if (!LIVE) {   // no sheet yet: Sensex 1-month chart from TradingView
   const c = document.getElementById('idxCard'); c.className = 'card tv'; c.innerHTML = '';
   c.closest('.slide').dataset.title = 'Sensex · 1 month';
