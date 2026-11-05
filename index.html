@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v10.6-2026-11-06">
+<meta name="ticker-version" content="v10.7-2026-11-06">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -697,8 +697,7 @@
   body.swiss .gauge .z-greed{stroke:#ddd6ca} body.swiss .gauge .z-neutral{stroke:#a59d91} body.swiss .gauge .z-fear{stroke:#d6452f}
   body.swiss .mood-leg .z-greed{background:#ddd6ca!important} body.swiss .mood-leg .z-neutral{background:#a59d91!important} body.swiss .mood-leg .z-fear{background:#d6452f!important}
   body.swiss #vixMood{color:#151515!important;filter:none;font-weight:300} body.swiss #vixMood[data-zone=fear]{color:#d6452f!important}
-  body.swiss #sg stop{stop-color:#151515!important} body.swiss #sparkSvg path[stroke]{stroke:#151515!important}
-  body.swiss #sparkSvg circle{fill:#151515!important;stroke:#efeae2!important}
+  body.swiss #sparkSvg circle{stroke:#efeae2!important}
   body.swiss .badge.emo, body.swiss .wx-icon, body.swiss .hr .ic, body.swiss .flag, body.swiss .nflag, body.swiss .pfest, body.swiss .pan, body.swiss .wx-moon{filter:grayscale(1)}
   body.swiss .pfest b{color:#151515;font-weight:600}
   body.swiss .tile, body.swiss .tile.up, body.swiss .tile.down, body.swiss .tile.big{box-shadow:none!important;outline:0!important}
@@ -1184,7 +1183,8 @@ function drawSpark() {
   const X = m => padL + Math.min(Math.max(m, 0), SESSION_MIN) * (W - padL - padR) / SESSION_MIN;
   const Y = v => padT + (hi - v) * (H - padT - padB) / (hi - lo);
   const line = pts.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join(' ');
-  const up = lastPrev == null || lastLive >= lastPrev, col = up ? '#3ddc84' : '#ff5a5f';
+  const up = lastPrev == null || lastLive >= lastPrev;
+  const col = THEME === 'swiss' ? (up ? '#2f8a5c' : '#d6452f') : up ? '#3ddc84' : '#ff5a5f';   // Swiss: a calmer green, its own red
   const lp = pts[pts.length - 1], lx = X(lp[0]), ly = Y(lp[1]);
   // dotted link from prev close at 9:15 to the first recorded point, if the page started late
   const gap = lastPrev != null && pts[0][0] > 2
