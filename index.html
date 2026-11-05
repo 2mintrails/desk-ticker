@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v8.7-2026-11-05">
+<meta name="ticker-version" content="v9-2026-11-05">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -322,6 +322,19 @@
   .solo-news .sr{font-size:clamp(9px,2.8vh,12px)}
   /* ---------- pinned slide ---------- */
   #pill{cursor:pointer}
+  .viewsel{position:relative;margin-left:10px}
+  .viewbtn{font:inherit;font-size:clamp(10px,3vh,13px);color:inherit;background:var(--glass);border:1px solid var(--line);
+    border-radius:999px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+  .viewmenu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:190px;padding:6px;border-radius:14px;
+    background:rgba(20,24,34,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .viewmenu.open{display:block}
+  .viewmenu button{display:block;width:100%;text-align:left;font:inherit;font-size:14px;color:#fff;background:none;border:0;padding:10px 12px;border-radius:10px;cursor:pointer}
+  .viewmenu button.on{background:rgba(255,255,255,.14);font-weight:600}
+  body.light .viewmenu{background:rgba(255,255,255,.96)} body.light .viewmenu button{color:#1d2230}
+  body.light .viewmenu button.on{background:rgba(0,0,0,.07)}
+  .tile .badge.emo, body.calm .tile .badge.emo{font-size:clamp(15px,5.2vh,22px)!important;background:rgba(255,255,255,.22);line-height:1}
+  .grid6.g2{grid-template-rows:1fr}
+  body.night .viewsel{display:none}
   body.locked #lockIc::before{content:"🔒";margin-right:6px;font-size:.95em}
   body.locked footer span.on b{animation:none!important;width:100%;opacity:.45}
   .toast{position:fixed;left:50%;bottom:4.5vh;transform:translate(-50%,10px);opacity:0;pointer-events:none;z-index:5;
@@ -454,6 +467,8 @@
       <div class="hwx" id="hWx"></div>
       <div class="mkt" id="mkt"></div>
       <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
+      <div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
+        <div class="viewmenu" id="viewMenu"><button data-v="all">All</button><button data-v="in">Indian stock mode</button></div></div>
     </div>
   </header>
 
@@ -461,7 +476,7 @@
 
     <!-- 1. NIFTY 50 — live from your Google Sheet (Google Finance). Until SHEET_URL is set,
          this falls back to TradingView's Sensex chart. -->
-    <section class="slide active" data-title="Nifty 50" data-accent="#ff8a3d">
+    <section class="slide active" data-title="Nifty 50" data-accent="#ff8a3d" data-inview="1">
       <div class="card idx" id="idxCard">
         <div class="ix-l">
           <div class="ix-top"><span class="chip"><span class="dot"></span>NSE · Index</span></div>
@@ -493,11 +508,15 @@
     </section>
 
     <!-- HEADLINES — India and world, from Google News via the sheet's "News" tab -->
-    <section class="slide" data-title="India News" data-accent="#9aa3b2" data-needs="news">
+    <section class="slide" data-title="Market News" data-accent="#9aa3b2" data-needs="news" data-view="in" data-inview="1">
+      <div class="card ncol solo-news"><div class="nhead"><span class="nflag">📊</span>Market News</div><ol class="nlist" id="newsMK"></ol></div>
+      <div class="mnote news-note"></div>
+    </section>
+    <section class="slide" data-title="India News" data-accent="#9aa3b2" data-needs="news" data-inview="1">
       <div class="card ncol solo-news"><div class="nhead"><span class="nflag">🇮🇳</span>India News</div><ol class="nlist" id="newsIN"></ol></div>
       <div class="mnote news-note"></div>
     </section>
-    <section class="slide" data-title="Global News" data-accent="#9aa3b2" data-needs="news">
+    <section class="slide" data-title="Global News" data-accent="#9aa3b2" data-needs="news" data-inview="1">
       <div class="card ncol solo-news"><div class="nhead"><span class="nflag">🌍</span>Global News</div><ol class="nlist" id="newsWD"></ol></div>
       <div class="mnote news-note"></div>
     </section>
@@ -712,27 +731,34 @@ function tileCard(st) {
   if (!LIVE) { card.appendChild(tvWidget('embed-widget-single-quote.js',
       { symbol: st.tv, width: '100%', isTransparent: true, colorTheme: 'dark', locale: 'en' })); return card; }
   const hd = document.createElement('div'); hd.className = 'hd';
-  const img = document.createElement('img'); img.className = 'logo'; img.alt = '';
-  img.src = 'https://www.google.com/s2/favicons?domain=' + st.dom + '&sz=128';
-  img.onerror = () => { const b = document.createElement('div'); b.className = 'badge'; b.textContent = st.name.slice(0, 2).toUpperCase(); img.replaceWith(b); };
+  let img;
+  if (st.icon) { img = document.createElement('div'); img.className = 'badge emo'; img.textContent = st.icon; }
+  else {
+    img = document.createElement('img'); img.className = 'logo'; img.alt = '';
+    img.src = 'https://www.google.com/s2/favicons?domain=' + st.dom + '&sz=128';
+    img.onerror = () => { const b = document.createElement('div'); b.className = 'badge'; b.textContent = st.name.slice(0, 2).toUpperCase(); img.replaceWith(b); };
+  }
   const t = document.createElement('div'); t.style.minWidth = '0';
   t.innerHTML = '<div class="nm"></div><div class="tk"></div>';
   t.querySelector('.nm').textContent = st.name; t.querySelector('.tk').textContent = st.tick;
   hd.append(img, t);
-  const p = document.createElement('div'); p.className = 'p'; p.dataset.sym = st.sym; p.dataset.f = 'price'; p.textContent = '--';
+  const p = document.createElement('div'); p.className = 'p'; p.textContent = '--';
+  if (st.basket) p.dataset.basket = st.sym;            // shows the average % move in big type
+  else { p.dataset.sym = st.sym; p.dataset.f = 'price'; }
   const c = document.createElement('div'); c.className = 'chg'; c.dataset.sym = st.sym; c.dataset.f = 'chg';
   card.append(hd, p, c);
   if (st.ev) { const e = document.createElement('div'); e.className = 'tev'; e.dataset.ev = st.ev; card.appendChild(e); }
   return card;
 }
-function buildGridSlides(list, title, accent, mode, per) {
+function buildGridSlides(list, title, accent, mode, per, view) {
   const slot = document.getElementById('stockSlot');
   const n = Math.ceil(list.length / per), size = Math.ceil(list.length / n);   // balanced slides
   for (let i = 0; i < list.length; i += size) {
     const part = list.slice(i, i + size);
     const sec = document.createElement('section'); sec.className = 'slide';
-    sec.dataset.title = title; sec.dataset.accent = accent; sec.dataset.mode = mode;
-    const g = document.createElement('div'); g.className = 'grid6' + (part.length <= 4 ? ' g4' : '');
+    sec.dataset.title = title; sec.dataset.accent = accent; if (mode) sec.dataset.mode = mode;
+    if (view === 'in') { sec.dataset.view = 'in'; sec.dataset.inview = '1'; } else if (view === 'both') sec.dataset.inview = '1';
+    const g = document.createElement('div'); g.className = 'grid6' + (part.length <= 4 ? ' g4' : '') + (part.length <= 2 ? ' g2' : '');
     part.forEach(st => g.appendChild(tileCard(st)));
     const note = document.createElement('div'); note.className = 'mnote stock-note';
     note.dataset.mkt = mode === 'evening' ? 'us' : 'in';
@@ -740,7 +766,20 @@ function buildGridSlides(list, title, accent, mode, per) {
     sec.append(g, note); slot.before(sec);
   }
 }
-buildGridSlides(IN_STOCKS, 'Watchlist · India', '#ff8a3d', 'day', 6);
+// Indian stock mode: NSE sector indices (4 per slide) and a market-wide slide. Defence has no index in Google Finance,
+// so it is the average move of HAL, BEL, Bharat Dynamics and Mazagon Dock.
+const NSE = (sym, name, icon) => ({ sym: 'INDEXNSE:' + sym, name, tick: 'NSE index', icon });
+const SECTORS = [
+  NSE('NIFTY_BANK', 'Bank Nifty', '🏦'), NSE('NIFTY_IT', 'Nifty IT', '💻'), NSE('NIFTY_PHARMA', 'Nifty Pharma', '💊'), NSE('NIFTY_AUTO', 'Nifty Auto', '🚗'),
+  NSE('NIFTY_FMCG', 'Nifty FMCG', '🛒'), NSE('NIFTY_METAL', 'Nifty Metal', '⚙️'), NSE('NIFTY_ENERGY', 'Nifty Energy', '⚡'), NSE('NIFTY_REALTY', 'Nifty Realty', '🏢'),
+  NSE('NIFTY_PSU_BANK', 'Nifty PSU Bank', '🏛️'),
+  { sym: 'BASKET:DEFENCE', name: 'Defence', tick: 'HAL · BEL · BDL · Mazagon', icon: '🛡️', basket: ['NSE:HAL', 'NSE:BEL', 'NSE:BDL', 'NSE:MAZDOCK'] },
+  NSE('NIFTY_CONSUMPTION', 'Retail & Consumer', '🛍️'), NSE('NIFTY_INFRA', 'Nifty Infra', '🏗️')];
+const MARKET_WIDE = [NSE('NIFTY_NEXT_50', 'Nifty Next 50', '📈'), { ...NSE('INDIA_VIX', 'India VIX', '🌡️'), tick: 'fear gauge · higher = jumpier' }];
+const BASKETS = SECTORS.filter(x => x.basket);
+buildGridSlides(IN_STOCKS, 'Watchlist · India', '#ff8a3d', 'day', 6, 'both');
+buildGridSlides(SECTORS, 'Sectors · India', '#ffb347', '', 4, 'in');
+buildGridSlides(MARKET_WIDE, 'Market-wide · India', '#ffb347', '', 4, 'in');
 buildGridSlides(LARGE_CAPS, 'Large caps · India', '#f5b041', 'day', 6);
 buildGridSlides(US_STOCKS, 'Watchlist · US', '#7aa2ff', 'evening', 6);
 if (!LIVE) {   // no sheet yet: Sensex 1-month chart from TradingView
@@ -968,6 +1007,13 @@ async function loadPrices() {
       const pct = price != null && change != null && price !== change ? change / (price - change) * 100 : num(r[3]);
       data[sym] = { price, change, pct };
     });
+    BASKETS.forEach(b => {      // e.g. Defence = average % move of its stocks
+      const ps = b.basket.map(x => data[x] && data[x].pct).filter(v => v != null && isFinite(v));
+      if (!ps.length) return;
+      const avg = ps.reduce((a, v) => a + v, 0) / ps.length;
+      data[b.sym] = { price: 1, change: null, pct: avg };
+      document.querySelectorAll('[data-basket="' + b.sym + '"]').forEach(el => { el.textContent = (avg >= 0 ? '+' : '−') + Math.abs(avg).toFixed(2) + '%'; });
+    });
     const nf = data['INDEXNSE:NIFTY_50'];
     if (nf && nf.price != null) {
       lastLive = nf.price; lastPrev = nf.change != null ? nf.price - nf.change : null;
@@ -1006,6 +1052,7 @@ async function loadPrices() {
           tile.style.setProperty('--a', (0.06 + 0.26 * k).toFixed(3));
           tile.classList.toggle('big', Math.abs(d.pct) >= 3);
         }
+        if (/^BASKET:/.test(el.dataset.sym)) { el.textContent = (up ? '▲ ' : '▼ ') + 'average of ' + (BASKETS.find(b => b.sym === el.dataset.sym) || { basket: [] }).basket.length + ' stocks today'; return; }
         el.textContent = (up ? '▲ ' : '▼ ') + Math.abs(d.pct).toFixed(2) + '%' +
           (d.change != null ? '  (' + (up ? '+' : '−') + Math.abs(d.change).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ')' : '');
       }
@@ -1167,13 +1214,13 @@ function readNews(rows, at, label) {
     ol._all = [...ol.children]; requestAnimationFrame(() => fitNews(ol));
     return items.length;
   };
-  const sig = pick(0).concat(pick(1)).join('|');
+  const sig = pick(0).concat(pick(1), pick(3)).join('|');
   if (sig && !at) {                         // when did this exact set of headlines first appear on this phone?
     let sv = null; try { sv = JSON.parse(localStorage.getItem('deskTickerNewsAt')); } catch (e) {}
     if (sv && sv.sig === sig) at = sv.at;
     else { at = Date.now(); try { localStorage.setItem('deskTickerNewsAt', JSON.stringify({ sig, at })); } catch (e) {} }
   }
-  const got = fill('newsIN', pick(0)) + fill('newsWD', pick(1));
+  const got = fill('newsIN', pick(0)) + fill('newsWD', pick(1)) + fill('newsMK', pick(3));
   if (got) {
     document.querySelectorAll('.news-note').forEach(n => n.textContent = label + (at ? (label === 'Live feeds' ? ' · updated ' : ' · new headlines at ') +
       new Date(at).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' }) : ''));
@@ -1360,7 +1407,9 @@ function applyMode(force) {
   document.body.classList.toggle('night', m === 'night');
   applyLight(true);
   if (m === 'night') { clearInterval(timer); nightTick(); return; }
-  slides = allSlides.filter(s => (!s.dataset.mode || s.dataset.mode === m) && !(s.dataset.needs === 'news' && !newsReady));
+  slides = allSlides.filter(s => (VIEW === 'in' ? s.dataset.inview === '1'                     // Indian stock mode: any time of day
+                                                 : !s.dataset.view && (!s.dataset.mode || s.dataset.mode === m))
+    && !(s.dataset.needs === 'news' && !newsReady) && !(s.querySelector('#newsMK') && !document.getElementById('newsMK').children.length));
   bars.innerHTML = '';
   slides.forEach(() => { const s = document.createElement('span'); s.appendChild(document.createElement('b')); bars.appendChild(s); });
   idx = locked && slides.includes(keep) ? slides.indexOf(keep) : 0;
@@ -1420,6 +1469,22 @@ function nightTick() {
     `translate(${(Math.random() * 6 - 3).toFixed(1)}vw, ${(Math.random() * 8 - 4).toFixed(1)}vh)`;
 }
 everySecond(nightTick);
+
+/* ---------- VIEW PICKER: All slides, or Indian stock mode (remembered on each phone) ---------- */
+var VIEW = 'all';
+try { VIEW = localStorage.getItem('deskTickerView') === 'in' ? 'in' : 'all'; } catch (e) {}
+function setView(v) {
+  VIEW = v; try { localStorage.setItem('deskTickerView', v); } catch (e) {}
+  document.getElementById('viewBtn').textContent = (v === 'in' ? '🇮🇳 Stocks' : 'All') + ' ▾';
+  document.querySelectorAll('#viewMenu button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  if (typeof applyMode === 'function' && mode) { idx = 0; applyMode(true); }
+}
+document.getElementById('viewBtn').addEventListener('click', e => { e.stopPropagation(); document.getElementById('viewMenu').classList.toggle('open'); });
+document.querySelectorAll('#viewMenu button').forEach(b => b.addEventListener('click', e => {
+  e.stopPropagation(); document.getElementById('viewMenu').classList.remove('open'); setView(b.dataset.v);
+}));
+document.addEventListener('click', () => document.getElementById('viewMenu').classList.remove('open'));
+setTimeout(() => setView(VIEW), 0);
 
 /* ---------- HINDU CALENDAR: Vikram Samvat date, tithi and festivals (worked out on the phone) ----------
    Sun and Moon positions (Meeus, accurate to well under a minute of tithi time), Lahiri ayanamsa.
