@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v8.2-2026-11-05">
+<meta name="ticker-version" content="v8.3-2026-11-05">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -51,7 +51,12 @@
   .time{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:clamp(20px,7vh,34px);letter-spacing:-.5px}
   .time .sec{color:var(--dim);font-size:.55em;margin-left:2px}
   .date{color:var(--dim);font-size:clamp(12px,3.6vh,16px);margin-left:12px}
-  .left{display:flex;align-items:baseline}
+  .left{display:flex;align-items:center;min-width:0;flex:1}
+  .datebox{display:flex;flex-direction:column;justify-content:center;min-width:0;line-height:1.2}
+  header .right{flex:none;white-space:nowrap}
+  .pan{color:var(--dim);font-size:clamp(9px,2.7vh,12px);margin-left:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pan b{font-weight:600;color:#ffb347}
+  body.light .pan b{color:#b45309}
   .pill{display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;
     background:var(--glass);border:1px solid var(--line);font-size:clamp(11px,3.4vh,14px);
     letter-spacing:1.5px;text-transform:uppercase;color:var(--fg);backdrop-filter:blur(12px)}
@@ -438,7 +443,7 @@
 
 <div class="app">
   <header>
-    <div class="left"><div class="time" id="time">--:--</div><div class="date" id="date"></div></div>
+    <div class="left"><div class="time" id="time">--:--</div><div class="datebox"><div class="date" id="date"></div><div class="pan" id="pan"></div></div></div>
     <div class="right">
       <div class="hwx" id="hWx"></div>
       <div class="mkt" id="mkt"></div>
@@ -1389,7 +1394,8 @@ function nightTick() {
   if (mode !== 'night') return;
   const d = new Date();
   document.getElementById('nTime').textContent = d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:false });
-  document.getElementById('nDate').textContent = d.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long' });
+  document.getElementById('nDate').textContent = d.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long' }) +
+    (panToday ? '  ·  ' + panToday.text : '');
   const t = id => (document.getElementById(id) || {}).textContent || '';
   const parts = [];
   if (t('wTemp') && t('wTemp') !== '--°') parts.push(t('wTemp') + ' ' + t('wDesc'));
@@ -1401,6 +1407,121 @@ function nightTick() {
     `translate(${(Math.random() * 6 - 3).toFixed(1)}vw, ${(Math.random() * 8 - 4).toFixed(1)}vh)`;
 }
 everySecond(nightTick);
+
+/* ---------- HINDU CALENDAR: Vikram Samvat date, tithi and festivals (worked out on the phone) ----------
+   Sun and Moon positions (Meeus, accurate to well under a minute of tithi time), Lahiri ayanamsa.
+   Tithi = the one at sunrise (udaya tithi); months named North-Indian (purnimanta) style; VS year from Chaitra.
+   Festival days follow the usual rules (sunrise, midday, Pradosh, midnight); regional calendars can differ by a day. */
+const PAN = (() => {
+  const R = Math.PI / 180, norm = x => ((x % 360) + 360) % 360, IST = 5.5 * 3600e3;
+  const MT = [[0,0,1,0,6288774],[2,0,-1,0,1274027],[2,0,0,0,658314],[0,0,2,0,213618],[0,1,0,0,-185116],[0,0,0,2,-114332],
+    [2,0,-2,0,58793],[2,-1,-1,0,57066],[2,0,1,0,53322],[2,-1,0,0,45758],[0,1,-1,0,-40923],[1,0,0,0,-34720],
+    [0,1,1,0,-30383],[2,0,0,-2,15327],[0,0,1,2,-12528],[0,0,1,-2,10980],[4,0,-1,0,10675],[0,0,3,0,10034],
+    [4,0,-2,0,8548],[2,1,-1,0,-7888],[2,1,0,0,-6766],[1,0,-1,0,-5163],[1,1,0,0,4987],[2,-1,1,0,4036],
+    [2,0,2,0,3994],[4,0,0,0,3861],[2,0,-3,0,3665],[0,1,-2,0,-2689],[2,0,-1,2,-2602],[2,-1,-2,0,2390],
+    [1,0,1,0,-2348],[2,-2,0,0,2236],[0,1,2,0,-2120],[0,2,0,0,-2069],[2,-2,-1,0,2048],[2,0,1,-2,-1773],
+    [2,0,0,2,-1595],[4,-1,-1,0,1215],[0,0,2,2,-1110],[3,0,-1,0,-892],[2,1,1,0,-810],[4,-1,-2,0,759],
+    [0,2,-1,0,-713],[2,2,-1,0,-700],[2,1,-2,0,691],[2,-1,0,-2,596],[4,0,1,0,549],[0,0,4,0,537],[4,-1,0,0,520]];
+  function sunMoon(t) {
+    const T = ((t + 69e3) / 864e5 + 2440587.5 - 2451545) / 36525;
+    const Lp = 218.3164477 + 481267.88123421 * T, D = 297.8501921 + 445267.1114034 * T, M = 357.5291092 + 35999.0502909 * T,
+          Mp = 134.9633964 + 477198.8675055 * T, F = 93.2720950 + 483202.0175233 * T, E = 1 - 0.002516 * T;
+    let sl = 3958 * Math.sin((119.75 + 131.849 * T) * R) + 1962 * Math.sin((Lp - F) * R) + 318 * Math.sin((53.09 + 479264.29 * T) * R);
+    for (const [d, m, mp, f, c] of MT) sl += c * Math.pow(E, Math.abs(m)) * Math.sin((d * D + m * M + mp * Mp + f * F) * R);
+    const C = (1.914602 - 0.004817 * T) * Math.sin(M * R) + (0.019993 - 0.000101 * T) * Math.sin(2 * M * R) + 0.000289 * Math.sin(3 * M * R);
+    return { sun: norm(280.46646 + 36000.76983 * T + C - 0.00569), moon: norm(Lp + sl / 1e6) };
+  }
+  const elong = t => { const p = sunMoon(t); return norm(p.moon - p.sun); };
+  const sidSun = t => norm(sunMoon(t).sun - (23.853 + 0.0139694 * ((t / 864e5 + 2440587.5 - 2451545) / 365.25)));
+  function findElong(target, t0, dir) {
+    let t = t0, prev = norm(elong(t) - target);
+    for (let i = 0; i < 200; i++) {
+      const t2 = t + 6 * 3600e3 * dir, cur = norm(elong(t2) - target);
+      if (dir > 0 ? cur < prev : cur > prev) {
+        let a = Math.min(t, t2), b = Math.max(t, t2);
+        for (let k = 0; k < 40; k++) { const mid = (a + b) / 2; ((norm(elong(mid) - target) > 180) === (norm(elong(a) - target) > 180)) ? a = mid : b = mid; }
+        return (a + b) / 2;
+      }
+      t = t2; prev = cur;
+    }
+    return t;
+  }
+  function sunRS(dUTC) {                         // sunrise / sunset (ms) for the IST calendar day starting at dUTC
+    const dt = new Date(dUTC), r = R, J = Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate(), 12) / 864e5 + 2440587.5;
+    const n = Math.round(J - 2451545 + 0.0008), Js = n - LON / 360, M = (357.5291 + 0.98560028 * Js) % 360;
+    const C = 1.9148 * Math.sin(M * r) + 0.02 * Math.sin(2 * M * r) + 0.0003 * Math.sin(3 * M * r), L = (M + C + 180 + 102.9372) % 360;
+    const Jt = 2451545 + Js + 0.0053 * Math.sin(M * r) - 0.0069 * Math.sin(2 * L * r), sd = Math.sin(L * r) * Math.sin(23.44 * r), cd = Math.cos(Math.asin(sd));
+    const w = Math.acos((Math.sin(-0.833 * r) - Math.sin(LAT * r) * sd) / (Math.cos(LAT * r) * cd)) / r, ms = j => (j - 2440587.5) * 864e5;
+    return { rise: ms(Jt - w / 360), set: ms(Jt + w / 360) };
+  }
+  const dayOf = t => { const d = new Date(t + IST); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); };
+  const MONTHS = ['Chaitra','Vaishakh','Jyeshtha','Ashadha','Shravan','Bhadrapad','Ashwin','Kartik','Margashirsha','Paush','Magh','Phalgun'];
+  const TITHI = ['Pratipada','Dwitiya','Tritiya','Chaturthi','Panchami','Shashthi','Saptami','Ashtami','Navami','Dashami',
+                 'Ekadashi','Dwadashi','Trayodashi','Chaturdashi','Purnima'];
+  const FEST = [[0,1,'Chaitra Navratri · Nav Samvat','rise'],[0,9,'Ram Navami','noon'],[0,15,'Hanuman Jayanti','rise'],
+    [1,3,'Akshaya Tritiya','rise'],[3,11,'Devshayani Ekadashi','rise'],[3,15,'Guru Purnima','rise'],[4,5,'Nag Panchami','rise'],
+    [4,15,'Raksha Bandhan','rise'],[4,23,'Janmashtami','midnight'],[5,4,'Ganesh Chaturthi','noon'],[6,1,'Navratri begins','rise'],
+    [6,10,'Dussehra','after'],[6,15,'Sharad Purnima','evening'],[6,19,'Karva Chauth','moon'],[6,28,'Dhanteras','evening'],
+    [6,30,'Diwali','evening'],[7,1,'Govardhan Puja','rise'],[7,2,'Bhai Dooj','after'],[7,6,'Chhath Puja','rise'],
+    [7,11,'Dev Uthani Ekadashi','rise'],[7,15,'Kartik Purnima · Guru Nanak Jayanti','rise'],[10,5,'Vasant Panchami','rise'],
+    [10,29,'Maha Shivaratri','midnight'],[11,15,'Holika Dahan','evening']];
+  const WHEN = { rise: s => s.rise + 60e3, noon: s => (s.rise + s.set) / 2, after: s => s.rise + 0.6 * (s.set - s.rise),
+                 moon: s => s.set + 150 * 60e3, midnight: s => (s.set + s.rise + 864e5) / 2 };
+  function monthInfo(nm) {                       // amanta month that starts at new moon nm
+    const next = findElong(0, nm + 25 * 864e5, 1), a = Math.floor(sidSun(nm) / 30), b = Math.floor(sidSun(next) / 30);
+    return { idx: (a + 1) % 12, adhik: a === b, next };
+  }
+  function festivals(from, months) {
+    const out = []; let nm = findElong(0, from, -1);
+    for (let k = 0; k < months; k++) {
+      const mi = monthInfo(nm);
+      if (!mi.adhik) for (const [fm, ti, name, when] of FEST) if (fm === mi.idx) {
+        const a = ti === 1 ? nm : findElong((ti - 1) * 12, nm + Math.max(0.05, (ti - 1) * 0.984 - 2) * 864e5, 1), b = findElong(ti * 12 % 360, a + 3600e3, 1);
+        const hits = [];
+        for (let d = dayOf(a) - 864e5; d <= dayOf(b) + 864e5; d += 864e5) {
+          const s = sunRS(d);
+          if (when === 'evening') { if (a < s.set + 144 * 60e3 && b > s.set) hits.push(d); }   // tithi touches Pradosh
+          else { const t = WHEN[when](s); if (t >= a && t < b) hits.push(d); }
+        }
+        const pick = (name === 'Diwali' ? hits[hits.length - 1] : hits[0]) ?? dayOf(a);
+        out.push([pick, name]);
+        if (name === 'Diwali') out.push([pick - 864e5, 'Choti Diwali']);
+        if (name === 'Holika Dahan') out.push([pick + 864e5, 'Holi']);
+      }
+      nm = mi.next;
+    }
+    return out.sort((x, y) => x[0] - y[0]);
+  }
+  function today(now = Date.now()) {
+    const d0 = dayOf(now), s = sunRS(d0), t = s.rise + 60e3;
+    const ti = Math.floor(elong(t) / 12) + 1, shukla = ti <= 15, nm = findElong(0, t, -1), mi = monthInfo(nm);
+    const pIdx = shukla ? mi.idx : (mi.idx + 1) % 12;                       // purnimanta: Krishna paksha belongs to the next month
+    const g = new Date(d0), vs = g.getUTCFullYear() + 57 - (mi.idx >= 9 && g.getUTCMonth() <= 3 ? 1 : 0);
+    const tName = ti === 30 ? 'Amavasya' : TITHI[(ti - 1) % 15];
+    const text = (mi.adhik ? 'Adhik ' : '') + MONTHS[pIdx] + ' ' + (shukla ? 'Shukla' : 'Krishna') + ' ' + tName + ' · VS ' + vs;
+    const obs = (ti === 11 || ti === 26) ? 'Ekadashi' : ti === 15 ? 'Purnima' : ti === 30 ? 'Amavasya' : ti === 19 ? 'Sankashti Chaturthi' : '';
+    return { text, obs, d0 };
+  }
+  return { today, festivals, dayOf };
+})();
+var panToday = null, panFest = [], panDay = 0;
+function renderPan() {
+  try {
+    const now = Date.now(), d0 = PAN.dayOf(now);
+    if (d0 !== panDay) { panDay = d0; panToday = PAN.today(now); panFest = PAN.festivals(now - 3 * 864e5, 3); }
+    const todayF = panFest.filter(f => f[0] === d0).map(f => f[1]);
+    const next = panFest.find(f => f[0] > d0 && f[0] - d0 <= 6 * 864e5);
+    const bits = [];
+    if (todayF.length) bits.push('<b>🪔 ' + todayF.join(' · ') + ' today</b>');
+    else if (panToday.obs && !panToday.text.includes(panToday.obs)) bits.push('<b>' + panToday.obs + '</b>');
+    if (next) { const n = (next[0] - d0) / 864e5; bits.push(next[1] + (n === 1 ? ' tomorrow' : ' in ' + n + ' days')); }
+    const el = document.getElementById('pan'); el.innerHTML = '';
+    el.append(panToday.text);
+    bits.forEach(b => { el.append(' · '); const sp = document.createElement('span'); sp.innerHTML = b; el.appendChild(sp); });
+    el.title = el.textContent;
+  } catch (e) { console.warn('panchang', e); }
+}
+renderPan(); setInterval(renderPan, 10 * 60 * 1000);
 
 /* ---------- CLOCK + MARKET STATUS ---------- */
 function tick() {
