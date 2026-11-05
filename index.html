@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v10.1-2026-11-05">
+<meta name="ticker-version" content="v10.3-2026-11-06">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Desk Ticker">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&family=Manrope:wght@400;500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen:wght@400;700&family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&family=Manrope:wght@400;500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen:wght@400;700&family=VT323&family=Share+Tech+Mono&family=Playfair+Display:wght@400;700;900&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#07080c; --fg:#f2efe8; --dim:#8b90a0; --line:rgba(255,255,255,.08);
@@ -634,6 +634,61 @@
   /* calm look: minimal dark, no backgrounds */
   body.plain .viewmenu .sep{height:1px;margin:6px 4px;background:rgba(255,255,255,.12)}
   .viewmenu .sep{height:1px;margin:6px 4px;background:rgba(127,127,127,.25)}
+
+  /* ===================== NEWSPAPER (editorial / broadsheet) ===================== */
+  body.paper{background:#f3ecdf;--fg:#1d1a16;--dim:#6b5f4f;--line:#d6cab5;--up:#2f6b3a;--down:#9b2c2c;--grid:rgba(29,26,22,.25);--gridtxt:#6b5f4f;color:var(--fg);font-family:Fraunces,Georgia,serif}
+  body.paper .card{background:#f8f2e7;border:1px solid var(--line);border-radius:2px}
+  body.paper .card, body.paper .tile, body.paper .fxc, body.paper .stat, body.paper .hr{box-shadow:none}
+  body.paper .time, body.paper .p, body.paper .ix-p, body.paper .fx-p, body.paper .wx-temp, body.paper .metal .price, body.paper .spx-p, body.paper .mood-k, body.paper .mood-v b, body.paper .n-time{font-family:"Playfair Display",Georgia,serif;font-weight:700;letter-spacing:0}
+  body.paper .ix-p{font-weight:900} body.paper .wx-temp{font-weight:400}
+  body.paper .pill, body.paper .nhd, body.paper .tk, body.paper .k, body.paper .ix-name, body.paper .spx-k, body.paper .mnote, body.paper .stat .k{font-family:Fraunces,serif;letter-spacing:2px;text-transform:uppercase;color:var(--dim)}
+  body.paper .nhead{font-family:"Playfair Display",serif;font-weight:900;border-bottom:3px double var(--fg)}
+  body.paper .nlist .tt{font-family:"Playfair Display",serif;font-weight:700;line-height:1.25}
+  body.paper .nlist .sr, body.paper .nlist .no{font-family:Fraunces,serif;font-style:italic}
+  body.paper header{border-bottom:3px double var(--fg);padding-bottom:6px}
+  body.paper footer span{background:rgba(29,26,22,.12)} body.paper footer span b{background:#1d1a16}
+  body.paper .tile.up::before{background:var(--up)} body.paper .tile.down::before{background:var(--down)}
+  body.paper .badge{background:#e8dfcf;color:var(--fg)} body.paper .badge.emo{background:transparent!important}
+  body.paper .gold .price{color:#8a6a1f} body.paper .silver .price{color:#6b7380}
+  body.paper .stat, body.paper .hr{border:1px solid var(--line);border-radius:2px}
+  body.paper .hr .rn{color:#2b5b8a}
+  body.paper .viewbtn{background:transparent;border:1px solid var(--fg);border-radius:2px;font-family:Fraunces,serif;color:var(--fg)}
+  body.paper .viewmenu{background:#fbf7ef;border:1px solid var(--fg);border-radius:2px;box-shadow:0 8px 20px rgba(0,0,0,.12)}
+  body.paper .viewmenu button{color:var(--fg);font-family:Fraunces,serif;border-radius:2px} body.paper .viewmenu button.on{background:#efe5d3}
+  body.paper .navbtn{background:rgba(248,242,231,.9);color:var(--fg);border:1px solid var(--line);border-radius:2px;backdrop-filter:none}
+  body.paper .pan b, body.paper .pfest b{color:#9b2c2c}
+  body.paper .mood-v.vixrow .chg{opacity:.7}
+
+  /* ===================== SWISS (International Typographic Style) ===================== */
+  body.swiss{background:#efeae2;--fg:#151515;--dim:#7a746b;--line:rgba(21,21,21,.14);--up:#0f7b4a;--down:#d6452f;--grid:rgba(21,21,21,.25);--gridtxt:#7a746b;color:var(--fg);font-family:"Space Grotesk",Helvetica,Arial,sans-serif}
+  body.swiss .card{background:transparent;border:0;border-top:2px solid var(--fg);border-radius:0}
+  body.swiss .card, body.swiss .tile, body.swiss .fxc, body.swiss .stat, body.swiss .hr{box-shadow:none}
+  body.swiss .time, body.swiss .p, body.swiss .ix-p, body.swiss .fx-p, body.swiss .wx-temp, body.swiss .metal .price, body.swiss .spx-p, body.swiss .mood-k, body.swiss .n-time{font-family:Fraunces,Georgia,serif;font-weight:300;letter-spacing:-1px}
+  body.swiss .ix-p{font-size:clamp(40px,min(22vh,11vw),110px);letter-spacing:-4px}
+  body.swiss .pill, body.swiss .nhd, body.swiss .tk, body.swiss .k, body.swiss .ix-name, body.swiss .spx-k, body.swiss .mnote, body.swiss .stat .k{letter-spacing:3px;text-transform:uppercase;color:var(--dim);font-weight:500}
+  body.swiss .pill i{background:#d6452f!important}
+  body.swiss .nhead{font-weight:700;border-bottom:2px solid var(--fg)}
+  body.swiss .nlist .tt{font-weight:500}
+  body.swiss .chg, body.swiss .fx-c, body.swiss .dchg, body.swiss .spx-c{font-weight:500}
+  body.swiss .tile.up::before, body.swiss .tile.down::before{display:none}
+  body.swiss .tile{border:0!important;border-top:2px solid var(--fg)!important;border-radius:0!important;background:transparent!important}
+  body.swiss footer span{background:rgba(21,21,21,.12);height:2px} body.swiss footer span b{background:#d6452f}
+  body.swiss .badge{background:#151515;color:#efeae2;border-radius:50%} body.swiss .badge.emo{background:transparent!important}
+  body.swiss .gold .price{color:#151515} body.swiss .silver .price{color:#151515}
+  body.swiss .stat, body.swiss .hr{border:0;border-top:1px solid var(--fg);border-radius:0}
+  body.swiss .viewbtn{background:#151515;color:#efeae2;border:0;border-radius:999px}
+  body.swiss .viewmenu{background:#f7f3ec;border-radius:12px;box-shadow:0 10px 24px rgba(0,0,0,.14)}
+  body.swiss .viewmenu button{color:#151515} body.swiss .viewmenu button.on{background:#e6dfd3}
+  body.swiss .navbtn{background:#151515;color:#efeae2;backdrop-filter:none}
+  body.swiss .pan b, body.swiss .pfest b{color:#d6452f}
+  body.swiss .mood-v.vixrow .chg{opacity:.7}
+  body.paper .mood-leg, body.swiss .mood-leg, body.paper .mood-s, body.swiss .mood-s{color:var(--dim)}
+  /* one family of type per look: no monospace anywhere (number rules above are more specific and still apply) */
+  body.paper *{font-family:inherit} body.swiss *{font-family:inherit}
+  body.paper .wx-temp{font-family:Fraunces,serif;font-weight:300}
+  body.paper .chg, body.paper .fx-c, body.paper .dchg, body.paper .stat .v, body.paper .hr .tp{font-family:Fraunces,serif;font-weight:600}
+  body.swiss .chg, body.swiss .fx-c, body.swiss .dchg, body.swiss .stat .v, body.swiss .hr .tp{font-family:"Space Grotesk",sans-serif;font-weight:500}
+  body.paper #vixMood, body.swiss #vixMood{filter:brightness(.72) saturate(1.2)}
   /* pixel look: the newer parts of the display */
   body.led .viewbtn{font-family:Silkscreen,monospace;text-transform:uppercase;border-radius:0;background:transparent;border:1px solid var(--cyan);color:var(--cyan)}
   body.led .viewmenu{border-radius:0;background:#000;border:1px solid var(--cyan);box-shadow:none}
@@ -664,7 +719,7 @@
       <div class="mkt" id="mkt"></div>
       <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
       <div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
-        <div class="viewmenu" id="viewMenu"><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><button data-look="pixel">👾 Pixel</button><button data-look="ambient">✨ Ambient</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button></div></div>
+        <div class="viewmenu" id="viewMenu"><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button></div></div>
     </div>
   </header>
 
@@ -800,7 +855,7 @@ const SLIDE_SECONDS = 15;
 // Look: 'calm' (minimal, quiet) or 'vivid' (glows, tints, animated background).
 // Look (each phone remembers its choice): 'pixel' LED-matrix panel like a Tidbyt/Radar, 'ambient' smart-display,
 // 'retro' green CRT terminal, 'calm' minimal dark.
-const LOOKS = { pixel: 'led', ambient: 'ambient', retro: 'retro', calm: 'calm' };
+const LOOKS = { ambient: 'ambient', paper: 'paper', swiss: 'swiss', retro: 'retro', calm: 'calm' };   // 'pixel' (led) is parked for now
 let LOOK = 'ambient';
 try { const l = localStorage.getItem('deskTickerLook'); if (LOOKS[l]) LOOK = l; } catch (e) {}
 const THEME = LOOKS[LOOK];
@@ -1564,6 +1619,8 @@ renderEvents(); renderTileEvents(); setInterval(() => { renderEvents(); renderTi
 
 document.body.classList.toggle('calm', true);
 document.body.classList.toggle('retro', THEME === 'retro');
+document.body.classList.toggle('paper', THEME === 'paper');
+document.body.classList.toggle('swiss', THEME === 'swiss');
 document.body.classList.toggle('amb', THEME === 'ambient');
 document.body.classList.toggle('led', THEME === 'led');
 
