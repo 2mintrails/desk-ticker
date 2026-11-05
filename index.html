@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v8.4-2026-11-05">
+<meta name="ticker-version" content="v8.5-2026-11-05">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -59,6 +59,10 @@
   .pfest{color:var(--dim);font-size:clamp(10px,3vh,13px);margin-left:8px;overflow:hidden;text-overflow:ellipsis}
   .pfest b, .pan b{font-weight:600;color:#ffb347}
   body.light .pan b, body.light .pfest b{color:#b45309}
+  /* small screens: the date stays alone on line 1; line 2 takes turns between the Hindu date and today's special day */
+  .pan{transition:opacity .5s}
+  .pan.fade{opacity:0}
+  body.narrow .pfest{display:none}
   .pill{display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;
     background:var(--glass);border:1px solid var(--line);font-size:clamp(11px,3.4vh,14px);
     letter-spacing:1.5px;text-transform:uppercase;color:var(--fg);backdrop-filter:blur(12px)}
@@ -1521,13 +1525,32 @@ function renderPan() {
     const bits = [];
     if (todayF.length) bits.push('<b>🪔 ' + todayF.join(' · ') + ' today</b>');
     else if (panToday.obs) bits.push('<b>🪔 ' + panToday.obs + ' today</b>');
-    if (next) { const n = (next[0] - d0) / 864e5; bits.push(next[1] + (n === 1 ? ' tomorrow' : ' in ' + n + ' days')); }
+    if (next) { const n = (next[0] - d0) / 864e5; bits.push(next[1].split(' · ')[0] + (n === 1 ? ' tomorrow' : ' in ' + n + ' days')); }
     // line 1 (next to the date): what's special today / coming up · line 2: the Hindu date
-    document.getElementById('pan').textContent = panToday.text;
     const pf = document.getElementById("panF"); pf.innerHTML = '';
     bits.forEach((b, i) => { if (i) pf.append(' · '); const sp = document.createElement('span'); sp.innerHTML = b; pf.appendChild(sp); });
+    panLines = [panToday.text].concat(bits.length ? [pf.innerHTML] : []);
+    requestAnimationFrame(checkNarrow);
   } catch (e) { console.warn('panchang', e); }
 }
+let panLines = [], panTurn = 0;
+function showPanLine() {
+  const el = document.getElementById('pan');
+  if (!document.body.classList.contains('narrow') || panLines.length < 2) { el.classList.remove('fade'); el.textContent = panLines[0] || ''; return; }
+  el.classList.add('fade');
+  setTimeout(() => { el.innerHTML = panLines[panTurn % panLines.length]; el.classList.remove('fade'); }, 500);
+}
+function checkNarrow() {
+  // narrow = the special-day text doesn't fully fit next to the date (or the Hindu date doesn't fit its line)
+  const b = document.body, was = b.classList.contains('narrow'), pf = document.getElementById('panF'), el = document.getElementById('pan');
+  b.classList.remove('narrow'); el.classList.remove('fade'); el.textContent = panLines[0] || '';
+  const tight = pf.scrollWidth > pf.clientWidth + 1 || el.scrollWidth > el.clientWidth + 1;
+  b.classList.toggle('narrow', tight);
+  if (was !== tight) panTurn = 0;
+  showPanLine();
+}
+addEventListener('resize', checkNarrow);
+setInterval(() => { if (document.body.classList.contains('narrow') && panLines.length > 1) { panTurn++; showPanLine(); } }, 7000);
 renderPan(); setInterval(renderPan, 10 * 60 * 1000);
 
 /* ---------- CLOCK + MARKET STATUS ---------- */
