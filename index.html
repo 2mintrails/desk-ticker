@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v9-2026-11-05">
+<meta name="ticker-version" content="v9.2-2026-11-05">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -334,6 +334,20 @@
   body.light .viewmenu button.on{background:rgba(0,0,0,.07)}
   .tile .badge.emo, body.calm .tile .badge.emo{font-size:clamp(15px,5.2vh,22px)!important;background:rgba(255,255,255,.22);line-height:1}
   .grid6.g2{grid-template-rows:1fr}
+  .mood{height:calc(100% - max(3.4vh, 22px));display:grid;grid-template-columns:1.1fr 1fr;align-items:center;gap:3vw;padding:2vh 4vw}
+  .gauge{width:100%;max-height:100%;color:var(--fg,#111)}
+  .gauge .gl{font:600 13px system-ui,sans-serif;fill:currentColor;opacity:.7}
+  .mood-k{font-weight:800;font-size:clamp(20px,8vh,40px);line-height:1.1;margin-bottom:1.5vh}
+  .mood-v{font-size:clamp(13px,4.2vh,20px);margin:.6vh 0} .mood-v b{font-weight:800;margin:0 6px}
+  .mood-v.small{font-size:clamp(11px,3.4vh,16px);opacity:.85;margin-top:2vh}
+  .mood-v .chg{font-size:.8em;font-weight:600} .mood-v .chg.up{color:#16a34a} .mood-v .chg.down{color:#dc2626}
+  .mood-v.vixrow .chg.up{color:#dc2626!important} .mood-v.vixrow .chg.down{color:#16a34a!important}   /* VIX up = more fear */
+  .mood-s{font-size:clamp(10px,3vh,13px);opacity:.7;line-height:1.35;max-width:36ch}
+  .spx{height:calc(100% - max(3.4vh, 22px));display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:1.4vh}
+  .spx-k{letter-spacing:3px;text-transform:uppercase;font-size:clamp(11px,3.4vh,15px);opacity:.75}
+  .spx-p{font-weight:800;font-size:clamp(44px,22vh,110px);line-height:1;letter-spacing:-2px}
+  .spx-c{font-weight:700;font-size:clamp(16px,6vh,28px)} .spx-c.up{color:#16a34a} .spx-c.down{color:#dc2626}
+  .spx-s{font-size:clamp(10px,3vh,13px);opacity:.65;margin-top:1vh}
   body.night .viewsel{display:none}
   body.locked #lockIc::before{content:"🔒";margin-right:6px;font-size:.95em}
   body.locked footer span.on b{animation:none!important;width:100%;opacity:.45}
@@ -468,7 +482,7 @@
       <div class="mkt" id="mkt"></div>
       <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
       <div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
-        <div class="viewmenu" id="viewMenu"><button data-v="all">All</button><button data-v="in">Indian stock mode</button></div></div>
+        <div class="viewmenu" id="viewMenu"><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button></div></div>
     </div>
   </header>
 
@@ -476,7 +490,7 @@
 
     <!-- 1. NIFTY 50 — live from your Google Sheet (Google Finance). Until SHEET_URL is set,
          this falls back to TradingView's Sensex chart. -->
-    <section class="slide active" data-title="Nifty 50" data-accent="#ff8a3d" data-inview="1">
+    <section class="slide active" data-title="Nifty 50" data-accent="#ff8a3d" data-views="in">
       <div class="card idx" id="idxCard">
         <div class="ix-l">
           <div class="ix-top"><span class="chip"><span class="dot"></span>NSE · Index</span></div>
@@ -508,15 +522,15 @@
     </section>
 
     <!-- HEADLINES — India and world, from Google News via the sheet's "News" tab -->
-    <section class="slide" data-title="Market News" data-accent="#9aa3b2" data-needs="news" data-view="in" data-inview="1">
+    <section class="slide" data-title="Market News" data-accent="#9aa3b2" data-needs="news" data-only="1" data-views="in">
       <div class="card ncol solo-news"><div class="nhead"><span class="nflag">📊</span>Market News</div><ol class="nlist" id="newsMK"></ol></div>
       <div class="mnote news-note"></div>
     </section>
-    <section class="slide" data-title="India News" data-accent="#9aa3b2" data-needs="news" data-inview="1">
+    <section class="slide" data-title="India News" data-accent="#9aa3b2" data-needs="news" data-views="in">
       <div class="card ncol solo-news"><div class="nhead"><span class="nflag">🇮🇳</span>India News</div><ol class="nlist" id="newsIN"></ol></div>
       <div class="mnote news-note"></div>
     </section>
-    <section class="slide" data-title="Global News" data-accent="#9aa3b2" data-needs="news" data-inview="1">
+    <section class="slide" data-title="Global News" data-accent="#9aa3b2" data-needs="news" data-views="in">
       <div class="card ncol solo-news"><div class="nhead"><span class="nflag">🌍</span>Global News</div><ol class="nlist" id="newsWD"></ol></div>
       <div class="mnote news-note"></div>
     </section>
@@ -750,6 +764,56 @@ function tileCard(st) {
   if (st.ev) { const e = document.createElement('div'); e.className = 'tev'; e.dataset.ev = st.ev; card.appendChild(e); }
   return card;
 }
+// India VIX as a speedometer: low VIX = calm (greed), high VIX = fear. Nifty Next 50 shown underneath.
+const VIX_MIN = 10, VIX_MAX = 30, VIX_GREED = 13, VIX_FEAR = 18;
+// each zone gets a third of the dial: Greed 10–13, Neutral 13–18, Fear 18–30
+function vixAngle(v) {
+  v = Math.min(VIX_MAX, Math.max(VIX_MIN, v));
+  const f = v < VIX_GREED ? (v - VIX_MIN) / (VIX_GREED - VIX_MIN) / 3
+          : v < VIX_FEAR ? 1 / 3 + (v - VIX_GREED) / (VIX_FEAR - VIX_GREED) / 3
+          : 2 / 3 + (v - VIX_FEAR) / (VIX_MAX - VIX_FEAR) / 3;
+  return Math.PI * f;
+}
+function buildMoodSlide() {
+  const sec = document.createElement('section'); sec.className = 'slide';
+  sec.dataset.title = 'Market mood · India'; sec.dataset.accent = '#ffb347'; sec.dataset.views = 'in'; sec.dataset.only = '1';
+  const ang = vixAngle;   // 0 = left (Greed), π = right (Fear)
+  const pt = (a, r) => [(150 - r * Math.cos(a)).toFixed(1), (150 - r * Math.sin(a)).toFixed(1)];
+  const arc = (v0, v1, col) => { const [x0, y0] = pt(ang(v0), 120), [x1, y1] = pt(ang(v1), 120);
+    return `<path d="M${x0} ${y0} A120 120 0 0 1 ${x1} ${y1}" stroke="${col}" stroke-width="26" fill="none"/>`; };
+  // left = Greed (low VIX), right = Fear (high VIX)
+  sec.innerHTML = `<div class="card mood"><svg viewBox="0 0 300 175" class="gauge">
+      ${arc(VIX_MIN, VIX_GREED, '#3ddc84')}${arc(VIX_GREED, VIX_FEAR, '#facc15')}${arc(VIX_FEAR, VIX_MAX, '#ef4444')}
+      <text x="28" y="172" class="gl">Greed</text><text x="150" y="16" class="gl" text-anchor="middle">Neutral</text><text x="272" y="172" class="gl" text-anchor="end">Fear</text>
+      <g id="vixNeedle" style="transform-origin:150px 150px;transition:transform 1.2s cubic-bezier(.2,.7,.2,1)">
+        <line x1="150" y1="150" x2="40" y2="150" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></g>
+      <circle cx="150" cy="150" r="10" fill="currentColor"/></svg>
+    <div class="mood-r"><div class="mood-k" id="vixMood">--</div>
+      <div class="mood-v vixrow">India VIX <b data-sym="INDEXNSE:INDIA_VIX" data-f="price">--</b> <span class="chg" data-sym="INDEXNSE:INDIA_VIX" data-f="chg"></span></div>
+      <div class="mood-s">VIX is the market's expected swing over the next 30 days. Low = calm and confident, high = nervous.</div>
+      <div class="mood-v small">Nifty Next 50 <b data-sym="INDEXNSE:NIFTY_NEXT_50" data-f="price">--</b> <span class="chg" data-sym="INDEXNSE:NIFTY_NEXT_50" data-f="chg"></span></div></div></div>
+    <div class="mnote stock-note" data-mkt="in"></div>`;
+  document.getElementById('stockSlot').before(sec);
+}
+function setVixGauge(v) {
+  if (v == null || !isFinite(v)) return;
+  const a = vixAngle(v);
+  const n = document.getElementById('vixNeedle'); if (n) n.style.transform = 'rotate(' + (a * 180 / Math.PI) + 'deg)';
+  const k = document.getElementById('vixMood'); if (!k) return;
+  const [txt, col] = v < VIX_GREED ? ['Greed · market calm', '#3ddc84'] : v <= VIX_FEAR ? ['Neutral', '#facc15'] : v <= 24 ? ['Fear · market nervous', '#ef4444'] : ['Extreme fear', '#ef4444'];
+  k.textContent = txt; k.style.color = col;
+}
+// US stock mode: one big S&P 500 slide
+function buildSpxSlide() {
+  const sec = document.createElement('section'); sec.className = 'slide';
+  sec.dataset.title = 'S&P 500'; sec.dataset.accent = '#7aa2ff'; sec.dataset.views = 'us'; sec.dataset.only = '1';
+  sec.innerHTML = `<div class="card spx"><div class="spx-k">S&amp;P 500 · US</div>
+      <div class="spx-p" data-sym="INDEXSP:.INX" data-f="price">--</div>
+      <div class="spx-c chg" data-sym="INDEXSP:.INX" data-f="chg"></div>
+      <div class="spx-s">The 500 biggest US companies · opens 8:00 pm, closes 2:30 am India time (7:00 pm–1:30 am in US summer)</div></div>
+    <div class="mnote stock-note" data-mkt="us"></div>`;
+  document.getElementById('stockSlot').before(sec);
+}
 function buildGridSlides(list, title, accent, mode, per, view) {
   const slot = document.getElementById('stockSlot');
   const n = Math.ceil(list.length / per), size = Math.ceil(list.length / n);   // balanced slides
@@ -757,7 +821,7 @@ function buildGridSlides(list, title, accent, mode, per, view) {
     const part = list.slice(i, i + size);
     const sec = document.createElement('section'); sec.className = 'slide';
     sec.dataset.title = title; sec.dataset.accent = accent; if (mode) sec.dataset.mode = mode;
-    if (view === 'in') { sec.dataset.view = 'in'; sec.dataset.inview = '1'; } else if (view === 'both') sec.dataset.inview = '1';
+    if (view) { sec.dataset.views = view.replace('-only', ''); if (/-only$/.test(view)) sec.dataset.only = '1'; }   // which stock mode(s) show it
     const g = document.createElement('div'); g.className = 'grid6' + (part.length <= 4 ? ' g4' : '') + (part.length <= 2 ? ' g2' : '');
     part.forEach(st => g.appendChild(tileCard(st)));
     const note = document.createElement('div'); note.className = 'mnote stock-note';
@@ -775,13 +839,13 @@ const SECTORS = [
   NSE('NIFTY_PSU_BANK', 'Nifty PSU Bank', '🏛️'),
   { sym: 'BASKET:DEFENCE', name: 'Defence', tick: 'HAL · BEL · BDL · Mazagon', icon: '🛡️', basket: ['NSE:HAL', 'NSE:BEL', 'NSE:BDL', 'NSE:MAZDOCK'] },
   NSE('NIFTY_CONSUMPTION', 'Retail & Consumer', '🛍️'), NSE('NIFTY_INFRA', 'Nifty Infra', '🏗️')];
-const MARKET_WIDE = [NSE('NIFTY_NEXT_50', 'Nifty Next 50', '📈'), { ...NSE('INDIA_VIX', 'India VIX', '🌡️'), tick: 'fear gauge · higher = jumpier' }];
 const BASKETS = SECTORS.filter(x => x.basket);
-buildGridSlides(IN_STOCKS, 'Watchlist · India', '#ff8a3d', 'day', 6, 'both');
-buildGridSlides(SECTORS, 'Sectors · India', '#ffb347', '', 4, 'in');
-buildGridSlides(MARKET_WIDE, 'Market-wide · India', '#ffb347', '', 4, 'in');
+buildGridSlides(IN_STOCKS, 'Watchlist · India', '#ff8a3d', 'day', 6, 'in');
+buildGridSlides(SECTORS, 'Sectors · India', '#ffb347', '', 4, 'in-only');
+buildMoodSlide();
 buildGridSlides(LARGE_CAPS, 'Large caps · India', '#f5b041', 'day', 6);
-buildGridSlides(US_STOCKS, 'Watchlist · US', '#7aa2ff', 'evening', 6);
+buildSpxSlide();
+buildGridSlides(US_STOCKS, 'Watchlist · US', '#7aa2ff', 'evening', 6, 'us');
 if (!LIVE) {   // no sheet yet: Sensex 1-month chart from TradingView
   const c = document.getElementById('idxCard'); c.className = 'card tv'; c.innerHTML = '';
   c.closest('.slide').dataset.title = 'Sensex · 1 month';
@@ -1014,6 +1078,7 @@ async function loadPrices() {
       data[b.sym] = { price: 1, change: null, pct: avg };
       document.querySelectorAll('[data-basket="' + b.sym + '"]').forEach(el => { el.textContent = (avg >= 0 ? '+' : '−') + Math.abs(avg).toFixed(2) + '%'; });
     });
+    if (data['INDEXNSE:INDIA_VIX']) setVixGauge(data['INDEXNSE:INDIA_VIX'].price);
     const nf = data['INDEXNSE:NIFTY_50'];
     if (nf && nf.price != null) {
       lastLive = nf.price; lastPrev = nf.change != null ? nf.price - nf.change : null;
@@ -1407,8 +1472,9 @@ function applyMode(force) {
   document.body.classList.toggle('night', m === 'night');
   applyLight(true);
   if (m === 'night') { clearInterval(timer); nightTick(); return; }
-  slides = allSlides.filter(s => (VIEW === 'in' ? s.dataset.inview === '1'                     // Indian stock mode: any time of day
-                                                 : !s.dataset.view && (!s.dataset.mode || s.dataset.mode === m))
+  const V = VIEW || 'all';
+  slides = allSlides.filter(s => (V !== 'all' ? (s.dataset.views || '') === V                  // a stock mode: its own set, any time of day
+                                              : !s.dataset.only && (!s.dataset.mode || s.dataset.mode === m))
     && !(s.dataset.needs === 'news' && !newsReady) && !(s.querySelector('#newsMK') && !document.getElementById('newsMK').children.length));
   bars.innerHTML = '';
   slides.forEach(() => { const s = document.createElement('span'); s.appendChild(document.createElement('b')); bars.appendChild(s); });
@@ -1472,10 +1538,28 @@ everySecond(nightTick);
 
 /* ---------- VIEW PICKER: All slides, or Indian stock mode (remembered on each phone) ---------- */
 var VIEW = 'all';
-try { VIEW = localStorage.getItem('deskTickerView') === 'in' ? 'in' : 'all'; } catch (e) {}
+try { const v = localStorage.getItem('deskTickerView'); VIEW = v === 'in' || v === 'us' ? v : 'all'; } catch (e) {}
+// Automatic switching: Indian stock mode while NSE is open (Mon–Fri 9:15–3:30 IST), US stock mode while the
+// US market is open (Mon–Fri 9:30–4:00 New York time), All otherwise. It only acts when a market opens or closes,
+// so a mode you pick by hand stays until the next open/close.
+function marketView(now = new Date()) {
+  const ist = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })), im = ist.getHours() * 60 + ist.getMinutes();
+  if (ist.getDay() >= 1 && ist.getDay() <= 5 && im >= 555 && im < 930) return 'in';
+  const ny = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' })), nm = ny.getHours() * 60 + ny.getMinutes();
+  if (ny.getDay() >= 1 && ny.getDay() <= 5 && nm >= 570 && nm < 960) return 'us';
+  return 'all';
+}
+let lastAuto = null;
+try { lastAuto = localStorage.getItem('deskTickerAutoView'); } catch (e) {}
+function autoView() {
+  const want = marketView();
+  if (want === lastAuto) return;
+  lastAuto = want; try { localStorage.setItem('deskTickerAutoView', want); } catch (e) {}
+  setView(want);
+}
 function setView(v) {
   VIEW = v; try { localStorage.setItem('deskTickerView', v); } catch (e) {}
-  document.getElementById('viewBtn').textContent = (v === 'in' ? '🇮🇳 Stocks' : 'All') + ' ▾';
+  document.getElementById('viewBtn').textContent = (v === 'in' ? '🇮🇳 Stocks' : v === 'us' ? '🇺🇸 Stocks' : 'All') + ' ▾';
   document.querySelectorAll('#viewMenu button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   if (typeof applyMode === 'function' && mode) { idx = 0; applyMode(true); }
 }
@@ -1484,7 +1568,7 @@ document.querySelectorAll('#viewMenu button').forEach(b => b.addEventListener('c
   e.stopPropagation(); document.getElementById('viewMenu').classList.remove('open'); setView(b.dataset.v);
 }));
 document.addEventListener('click', () => document.getElementById('viewMenu').classList.remove('open'));
-setTimeout(() => setView(VIEW), 0);
+setTimeout(() => { setView(VIEW); autoView(); setInterval(autoView, 30 * 1000); }, 0);
 
 /* ---------- HINDU CALENDAR: Vikram Samvat date, tithi and festivals (worked out on the phone) ----------
    Sun and Moon positions (Meeus, accurate to well under a minute of tithi time), Lahiri ayanamsa.
