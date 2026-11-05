@@ -1498,7 +1498,7 @@ const PAN = (() => {
     const pIdx = shukla ? mi.idx : (mi.idx + 1) % 12;                       // purnimanta: Krishna paksha belongs to the next month
     const g = new Date(d0), vs = g.getUTCFullYear() + 57 - (mi.idx >= 9 && g.getUTCMonth() <= 3 ? 1 : 0);
     const tName = ti === 30 ? 'Amavasya' : TITHI[(ti - 1) % 15];
-    const text = (mi.adhik ? 'Adhik ' : '') + MONTHS[pIdx] + ' ' + (shukla ? 'Shukla' : 'Krishna') + ' ' + tName + ' · VS ' + vs;
+    const text = (mi.adhik ? 'Adhik ' : '') + MONTHS[pIdx] + ' ' + (shukla ? 'Shukla' : 'Krishna') + ' ' + tName + ' · Vikram Samvat ' + vs;
     const obs = (ti === 11 || ti === 26) ? 'Ekadashi' : ti === 15 ? 'Purnima' : ti === 30 ? 'Amavasya' : ti === 19 ? 'Sankashti Chaturthi' : '';
     return { text, obs, d0 };
   }
