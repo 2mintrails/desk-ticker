@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v10.5-2026-11-06">
+<meta name="ticker-version" content="v10.6-2026-11-06">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -691,6 +691,28 @@
   body.paper .chg, body.paper .fx-c, body.paper .dchg, body.paper .stat .v, body.paper .hr .tp{font-family:Fraunces,serif;font-weight:600}
   body.swiss .chg, body.swiss .fx-c, body.swiss .dchg, body.swiss .stat .v, body.swiss .hr .tp{font-family:"Space Grotesk",sans-serif;font-weight:500}
   body.paper #vixMood, body.swiss #vixMood{filter:brightness(.72) saturate(1.2)}
+
+  /* ---- Swiss: ink, warm greys and one red accent — no other colours ---- */
+  body.swiss{--up:#151515;--down:#d6452f}
+  body.swiss .gauge .z-greed{stroke:#ddd6ca} body.swiss .gauge .z-neutral{stroke:#a59d91} body.swiss .gauge .z-fear{stroke:#d6452f}
+  body.swiss .mood-leg .z-greed{background:#ddd6ca!important} body.swiss .mood-leg .z-neutral{background:#a59d91!important} body.swiss .mood-leg .z-fear{background:#d6452f!important}
+  body.swiss #vixMood{color:#151515!important;filter:none;font-weight:300} body.swiss #vixMood[data-zone=fear]{color:#d6452f!important}
+  body.swiss #sg stop{stop-color:#151515!important} body.swiss #sparkSvg path[stroke]{stroke:#151515!important}
+  body.swiss #sparkSvg circle{fill:#151515!important;stroke:#efeae2!important}
+  body.swiss .badge.emo, body.swiss .wx-icon, body.swiss .hr .ic, body.swiss .flag, body.swiss .nflag, body.swiss .pfest, body.swiss .pan, body.swiss .wx-moon{filter:grayscale(1)}
+  body.swiss .pfest b{color:#151515;font-weight:600}
+  body.swiss .tile, body.swiss .tile.up, body.swiss .tile.down, body.swiss .tile.big{box-shadow:none!important;outline:0!important}
+  body.swiss .gauge .gl{font-family:"Space Grotesk",sans-serif;letter-spacing:1px}
+  body.swiss .mkt i, body.swiss .pill i{filter:grayscale(1)} body.swiss .pill i{background:#d6452f!important;filter:none}
+  body.swiss .hr .rn{color:#151515} body.swiss .gold .price, body.swiss .silver .price{color:#151515}
+  body.swiss .w52.hi{color:#151515} body.swiss .w52.lo{color:#d6452f}
+  /* ---- Newspaper: muted printing inks instead of bright screen colours ---- */
+  body.paper .gauge .z-greed{stroke:#7d9471} body.paper .gauge .z-neutral{stroke:#c9a54a} body.paper .gauge .z-fear{stroke:#a5452f}
+  body.paper .mood-leg .z-greed{background:#7d9471!important} body.paper .mood-leg .z-neutral{background:#c9a54a!important} body.paper .mood-leg .z-fear{background:#a5452f!important}
+  body.paper #vixMood{filter:none} body.paper #vixMood[data-zone=greed]{color:#4f6b45!important} body.paper #vixMood[data-zone=neutral]{color:#8a6a1f!important} body.paper #vixMood[data-zone=fear]{color:#9b2c2c!important}
+  body.paper #sg stop{stop-color:#1d1a16!important} body.paper #sparkSvg path[stroke]{stroke:#1d1a16!important}
+  body.paper #sparkSvg circle{fill:#1d1a16!important;stroke:#f8f2e7!important}
+  body.paper .badge.emo, body.paper .wx-icon, body.paper .hr .ic, body.paper .flag, body.paper .nflag{filter:sepia(.55) saturate(.7)}
   /* pixel look: the newer parts of the display */
   body.led .viewbtn{font-family:Silkscreen,monospace;text-transform:uppercase;border-radius:0;background:transparent;border:1px solid var(--cyan);color:var(--cyan)}
   body.led .viewmenu{border-radius:0;background:#000;border:1px solid var(--cyan);box-shadow:none}
@@ -1025,11 +1047,11 @@ function buildMoodSlide() {
   sec.dataset.title = 'Market mood · India'; sec.dataset.accent = '#ffb347'; sec.dataset.views = 'in'; sec.dataset.only = '1';
   const ang = vixAngle;   // 0 = left (Greed), π = right (Fear)
   const pt = (a, r) => [(150 - r * Math.cos(a)).toFixed(1), (150 - r * Math.sin(a)).toFixed(1)];
-  const arc = (v0, v1, col) => { const [x0, y0] = pt(ang(v0), 120), [x1, y1] = pt(ang(v1), 120);
-    return `<path d="M${x0} ${y0} A120 120 0 0 1 ${x1} ${y1}" stroke="${col}" stroke-width="26" fill="none"/>`; };
+  const arc = (v0, v1, col, z) => { const [x0, y0] = pt(ang(v0), 120), [x1, y1] = pt(ang(v1), 120);
+    return `<path class="z-${z}" d="M${x0} ${y0} A120 120 0 0 1 ${x1} ${y1}" stroke="${col}" stroke-width="26" fill="none"/>`; };
   // left = Greed (low VIX), right = Fear (high VIX)
   sec.innerHTML = `<div class="card mood"><svg viewBox="0 0 300 175" class="gauge">
-      ${arc(VIX_MIN, VIX_GREED, '#3ddc84')}${arc(VIX_GREED, VIX_FEAR, '#facc15')}${arc(VIX_FEAR, VIX_MAX, '#ef4444')}
+      ${arc(VIX_MIN, VIX_GREED, '#3ddc84', 'greed')}${arc(VIX_GREED, VIX_FEAR, '#facc15', 'neutral')}${arc(VIX_FEAR, VIX_MAX, '#ef4444', 'fear')}
       <text x="28" y="172" class="gl">Greed</text><text x="150" y="16" class="gl" text-anchor="middle">Neutral</text><text x="272" y="172" class="gl" text-anchor="end">Fear</text>
       <g id="vixNeedle" style="transform-origin:150px 150px;transition:transform 1.2s cubic-bezier(.2,.7,.2,1)">
         <line x1="150" y1="150" x2="40" y2="150" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></g>
@@ -1037,7 +1059,7 @@ function buildMoodSlide() {
     <div class="mood-r"><div class="mood-k" id="vixMood">--</div>
       <div class="mood-v vixrow">India VIX <b data-sym="INDEXNSE:INDIA_VIX" data-f="price">--</b> <span class="chg" data-sym="INDEXNSE:INDIA_VIX" data-f="chg"></span></div>
       <div class="mood-s">Expected Nifty swing over the next 30 days</div>
-      <div class="mood-leg"><span><i style="background:#3ddc84"></i><b>Greed</b> (below 13): confident, buying, small swings</span><span><i style="background:#facc15"></i><b>Neutral</b> (13–18): normal market</span><span><i style="background:#ef4444"></i><b>Fear</b> (above 18): worried, selling, big swings</span></div>
+      <div class="mood-leg"><span><i class="z-greed" style="background:#3ddc84"></i><b>Greed</b> (below 13): confident, buying, small swings</span><span><i class="z-neutral" style="background:#facc15"></i><b>Neutral</b> (13–18): normal market</span><span><i class="z-fear" style="background:#ef4444"></i><b>Fear</b> (above 18): worried, selling, big swings</span></div>
       <div class="mood-v small">Nifty Next 50 <b data-sym="INDEXNSE:NIFTY_NEXT_50" data-f="price">--</b> <span class="chg" data-sym="INDEXNSE:NIFTY_NEXT_50" data-f="chg"></span></div></div></div>
     <div class="mnote stock-note" data-mkt="in"></div>`;
   document.getElementById('stockSlot').before(sec);
@@ -1048,7 +1070,7 @@ function setVixGauge(v) {
   const n = document.getElementById('vixNeedle'); if (n) n.style.transform = 'rotate(' + (a * 180 / Math.PI) + 'deg)';
   const k = document.getElementById('vixMood'); if (!k) return;
   const [txt, col] = v < VIX_GREED ? ['Greed · market calm', '#3ddc84'] : v <= VIX_FEAR ? ['Neutral', '#facc15'] : v <= 24 ? ['Fear · market nervous', '#ef4444'] : ['Extreme fear', '#ef4444'];
-  k.textContent = txt; k.style.color = col;
+  k.textContent = txt; k.style.color = col; k.dataset.zone = v < VIX_GREED ? 'greed' : v <= VIX_FEAR ? 'neutral' : 'fear';
 }
 // US stock mode: one big S&P 500 slide
 function buildSpxSlide() {
