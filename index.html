@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v7.7-2026-11-05">
+<meta name="ticker-version" content="v7.8-2026-11-05">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -757,7 +757,8 @@ function parseCSV(text) {
 const num = v => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g, '')); return isFinite(n) ? n : null; };
 function money(sym, n) {
   const us = /^(NYSE|NASDAQ)/.test(sym), idx = /^INDEX/.test(sym);
-  const txt = n.toLocaleString(us ? 'en-US' : 'en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const dp = /^CURRENCY:/.test(sym) ? 3 : 2;            // currencies move in fractions of a paisa
+  const txt = n.toLocaleString(us ? 'en-US' : 'en-IN', { minimumFractionDigits: dp, maximumFractionDigits: dp });
   return idx ? txt : (us ? '$' : '₹') + txt;
 }
 let lastLive = null, lastPrev = null;
@@ -983,8 +984,14 @@ async function loadPrices() {
     document.querySelectorAll('.stock-note').forEach(n => n.textContent = 'Google Finance · last refreshed ' + at +
       ' · prices about 15–20 min behind ' + (n.dataset.mkt === 'us' ? 'the US market' : 'NSE'));
     const fxN = document.getElementById('fxNote');
-    if (fxN && data['CURRENCY:USDINR']) fxN.textContent = 'Google Finance · last refreshed ' +
-      new Date().toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' }) + ' · change vs previous day';
+    if (fxN && data['CURRENCY:USDINR']) {
+      // "checked" = when the app last read the sheet; "rate moved" = when Google's USD rate last actually changed
+      const t = d => new Date(d).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' });
+      const v = String(data['CURRENCY:USDINR'].price) + '|' + String((data['CURRENCY:EURINR'] || {}).price) + '|' + String((data['CURRENCY:AEDINR'] || {}).price);
+      let mv = null; try { mv = JSON.parse(localStorage.getItem('deskTickerFxMoved')); } catch (e) {}
+      if (!mv || mv.v !== v) { mv = { v, at: Date.now(), first: !mv }; try { localStorage.setItem('deskTickerFxMoved', JSON.stringify(mv)); } catch (e) {} }
+      fxN.textContent = 'Google Finance · checked ' + t(Date.now()) + (mv.first ? '' : ' · rates last moved ' + t(mv.at)) + ' · change vs previous day';
+    }
   } catch (e) {
     if (note) note.textContent = 'Live prices unavailable (' + e.message + ') · retrying';
     document.querySelectorAll('.stock-note').forEach(n => {
