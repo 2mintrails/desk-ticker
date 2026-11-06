@@ -2151,7 +2151,7 @@ function renderWeather() {
     const later = met ? (dl.rain12 < 0.2 ? 'Unlikely' : dl.rain12 < 2.5 ? 'Light' : dl.rain12 < 10 ? 'Moderate' : 'Heavy')
                       : dl.precipitation_probability_max[0] + '% chance';
     // if HAL says it is raining right now, say so — the forecast alone can miss a passing shower
-    const wetNow = o && /rain|drizzle|shower|thunder/i.test(desc);
+    const wetNow = o && /rain|drizzle|shower|^thunderstorm/i.test(desc);   // not 'Thunder nearby'
     document.getElementById('wRain').textContent = wetNow ? (met && dl.rain12 < 0.2 ? 'Raining now · dry later' : 'Raining now') : later;
   } else {
     document.getElementById('wHL').textContent = '…'; document.getElementById('wRain').textContent = '…';
