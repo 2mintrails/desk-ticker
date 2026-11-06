@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v11.5-2026-11-07">
+<meta name="ticker-version" content="v11.6-2026-11-07">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -43,7 +43,8 @@
     background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.65) 100%)}
 
   /* ---------- frame ---------- */
-  .app{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;
+  html,body{height:100dvh}
+  .app{position:relative;z-index:2;height:100%;height:100dvh;display:flex;flex-direction:column;
     padding:max(10px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right))
             max(8px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))}
   header{display:flex;align-items:center;justify-content:space-between;gap:16px;
@@ -109,7 +110,8 @@
 
   .ix-top{display:flex;align-items:center;gap:12px}
   .ix-top .dot{background:var(--accent)}
-  .src{font-size:clamp(9px,2.8vh,11px);color:var(--dim);letter-spacing:.5px}
+  .src{font-size:clamp(9px,2.8vh,11px);color:var(--dim);letter-spacing:.5px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 12px}
   .ix-name{font-size:clamp(13px,4.6vh,20px);font-weight:700;letter-spacing:3px;margin-top:1.6vh;color:var(--dim)}
   .ix-row{display:flex;align-items:baseline;gap:2.5vw;flex-wrap:wrap}
   .ix-p{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:clamp(28px,min(16vh,8.2vw),76px);letter-spacing:-2px;line-height:1;margin:.6vh 0 1vh}
@@ -653,6 +655,7 @@
   body.paper .time, body.paper .p, body.paper .ix-p, body.paper .fx-p, body.paper .wx-temp, body.paper .metal .price, body.paper .spx-p, body.paper .mood-k, body.paper .mood-v b, body.paper .n-time{font-family:"Playfair Display",Georgia,serif;font-weight:700;letter-spacing:0}
   body.paper .ix-p{font-weight:900} body.paper .wx-temp{font-weight:400}
   body.paper .pill, body.paper .nhd, body.paper .tk, body.paper .k, body.paper .ix-name, body.paper .spx-k, body.paper .mnote, body.paper .stat .k{font-family:Fraunces,serif;letter-spacing:2px;text-transform:uppercase;color:var(--dim)}
+  body.paper .mnote, body.swiss .mnote{letter-spacing:1px}
   body.paper .nhead{font-family:"Playfair Display",serif;font-weight:900;border-bottom:3px double var(--fg)}
   body.paper .nlist .tt{font-family:"Playfair Display",serif;font-weight:700;line-height:1.25}
   body.paper .nlist .sr, body.paper .nlist .no{font-family:Fraunces,serif;font-style:italic}
