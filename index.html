@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v11.2-2026-11-06">
+<meta name="ticker-version" content="v11.3-2026-11-06">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1730,7 +1730,9 @@ function modeNow() {
   const base = (m >= n || m < d) ? 'night' : (m >= e ? 'evening' : 'day');
   return base === 'night' && Date.now() < peekUntil ? 'evening' : base;
 }
+let lastShowAt = Date.now();
 function show(i) {
+  lastShowAt = Date.now();
   allSlides.forEach(s => s.classList.toggle('active', s === slides[i]));
   [...bars.children].forEach((b, k) => {
     b.className = k < i ? 'done' : '';
@@ -1747,7 +1749,23 @@ function show(i) {
     if (fitNews(ol, 0) > 1) newsPageTimer = setInterval(() => fitNews(ol, pg = 1 - pg), SLIDE_SECONDS * 500);
   }));
 }
-function next() { if (!slides.length) return; idx = (idx + 1) % slides.length; show(idx); }
+function next() {
+  if (!slides.length) return;
+  idx = (idx + 1) % slides.length;
+  try { show(idx); } catch (e) { console.warn('slide', e); lastShowAt = Date.now(); }   // one bad slide must not stop the rotation
+}
+// Rotation watchdog: phones and browsers sometimes freeze timers (screen dimmed, tab in the background, a hiccup).
+// If the slides should be rotating but haven't moved for 2½ slide-lengths, restart the rotation;
+// if that still doesn't help a minute later, reload the app.
+let rotationKicks = 0;
+setInterval(() => {
+  const should = mode !== 'night' && !locked && !document.body.classList.contains('paused') && slides.length > 1 && !document.hidden;
+  if (!should || Date.now() - lastShowAt < SLIDE_SECONDS * 2500) { rotationKicks = 0; return; }
+  console.warn('rotation stalled — restarting');
+  if (++rotationKicks > 3) { location.reload(); return; }
+  next(); start();
+}, 10 * 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && mode !== 'night' && !locked) start(); });
 function prev() { if (!slides.length) return; idx = (idx - 1 + slides.length) % slides.length; show(idx); }
 // moving by hand: go there, hold the slide for a minute so it can be read, then carry on rotating
 const MANUAL_PAUSE_SECONDS = 60;
