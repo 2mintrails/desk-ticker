@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v11-2026-11-06">
+<meta name="ticker-version" content="v11.1-2026-11-06">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1334,7 +1334,6 @@ async function loadPrices() {
     const data = {};
     try { readGoodReturns(rows); } catch (e) { console.warn('gold/silver', e); }
     try { readMetar(rows, 'col'); } catch (e) { console.warn('HAL', e); }
-    try { readStationAqi(rows); } catch (e) { console.warn('AQI', e); }
     rows.forEach(r => {
       const sym = String(r[0] || '').trim(); if (!sym || sym === 'Symbol') return;
       const price = num(r[1]), change = num(r[2]);
@@ -2266,14 +2265,19 @@ function subIndex(c, bp) {   // bp: concentration breakpoints matching AQI 0,50,
   for (let k = 1; k < bp.length; k++) if (c <= bp[k]) return I[k-1] + (I[k] - I[k-1]) * (c - bp[k-1]) / (bp[k] - bp[k-1]);
   return 500;
 }
-// Official CPCB station reading (written by the sheet script into Sheet1 Y2:AB2) beats the model when it is fresh.
+// Official station reading (the sheet script writes it into its own "AQI" tab) beats the model when it is fresh.
+const AQI_GID = '';            // the AQI tab's id, from the script's testAQI log
 let stationAqi = null;
+async function loadStationAqi() {
+  if (!AQI_GID) return;
+  try { readStationAqi(await fetchCSVRows(AQI_GID)); } catch (e) { console.warn('AQI tab', e); }
+}
 function readStationAqi(rows) {
-  const r = rows[0] || [], v = num(r[24]);
+  const r = rows[0] || [], v = num(r[0]);
   if (v == null) return;
-  const m = String(r[26] || '').match(/(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})/);       // "06-11-2026 17:00:00"
+  const m = String(r[2] || '').match(/(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})/);       // "06-11-2026 17:00:00"
   const at = m ? Date.parse(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:00+05:30`) : 0;
-  stationAqi = { aqi: Math.round(v), name: String(r[25] || ''), at, main: String(r[27] || '') };
+  stationAqi = { aqi: Math.round(v), name: String(r[1] || ''), at, main: String(r[3] || '') };
   showStationAqi();
 }
 function stationAqiFresh() { return stationAqi && !away && stationAqi.at && Date.now() - stationAqi.at < 4 * 3600e3; }
@@ -2305,6 +2309,7 @@ async function loadAQI() {
     const cat = document.getElementById('wAqiCat'); cat.textContent = band[1]; cat.style.color = band[2];
   } catch (e) { document.getElementById('wAqi').textContent = '--'; }
 }
+loadStationAqi(); setInterval(loadStationAqi, 10 * 60 * 1000);
 loadAQI(); setInterval(loadAQI, 30 * 60 * 1000);
 
 /* ---------- WEATHER WHERE THE PHONE IS (only when you're away from home) ---------- */
