@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v11.4-2026-11-07">
+<meta name="ticker-version" content="v11.5-2026-11-07">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -338,6 +338,7 @@
   .viewmenu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:190px;padding:6px;border-radius:14px;
     background:rgba(20,24,34,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
   .viewmenu.open{display:block}
+  .viewmenu .mh{font-size:10px;letter-spacing:2px;text-transform:uppercase;opacity:.55;padding:6px 12px 2px}
   .viewmenu button{display:block;width:100%;text-align:left;font:inherit;font-size:14px;color:#fff;background:none;border:0;padding:10px 12px;border-radius:10px;cursor:pointer}
   .viewmenu button.on{background:rgba(255,255,255,.14);font-weight:600}
   body.light .viewmenu{background:rgba(255,255,255,.96)} body.light .viewmenu button{color:#1d2230}
@@ -749,7 +750,7 @@
       <div class="mkt" id="mkt"></div>
       <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
       <div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
-        <div class="viewmenu" id="viewMenu"><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button></div></div>
+        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Theme</div><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button></div></div>
     </div>
   </header>
 
@@ -829,7 +830,7 @@
     </section>
 
     <!-- 4. GOLD & SILVER -->
-    <section class="slide" data-title="Bullion · Bengaluru" data-accent="#f5c451">
+    <section class="slide" data-title="Bullion · Bengaluru" data-accent="#f5c451" data-views="in">
       <div class="metals">
         <div class="card metal gold">
           <div class="chip"><span class="dot"></span>Gold 24K · 10 g</div>
