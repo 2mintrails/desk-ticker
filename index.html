@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v10.8-2026-11-06">
+<meta name="ticker-version" content="v10.9-2026-11-06">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -894,7 +894,7 @@ let LAT = HOME.lat, LON = HOME.lon, away = false;
 // The FORECAST (high/low, rain, next 6 hours) comes from WEATHER_SOURCE: 'metno' (MET Norway) or 'openmeteo'.
 // The two are never mixed into one number. If HAL's report is older than HAL_MAX_AGE minutes, "now" says so.
 const WEATHER_SOURCE = 'metno';
-const HAL_MAX_AGE = 120;   // the sheet re-imports HAL's report about once an hour
+const HAL_MAX_AGE = 75;    // HAL reports every 30 min and the sheet script fetches every 10 min; older than this = stale
 
 // LIVE PRICES: paste the "Publish to web" CSV link of your Google Sheet between the quotes.
 // Leave it empty to use TradingView instead (Sensex chart + BSE end-of-day quotes).
@@ -2124,7 +2124,8 @@ function renderWeather() {
   const feels = o ? heatIndex(t, rh) : (c.apparent_temperature ?? heatIndex(t, rh));
   document.getElementById('wIcon').textContent = icon;
   document.getElementById('wTemp').textContent = Math.round(t) + '°';
-  document.getElementById('wDesc').textContent = desc;
+  // say when the measured "now" is from, right next to it, once the report is more than 20 minutes old
+  document.getElementById('wDesc').textContent = desc + (o && o.age > 20 ? ' · HAL ' + new Date(o.at).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' }) : '');
   document.getElementById('wFeel').textContent = 'Feels like ' + Math.round(feels) + '°C · Wind ' + wind + ' km/h';
   const met = wxModel && wxModel.src === 'metno';
   // Forecast models run ~3–5° cool over Bengaluru by day. Correct them with HAL's measured reading:
@@ -2138,7 +2139,7 @@ function renderWeather() {
     if (fc != null) wxBias = Math.max(-6, Math.min(6, o.t - fc));
   }
   const adj = (temp, hoursAhead) => temp + wxBias * (hoursAhead <= 3 ? 1 : Math.max(0.5, 1 - (hoursAhead - 3) / 18));
-  document.getElementById('wHLLbl').textContent = 'High / Low';
+  document.getElementById('wHLLbl').textContent = 'Next 24h high / low';
   document.getElementById('wRainLbl').textContent = met ? 'Rain next 12h' : 'Rain today';
   if (dl) {
     let hi = dl.temperature_2m_max[0], lo = dl.temperature_2m_min[0];
@@ -2147,9 +2148,11 @@ function renderWeather() {
       if (ts.length) { const v = ts.map(([t, x]) => adj(x, (t - n0) / 3600e3)).concat([t]); hi = Math.max(...v); lo = Math.min(...v); }
     }
     document.getElementById('wHL').textContent = Math.round(hi) + '° / ' + Math.round(lo) + '°';
-    document.getElementById('wRain').textContent = met
-      ? (dl.rain12 < 0.2 ? 'Unlikely' : dl.rain12 < 2.5 ? 'Light' : dl.rain12 < 10 ? 'Moderate' : 'Heavy')
-      : dl.precipitation_probability_max[0] + '% chance';
+    const later = met ? (dl.rain12 < 0.2 ? 'Unlikely' : dl.rain12 < 2.5 ? 'Light' : dl.rain12 < 10 ? 'Moderate' : 'Heavy')
+                      : dl.precipitation_probability_max[0] + '% chance';
+    // if HAL says it is raining right now, say so — the forecast alone can miss a passing shower
+    const wetNow = o && /rain|drizzle|shower|thunder/i.test(desc);
+    document.getElementById('wRain').textContent = wetNow ? (met && dl.rain12 < 0.2 ? 'Raining now · dry later' : 'Raining now') : later;
   } else {
     document.getElementById('wHL').textContent = '…'; document.getElementById('wRain').textContent = '…';
   }
