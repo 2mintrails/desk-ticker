@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v11.3-2026-11-06">
+<meta name="ticker-version" content="v11.4-2026-11-07">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -322,6 +322,14 @@
   .nflag{font-size:1.15em;line-height:1}
   .solo-news .tt{font-size:clamp(12px,min(4.4vh,2.3vw),19px);-webkit-line-clamp:2;line-height:1.25}
   .solo-news .sr{font-size:clamp(9px,2.8vh,12px)}
+  /* phones in landscape (short screens): tighter headlines so 3–4 fit per page instead of 2 */
+  @media (max-height:460px){
+    .solo-news{padding:1.8vh 2.4vw}
+    .solo-news .nhead{font-size:clamp(12px,4vh,18px);margin-bottom:1vh;padding-bottom:.8vh}
+    .solo-news .nlist{gap:1vh}
+    .solo-news .tt{font-size:clamp(12px,min(4vh,2.1vw),17px);line-height:1.22}
+    .solo-news .sr{font-size:clamp(9px,2.6vh,11px);margin-top:0}
+  }
   /* ---------- pinned slide ---------- */
   #pill{cursor:pointer}
   .viewsel{position:relative;margin-left:10px}
