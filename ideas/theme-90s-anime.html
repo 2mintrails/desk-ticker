@@ -1,0 +1,126 @@
+<!doctype html><meta charset="utf-8"><style>
+@font-face{font-family:Dela;src:url(../fonts/node_modules/@fontsource/dela-gothic-one/files/dela-gothic-one-latin-400-normal.woff2)}
+@font-face{font-family:DelaJ;src:url(../fonts/node_modules/@fontsource/dela-gothic-one/files/dela-gothic-one-japanese-400-normal.woff2)}
+@font-face{font-family:Maru;font-weight:700;src:url(../fonts/node_modules/@fontsource/zen-maru-gothic/files/zen-maru-gothic-latin-700-normal.woff2)}
+@font-face{font-family:Maru;font-weight:900;src:url(../fonts/node_modules/@fontsource/zen-maru-gothic/files/zen-maru-gothic-latin-900-normal.woff2)}
+@font-face{font-family:MaruJ;font-weight:900;src:url(../fonts/node_modules/@fontsource/zen-maru-gothic/files/zen-maru-gothic-japanese-900-normal.woff2)}
+*{box-sizing:border-box;margin:0}
+body{background:#111;font-family:Maru,MaruJ,sans-serif}
+.scr{width:915px;height:412px;position:relative;overflow:hidden;margin-bottom:12px;padding:10px 18px 8px;display:flex;flex-direction:column;color:#fff}
+/* VHS scanlines + soft glow */
+.scr::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:20;
+ background:repeating-linear-gradient(0deg,rgba(0,0,0,.10) 0 1px,transparent 1px 3px);mix-blend-mode:multiply}
+.dusk{background:linear-gradient(180deg,#1d1647 0%,#4a2a7a 30%,#b6489a 62%,#ff8a6a 86%,#ffc27a 100%)}
+.day{background:linear-gradient(180deg,#2f7fe0 0%,#58a8f2 45%,#a9dcff 80%,#e6f6ff 100%)}
+header{display:flex;align-items:center;justify-content:space-between;height:46px;position:relative;z-index:5}
+.osd{font-family:Dela;font-size:30px;letter-spacing:1px;color:#fff;text-shadow:2px 2px 0 #2a1a5c,0 0 10px rgba(255,255,255,.5)}
+.osd small{font-size:15px;margin-left:2px}
+.date{margin-left:12px;line-height:1.2;font-weight:900;font-size:14px;text-shadow:1px 1px 0 #2a1a5c}
+.date i{font-style:normal;font-weight:700;font-size:12px;opacity:.85}
+.date b{color:#ffe36e}
+.left{display:flex;align-items:center}.right{display:flex;align-items:center;gap:10px}
+.rec{font-family:Maru;font-weight:900;font-size:12px;letter-spacing:1px;text-shadow:1px 1px 0 #2a1a5c}
+.rec b{color:#5dff9d}
+.ep{font-family:Dela,DelaJ;font-size:14px;letter-spacing:1px;background:#ffe36e;color:#2a1a5c;padding:4px 10px;border:2.5px solid #2a1a5c;border-radius:4px;box-shadow:3px 3px 0 #2a1a5c}
+.btn{font-weight:900;font-size:13px;background:#fff;color:#2a1a5c;border:2.5px solid #2a1a5c;padding:4px 10px;border-radius:14px;box-shadow:3px 3px 0 #2a1a5c}
+.stage{flex:1;position:relative;margin-top:6px;z-index:5}
+/* cel-shaded card: flat fill + hard shadow band */
+.cel{position:absolute;border:3px solid #2a1a5c;border-radius:18px;overflow:hidden;box-shadow:5px 5px 0 rgba(42,26,92,.85)}
+.cel::before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 62%,rgba(42,26,92,.16) 62%);pointer-events:none}
+.c1{left:0;top:0;bottom:26px;width:47%;background:#ffeef6;color:#2a1a5c;padding:18px 22px}
+.c2{right:0;top:0;bottom:26px;width:50%;background:#e7f3ff;color:#2a1a5c;padding:14px 16px}
+.jp{font-family:DelaJ;font-size:13px;letter-spacing:3px;color:#e0457b}
+.nm{font-family:Dela;font-size:26px;letter-spacing:1px;line-height:1.1}
+.logo{font-family:Dela;font-size:76px;line-height:1;margin-top:10px;letter-spacing:-1px;
+ background:linear-gradient(180deg,#fff7a8 0%,#ffd23f 45%,#ff8a2a 52%,#ff5a3a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+ -webkit-text-stroke:3px #2a1a5c;paint-order:stroke fill;filter:drop-shadow(4px 4px 0 #2a1a5c)}
+.chg{display:inline-flex;align-items:center;gap:8px;margin-top:10px;font-family:Dela;font-size:22px;color:#fff;background:#23b26d;border:3px solid #2a1a5c;border-radius:30px;padding:3px 16px 4px;box-shadow:3px 3px 0 #2a1a5c}
+.sx{position:absolute;left:22px;bottom:16px;font-weight:900;font-size:15px}
+.sx b{font-family:Dela;font-size:20px;margin-left:6px}
+.k{display:flex;justify-content:space-between;font-family:Dela;font-size:13px;letter-spacing:1px}
+.k span:last-child{color:#23b26d}
+.chart{position:absolute;left:14px;right:14px;top:40px;bottom:14px}
+.sp{position:absolute;color:#fff;font-size:18px;text-shadow:0 0 8px #fff,0 0 14px #ffd6f5;z-index:6}
+.sub{position:absolute;left:0;right:0;bottom:4px;text-align:center;font-family:Maru;font-weight:900;font-size:16px;color:#ffe94a;z-index:7;
+ text-shadow:-2px -2px 0 #111,2px -2px 0 #111,-2px 2px 0 #111,2px 2px 0 #111,0 2px 0 #111,0 -2px 0 #111,2px 0 0 #111,-2px 0 0 #111}
+.city{position:absolute;left:0;right:0;bottom:0;height:110px;z-index:1}
+/* weather */
+.wbox{position:absolute;left:0;top:0;bottom:26px;width:52%;padding:10px 6px}
+.temp{font-family:Dela;font-size:120px;line-height:1;background:linear-gradient(180deg,#fff 0%,#fff 50%,#cfe6ff 51%,#9cc8ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+ -webkit-text-stroke:4px #173a7a;paint-order:stroke fill;filter:drop-shadow(5px 5px 0 #173a7a)}
+.cond{display:inline-block;margin-top:6px;font-weight:900;font-size:18px;color:#173a7a;background:#fff;border:3px solid #173a7a;border-radius:30px;padding:5px 16px;box-shadow:4px 4px 0 #173a7a}
+.wm{margin-top:12px;font-weight:900;font-size:14px;color:#fff;text-shadow:1px 1px 0 #173a7a,0 0 6px rgba(23,58,122,.6)}
+.hrs{right:0;top:0;bottom:26px;width:44%;background:#fffdf3;padding:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;border-color:#173a7a;box-shadow:5px 5px 0 rgba(23,58,122,.85)}
+.hr{position:relative;border:2.5px solid #173a7a;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:#e7f3ff;color:#173a7a;overflow:hidden}
+.hr::before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 60%,rgba(23,58,122,.12) 60%)}
+.hr .t{font-weight:900;font-size:12px}.hr .ic{font-size:24px}.hr .v{font-family:Dela;font-size:22px}.hr .r{font-size:10px;font-weight:900;color:#2f7fe0}
+.hr.now{background:#ffe36e}
+.dots{position:absolute;left:0;right:0;bottom:30px;display:flex;justify-content:center;gap:8px;z-index:8}
+</style>
+
+<!-- SCREEN 1: Nifty at dusk -->
+<div class="scr dusk">
+ <svg class="city" viewBox="0 0 915 110" preserveAspectRatio="none">
+  <path fill="#2a1a5c" d="M0,110 V70 h40 V50 h30 V80 h25 V35 h45 V60 h20 V20 h35 V65 h30 V45 h50 V75 h25 V30 h40 V55 h30 V40 h45 V70 h20 V25 h50 V60 h30 V45 h40 V75 h30 V35 h45 V65 h25 V50 h40 V80 h30 V40 H915 V110 Z"/>
+  <g fill="#ffe36e" opacity=".85"><rect x="110" y="45" width="5" height="6"/><rect x="122" y="58" width="5" height="6"/><rect x="200" y="30" width="5" height="6"/><rect x="212" y="44" width="5" height="6"/><rect x="420" y="40" width="5" height="6"/><rect x="432" y="54" width="5" height="6"/><rect x="560" y="35" width="5" height="6"/><rect x="574" y="48" width="5" height="6"/><rect x="700" y="46" width="5" height="6"/><rect x="760" y="60" width="5" height="6"/><rect x="860" y="52" width="5" height="6"/></g>
+ </svg>
+ <span class="sp" style="left:470px;top:20px">✦</span><span class="sp" style="left:640px;top:8px;font-size:12px">✦</span><span class="sp" style="left:300px;top:12px;font-size:10px">✦</span>
+ <header><div class="left"><div class="osd">10:42<small>AM</small></div><div class="date">Mon, 9 Nov · <b>🪔 Diwali today</b><br><i>Kartik Amavasya · Vikram Samvat 2083</i></div></div>
+ <div class="right"><span class="rec">NSE <b>●</b> OPEN</span><span class="ep">EP.01 · NIFTY 50</span><span class="btn">🇮🇳 Stocks ▾</span></div></header>
+ <div class="stage">
+  <div class="cel c1">
+   <div class="jp">インド株式市場</div><div class="nm">NIFTY 50</div>
+   <div class="logo">25,912</div>
+   <div class="chg">▲ +0.84%</div>
+   <div class="sx">Sensex<b>84,630</b></div>
+  </div>
+  <span class="sp" style="left:395px;top:-6px;font-size:26px">✦</span><span class="sp" style="left:378px;top:24px;font-size:12px">✦</span>
+  <div class="cel c2">
+   <div class="k"><span>TODAY · LIVE</span><span>+216 PTS</span></div>
+   <svg class="chart" viewBox="0 0 400 200" preserveAspectRatio="none">
+    <line x1="0" y1="120" x2="400" y2="120" stroke="#2a1a5c" stroke-width="1.5" stroke-dasharray="6 5" opacity=".5"/>
+    <path d="M0,120 L30,128 60,112 90,118 120,96 150,102 180,80 210,88 240,66 270,72 300,50 330,58 360,38 390,30 L390,200 L0,200Z" fill="#23b26d" opacity=".22"/>
+    <path d="M0,120 L30,128 60,112 90,118 120,96 150,102 180,80 210,88 240,66 270,72 300,50 330,58 360,38 390,30" fill="none" stroke="#2a1a5c" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M0,120 L30,128 60,112 90,118 120,96 150,102 180,80 210,88 240,66 270,72 300,50 330,58 360,38 390,30" fill="none" stroke="#3ee08a" stroke-width="3" stroke-linejoin="round"/>
+    <circle cx="390" cy="30" r="8" fill="#ffe36e" stroke="#2a1a5c" stroke-width="3"/>
+   </svg>
+  </div>
+  <div class="sub">[ Nifty is climbing all morning! ]</div>
+ </div>
+</div>
+
+<!-- SCREEN 2: Summer-afternoon weather -->
+<div class="scr day">
+ <svg style="position:absolute;inset:0;z-index:1" width="915" height="412" viewBox="0 0 915 412">
+  <!-- cel-shaded cumulus: white body + lavender shadow side -->
+  <g stroke="#173a7a" stroke-width="3" transform="translate(60,135) scale(.7)">
+   <path fill="#fff" d="M330,300 c-40,0 -50,-50 -10,-60 c-5,-50 60,-70 85,-35 c20,-50 100,-45 105,10 c45,-5 55,60 15,85 z"/>
+   <path fill="#c9d4f5" stroke="none" d="M345,300 c30,-10 120,-6 180,0 c20,-12 25,-35 10,-50 c-10,30 -70,40 -190,50 z"/>
+  </g>
+  <!-- power lines: classic summer-anime motif -->
+  <g stroke="#173a7a" stroke-width="2" fill="none" opacity=".75">
+   <path d="M0,70 Q300,120 610,64"/><path d="M0,86 Q300,136 610,80"/>
+  </g>
+  
+  
+ </svg>
+ <span class="sp" style="left:470px;top:150px;font-size:22px">✦</span>
+ <header><div class="left"><div class="osd" style="text-shadow:2px 2px 0 #173a7a">10:42<small>AM</small></div><div class="date" style="text-shadow:1px 1px 0 #173a7a">Mon, 9 Nov · <b>🪔 Diwali today</b><br><i>Kartik Amavasya · Vikram Samvat 2083</i></div></div>
+ <div class="right"><span class="rec" style="text-shadow:1px 1px 0 #173a7a">NSE <b>●</b> OPEN</span><span class="ep" style="border-color:#173a7a;box-shadow:3px 3px 0 #173a7a;color:#173a7a">EP.04 · KORAMANGALA</span><span class="btn" style="border-color:#173a7a;box-shadow:3px 3px 0 #173a7a;color:#173a7a">All ▾</span></div></header>
+ <div class="stage">
+  <div class="wbox">
+   <div class="temp">27°</div>
+   <div class="cond">☀️ Sunny &amp; clear</div>
+   <div class="wm">Feels 29° · Next 24h 29° / 18° · AQI 42 Good</div>
+  </div>
+  <div class="cel hrs">
+   <div class="hr now"><span class="t">NOW</span><span class="ic">☀️</span><span class="v">27°</span><span class="r">0%</span></div>
+   <div class="hr"><span class="t">1 PM</span><span class="ic">⛅</span><span class="v">29°</span><span class="r">5%</span></div>
+   <div class="hr"><span class="t">4 PM</span><span class="ic">🌦️</span><span class="v">27°</span><span class="r">40%</span></div>
+   <div class="hr"><span class="t">7 PM</span><span class="ic">☁️</span><span class="v">23°</span><span class="r">20%</span></div>
+   <div class="hr"><span class="t">10 PM</span><span class="ic">🌙</span><span class="v">20°</span><span class="r">5%</span></div>
+   <div class="hr"><span class="t">1 AM</span><span class="ic">🌙</span><span class="v">19°</span><span class="r">0%</span></div>
+  </div>
+  <div class="sub">[ A warm afternoon — light showers around 4 PM ]</div>
+ </div>
+</div>

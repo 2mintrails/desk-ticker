@@ -1,0 +1,120 @@
+<!doctype html><meta charset="utf-8"><style>
+@font-face{font-family:Bang;src:url(../fonts/node_modules/@fontsource/bangers/files/bangers-latin-400-normal.woff2)}
+@font-face{font-family:Maru;font-weight:500;src:url(../fonts/node_modules/@fontsource/zen-maru-gothic/files/zen-maru-gothic-latin-500-normal.woff2)}
+@font-face{font-family:Maru;font-weight:700;src:url(../fonts/node_modules/@fontsource/zen-maru-gothic/files/zen-maru-gothic-latin-700-normal.woff2)}
+@font-face{font-family:Maru;font-weight:900;src:url(../fonts/node_modules/@fontsource/zen-maru-gothic/files/zen-maru-gothic-latin-900-normal.woff2)}
+@font-face{font-family:MaruJ;font-weight:900;src:url(../fonts/node_modules/@fontsource/zen-maru-gothic/files/zen-maru-gothic-japanese-900-normal.woff2)}
+*{box-sizing:border-box;margin:0}
+body{background:#222;padding:0;font-family:Maru,MaruJ,sans-serif;color:#141414}
+.scr{width:915px;height:412px;position:relative;overflow:hidden;margin-bottom:12px;padding:10px 18px 8px;display:flex;flex-direction:column;
+ background:#fffaf0;}
+.scr::before{content:"";position:absolute;inset:0;background-image:radial-gradient(#141414 1px,transparent 1.3px);background-size:7px 7px;opacity:.07}
+header{display:flex;align-items:center;justify-content:space-between;height:48px;position:relative;z-index:2}
+.time{font-family:Bang;font-size:40px;letter-spacing:1px;color:#fff;-webkit-text-stroke:2px #141414;paint-order:stroke;text-shadow:3px 3px 0 #141414}
+.time small{font-size:20px}
+.date{margin-left:12px;line-height:1.15;font-weight:700;font-size:14px}
+.date i{font-style:normal;font-weight:500;font-size:12px;color:#555}
+.date b{color:#e8364f}
+.left{display:flex;align-items:center}
+.right{display:flex;align-items:center;gap:10px}
+.tag{font-family:Bang;font-size:17px;letter-spacing:1.5px;background:#141414;color:#fff;padding:3px 10px 1px;transform:skewX(-8deg)}
+.mkt{font-weight:900;font-size:12px;border:2px solid #141414;border-radius:20px;padding:3px 9px;background:#fff}
+.mkt b{color:#e8364f}
+.btn{font-weight:900;font-size:13px;border:2.5px solid #141414;background:#ffd23f;padding:4px 10px;border-radius:8px;box-shadow:3px 3px 0 #141414}
+.stage{flex:1;position:relative;margin-top:6px;z-index:2}
+.panel{position:absolute;background:#fff;border:3px solid #141414;box-shadow:5px 5px 0 #141414;overflow:hidden}
+/* speed lines */
+.speed{position:absolute;inset:-40%;background:repeating-conic-gradient(from 0deg at 50% 50%,#141414 0 .6deg,transparent .6deg 4.5deg);opacity:.1;
+ -webkit-mask:radial-gradient(circle at 50% 50%,transparent 22%,#000 60%);mask:radial-gradient(circle at 50% 50%,transparent 22%,#000 60%)}
+.p1{left:0;top:0;bottom:24px;width:47%;transform:rotate(-.6deg);padding:20px 22px}
+.p2{right:0;top:0;bottom:24px;width:51%;transform:rotate(.5deg);padding:14px 16px}
+.lbl{font-family:Bang;font-size:18px;letter-spacing:2px;color:#e8364f}
+.nm{font-family:Bang;font-size:30px;letter-spacing:2px;line-height:1}
+.big{font-family:Bang;font-size:92px;line-height:.95;letter-spacing:1px;color:#fff;-webkit-text-stroke:3px #141414;paint-order:stroke;text-shadow:5px 5px 0 #141414;margin-top:8px;position:relative}
+.burst{position:absolute;left:170px;top:168px;width:200px;height:130px}
+.burst span{position:absolute;inset:0;display:grid;place-items:center;font-family:Bang;font-size:26px;letter-spacing:1px;transform:rotate(-8deg);padding-right:6px}
+.sub{position:absolute;left:22px;bottom:18px;font-weight:700;font-size:15px}
+.sub b{font-family:Bang;font-size:22px;letter-spacing:1px;margin-left:6px}
+.sfx{position:absolute;font-family:MaruJ;font-weight:900;color:#ff5d73;-webkit-text-stroke:3px #141414;paint-order:stroke;transform:rotate(12deg);z-index:5}
+.chart{position:absolute;left:16px;right:16px;top:44px;bottom:16px}
+.k{font-weight:900;font-size:12px;letter-spacing:2px;display:flex;justify-content:space-between}
+.k span{background:#141414;color:#fff;padding:2px 8px;border-radius:3px}
+.bubble{position:absolute;right:14px;bottom:36px;background:#fff;border:2.5px solid #141414;border-radius:18px;padding:7px 12px;font-weight:900;font-size:13px;z-index:6;box-shadow:3px 3px 0 #141414}
+.bubble::after{content:"";position:absolute;right:26px;bottom:-12px;width:16px;height:16px;background:#fff;border-right:2.5px solid #141414;border-bottom:2.5px solid #141414;transform:rotate(45deg) skew(10deg,10deg)}
+.dots{position:absolute;left:0;right:0;bottom:0;height:18px;display:flex;justify-content:center;gap:9px;align-items:center;z-index:3}
+.dots i{width:12px;height:12px;background:#fff;border:2px solid #141414;clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
+.dots i.on{background:#ffd23f;width:18px;height:18px}
+/* weather */
+.sky{background:linear-gradient(180deg,#5ab8f5 0%,#9fd8fb 55%,#e8f6ff 100%)}
+.sky::before{opacity:.06}
+.wpanel{left:0;top:0;bottom:24px;width:56%;padding:18px 22px;background:transparent;border:none;box-shadow:none}
+.temp{font-family:Bang;font-size:130px;line-height:.9;color:#fff;-webkit-text-stroke:4px #141414;paint-order:stroke;text-shadow:6px 6px 0 #141414}
+.cond{display:inline-block;margin-top:10px;background:#fff;border:3px solid #141414;border-radius:22px;padding:6px 16px;font-weight:900;font-size:18px;box-shadow:4px 4px 0 #141414}
+.wmeta{margin-top:12px;font-weight:700;font-size:14px;color:#0f2d4a}
+.hrs{right:0;top:0;bottom:24px;width:42%;padding:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:#fff}
+.hr{border:2.5px solid #141414;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:#fffaf0}
+.hr .t{font-weight:900;font-size:12px}.hr .ic{font-size:26px}.hr .v{font-family:Bang;font-size:24px;letter-spacing:1px}
+.hr .r{font-size:10px;font-weight:700;color:#1f7ae0}
+.hr.now{background:#ffd23f}
+</style>
+<!-- SCREEN 1: Nifty -->
+<div class="scr">
+ <header><div class="left"><div class="time">10:42<small>AM</small></div><div class="date">Mon, 9 Nov · <b>🪔 Diwali today</b><br><i>Kartik Amavasya · Vikram Samvat 2083</i></div></div>
+ <div class="right"><span class="mkt">NSE <b>●</b> OPEN</span><span class="tag">NIFTY 50</span><span class="btn">🇮🇳 Stocks ▾</span></div></header>
+ <div class="stage">
+  <div class="panel p1"><div class="speed"></div>
+   <div class="lbl">NSE · INDEX</div><div class="nm">NIFTY 50</div>
+   <div class="big">25,912</div>
+   <div class="sub">Sensex <b>84,630</b></div>
+  </div>
+  <svg class="burst" style="z-index:6" viewBox="0 0 150 110"><polygon fill="#ffd23f" stroke="#141414" stroke-width="3" stroke-linejoin="round" points="75,2 88,24 114,8 110,34 146,32 122,52 148,72 114,74 122,104 92,86 78,108 64,86 32,104 40,76 4,74 30,54 6,30 40,34 36,6 62,24"/></svg>
+  <div class="burst" style="z-index:7;pointer-events:none"><span>▲ +0.84%</span></div>
+  <div class="sfx" style="left:345px;top:4px;font-size:46px">ドン!</div>
+  <div class="panel p2">
+   <div class="k"><span>TODAY · LIVE</span><span style="background:#2bb673">+216 pts</span></div>
+   <svg class="chart" viewBox="0 0 400 200" preserveAspectRatio="none">
+    <defs><pattern id="tone" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="1.4" fill="#141414"/></pattern></defs>
+    <line x1="0" y1="120" x2="400" y2="120" stroke="#141414" stroke-width="1.5" stroke-dasharray="6 5"/>
+    <path d="M0,120 L30,128 60,112 90,118 120,96 150,102 180,80 210,88 240,66 270,72 300,50 330,58 360,38 390,30 L390,200 L0,200Z" fill="url(#tone)" opacity=".35"/>
+    <path d="M0,120 L30,128 60,112 90,118 120,96 150,102 180,80 210,88 240,66 270,72 300,50 330,58 360,38 390,30" fill="none" stroke="#141414" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M0,120 L30,128 60,112 90,118 120,96 150,102 180,80 210,88 240,66 270,72 300,50 330,58 360,38 390,30" fill="none" stroke="#2bb673" stroke-width="2.5" stroke-linejoin="round"/>
+    <circle cx="390" cy="30" r="8" fill="#ffd23f" stroke="#141414" stroke-width="3"/>
+   </svg>
+  </div>
+  <div class="bubble">Up all morning! 📈</div>
+  <div class="dots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+ </div>
+</div>
+<!-- SCREEN 2: Weather -->
+<div class="scr sky">
+ <svg style="position:absolute;left:0;top:0;width:915px;height:412px;z-index:1" viewBox="0 0 915 412">
+  <g fill="#fff" stroke="#141414" stroke-width="3">
+   <path d="M560,120 a30,30 0 0 1 45,-30 a40,40 0 0 1 75,5 a30,30 0 0 1 40,25 z"/>
+   <path d="M-10,395 a40,40 0 0 1 70,-35 a55,55 0 0 1 100,0 a45,45 0 0 1 80,20 a30,30 0 0 1 50,15 z"/>
+  </g>
+  <g transform="translate(470,70)"><g stroke="#141414" stroke-width="3" fill="#ffd23f">
+   <circle r="30"/></g>
+   <g stroke="#141414" stroke-width="4" stroke-linecap="round"><line x1="0" y1="-42" x2="0" y2="-56"/><line x1="0" y1="42" x2="0" y2="56"/><line x1="-42" y1="0" x2="-56" y2="0"/><line x1="42" y1="0" x2="56" y2="0"/><line x1="30" y1="30" x2="40" y2="40"/><line x1="-30" y1="-30" x2="-40" y2="-40"/><line x1="30" y1="-30" x2="40" y2="-40"/><line x1="-30" y1="30" x2="-40" y2="40"/></g>
+   <circle cx="-10" cy="-4" r="3" fill="#141414"/><circle cx="10" cy="-4" r="3" fill="#141414"/><path d="M-9,8 q9,8 18,0" stroke="#141414" stroke-width="3" fill="none" stroke-linecap="round"/>
+   <circle cx="-18" cy="6" r="4" fill="#ff8fa3"/><circle cx="18" cy="6" r="4" fill="#ff8fa3"/></g>
+ </svg>
+ <header><div class="left"><div class="time">10:42<small>AM</small></div><div class="date">Mon, 9 Nov · <b>🪔 Diwali today</b><br><i>Kartik Amavasya · Vikram Samvat 2083</i></div></div>
+ <div class="right"><span class="mkt">NSE <b>●</b> OPEN</span><span class="tag">KORAMANGALA</span><span class="btn">All ▾</span></div></header>
+ <div class="stage">
+  <div class="panel wpanel">
+   <div class="temp">27°</div>
+   <div class="cond">☀️ Sunny &amp; clear</div>
+   <div class="wmeta">Feels 29° · Next 24h high 29° / low 18° · AQI 42 Good</div>
+  </div>
+  <div class="panel hrs">
+   <div class="hr now"><span class="t">NOW</span><span class="ic">☀️</span><span class="v">27°</span><span class="r">0%</span></div>
+   <div class="hr"><span class="t">1 PM</span><span class="ic">⛅</span><span class="v">29°</span><span class="r">5%</span></div>
+   <div class="hr"><span class="t">4 PM</span><span class="ic">🌦️</span><span class="v">27°</span><span class="r">40%</span></div>
+   <div class="hr"><span class="t">7 PM</span><span class="ic">☁️</span><span class="v">23°</span><span class="r">20%</span></div>
+   <div class="hr"><span class="t">10 PM</span><span class="ic">🌙</span><span class="v">20°</span><span class="r">5%</span></div>
+   <div class="hr"><span class="t">1 AM</span><span class="ic">🌙</span><span class="v">19°</span><span class="r">0%</span></div>
+  </div>
+  <div class="sfx" style="left:330px;top:150px;font-size:34px;color:#ffd23f;transform:rotate(-10deg)">ポカポカ</div>
+  <div class="dots"><i></i><i></i><i class="on"></i><i></i><i></i><i></i><i></i></div>
+ </div>
+</div>
