@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v12.0-2026-11-07">
+<meta name="ticker-version" content="v12.1-2026-11-07">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -342,6 +342,8 @@
   .viewmenu.open{display:block}
   .viewmenu .looks{display:grid;grid-template-columns:1fr 1fr;gap:2px;min-width:290px}
   .viewmenu .looks button{white-space:nowrap}
+  .viewmenu .diag{font-size:10px;opacity:.55;padding:6px 12px 4px;max-width:290px;line-height:1.35}
+  .viewmenu .diag:empty{display:none}
   .viewmenu{max-height:calc(100vh - 64px);max-height:calc(100dvh - 64px);overflow-y:auto;overscroll-behavior:contain}
   @media (max-height:520px){ .viewmenu button{padding:7px 12px;font-size:13px} .viewmenu .mh{padding:4px 12px 1px} }
   .viewmenu .mh{font-size:10px;letter-spacing:2px;text-transform:uppercase;opacity:.55;padding:6px 12px 2px}
@@ -762,13 +764,13 @@
   body.anime::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:7;background:repeating-linear-gradient(0deg,rgba(0,0,0,.07) 0 1px,transparent 1px 3px)}
   body.anime.night::after{display:none}
   /* rain and petals drift over everything, very faintly */
-  .fx-rain{position:absolute;inset:-20%;opacity:0;transition:opacity 2s;transform:rotate(8deg);
-    background:repeating-linear-gradient(90deg,transparent 0 31px,rgba(200,225,255,.55) 31px 32px,transparent 32px 57px);
-    -webkit-mask:repeating-linear-gradient(0deg,#000 0 26px,transparent 26px 60px);mask:repeating-linear-gradient(0deg,#000 0 26px,transparent 26px 60px);
-    animation:aniRain .55s linear infinite}
-  @keyframes aniRain{to{-webkit-mask-position:0 60px;mask-position:0 60px}}
-  .fx-rain.on{opacity:.32}
-  .petal{position:absolute;top:-4vh;width:12px;height:8px;border-radius:70% 0 70% 0;background:#ffc2da;border:1px solid #c2457e;opacity:0;transition:opacity 2s}
+  .fx-rain{position:absolute;left:-10%;width:120%;top:-120px;bottom:-120px;opacity:0;transition:opacity 2s;will-change:transform;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg stroke='%23d2e6ff' stroke-width='1.2' stroke-linecap='round'%3E%3Cline x1='10' y1='4' x2='6' y2='30'/%3E%3Cline x1='52' y1='50' x2='48' y2='76'/%3E%3Cline x1='94' y1='14' x2='90' y2='40'/%3E%3Cline x1='30' y1='84' x2='26' y2='110'/%3E%3Cline x1='76' y1='92' x2='72' y2='118'/%3E%3C/g%3E%3C/svg%3E") 0 0/120px 120px;
+    animation:aniRain .7s linear infinite;animation-play-state:paused}
+  @keyframes aniRain{from{transform:translate3d(0,-120px,0)}to{transform:translate3d(0,0,0)}}
+  .fx-rain.on{animation-play-state:running}
+  .fx-rain.on{opacity:.45}
+  .petal{position:absolute;top:-4vh;will-change:transform;width:12px;height:8px;border-radius:70% 0 70% 0;background:#ffc2da;border:1px solid #c2457e;opacity:0;transition:opacity 2s}
   .ani-fx.petals .petal{opacity:.9;animation:aniPetal linear infinite}
   @keyframes aniPetal{0%{transform:translate(0,0) rotate(0)}50%{transform:translate(-6vw,55vh) rotate(200deg)}100%{transform:translate(4vw,112vh) rotate(420deg)}}
   /* header sits on the sky: white type with an ink outline */
@@ -878,7 +880,7 @@
       <div class="mkt" id="mkt"></div>
       <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
       <div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
-        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Theme</div><div class="looks"><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button><button data-look="anime">🌸 Anime 90s</button></div></div></div>
+        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Theme</div><div class="looks"><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button><button data-look="anime">🌸 Anime 90s</button></div><div class="diag" id="diag"></div></div></div>
     </div>
   </header>
 
@@ -1603,6 +1605,7 @@ setInterval(() => {
   let last = 0; try { last = +sessionStorage.getItem('deskTickerReloadAt') || 0; } catch (e) {}
   if (Date.now() - last < 15 * 60 * 1000) { refreshAll(); return; }
   try { sessionStorage.setItem('deskTickerReloadAt', Date.now()); } catch (e) {}
+  noteRestart('no fresh sheet data for 12 min');
   location.reload();
 }, 60 * 1000);
 
@@ -1958,8 +1961,21 @@ function modeNow() {
   return base === 'night' && Date.now() < peekUntil ? 'evening' : base;
 }
 let lastShowAt = Date.now();
+var pendingResume = null;               // where the screen was before a reload (used once, within the first minute)
+try {
+  const r = JSON.parse(sessionStorage.getItem('deskTickerSlide') || 'null');
+  if (r && Date.now() - r.at < 15 * 60 * 1000) pendingResume = r;
+} catch (e) {}
+setTimeout(() => { pendingResume = null; }, 60 * 1000);
+function noteRestart(why) {          // a short log of self-restarts, shown at the bottom of the menu
+  try {
+    const a = JSON.parse(localStorage.getItem('deskTickerRestarts') || '[]'); a.push({ at: Date.now(), why });
+    localStorage.setItem('deskTickerRestarts', JSON.stringify(a.slice(-10)));
+  } catch (e) {}
+}
 function show(i) {
   lastShowAt = Date.now();
+  try { sessionStorage.setItem('deskTickerSlide', JSON.stringify({ t: slides[i].dataset.title, at: Date.now(), v: VIEW || 'all' })); } catch (e) {}
   allSlides.forEach(s => s.classList.toggle('active', s === slides[i]));
   [...bars.children].forEach((b, k) => {
     b.className = k < i ? 'done' : '';
@@ -1989,8 +2005,8 @@ let rotationKicks = 0;
 setInterval(() => {
   const should = mode !== 'night' && !locked && !document.body.classList.contains('paused') && slides.length > 1 && !document.hidden;
   if (!should || Date.now() - lastShowAt < SLIDE_SECONDS * 2500) { rotationKicks = 0; return; }
-  console.warn('rotation stalled — restarting');
-  if (++rotationKicks > 3) { location.reload(); return; }
+  console.warn('rotation stalled — restarting'); noteRestart('rotation nudged');
+  if (++rotationKicks > 3) { noteRestart('slides stopped moving'); location.reload(); return; }
   next(); start();
 }, 10 * 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && mode !== 'night' && !locked) start(); });
@@ -2022,8 +2038,9 @@ function setLock(on, quiet) {
   start();
   if (!quiet) toast(on ? 'Pinned · double-tap to resume' : 'Rotation resumed');
 }
-function applyMode(force) {
+function applyMode(force, fresh) {
   const m = modeNow(); if (m === mode && !force) return;
+  const sameDay = m === mode && !fresh;
   if (m !== mode && locked) setLock(false, true);      // a new part of the day starts unpinned
   const keep = slides[idx];
   mode = m;
@@ -2036,7 +2053,12 @@ function applyMode(force) {
     && !(s.dataset.needs === 'news' && !newsReady) && !(s.querySelector('#newsMK') && !document.getElementById('newsMK').children.length));
   bars.innerHTML = '';
   slides.forEach(() => { const s = document.createElement('span'); s.appendChild(document.createElement('b')); bars.appendChild(s); });
-  idx = locked && slides.includes(keep) ? slides.indexOf(keep) : 0;
+  idx = (locked || sameDay) && slides.includes(keep) ? slides.indexOf(keep) : 0;
+  if (fresh) pendingResume = null;
+  if (pendingResume && pendingResume.v === (VIEW || 'all')) {   // just reloaded: carry on from where the screen was
+    const k = slides.findIndex(s => s.dataset.title === pendingResume.t);
+    if (k >= 0) { idx = (k + 1) % slides.length; pendingResume = null; }
+  }
   show(idx); start();
 }
 let lastTap = 0, tapTimer;
@@ -2117,12 +2139,20 @@ function autoView() {
   setView(want);
 }
 function setView(v) {
+  const changed = v !== VIEW;
   VIEW = v; try { localStorage.setItem('deskTickerView', v); } catch (e) {}
   document.getElementById('viewBtn').textContent = (v === 'in' ? '🇮🇳 Stocks' : v === 'us' ? '🇺🇸 Stocks' : 'All') + ' ▾';
   document.querySelectorAll('#viewMenu button[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === v));
-  if (typeof applyMode === 'function' && mode) { idx = 0; applyMode(true); }
+  if (typeof applyMode === 'function' && mode) { if (changed) idx = 0; applyMode(true, changed); }
 }
-document.getElementById('viewBtn').addEventListener('click', e => { e.stopPropagation(); document.getElementById('viewMenu').classList.toggle('open'); });
+document.getElementById('viewBtn').addEventListener('click', e => {
+  e.stopPropagation(); document.getElementById('viewMenu').classList.toggle('open');
+  try {                                  // what the app did by itself in the last 24 h (helps when something looks stuck)
+    const a = JSON.parse(localStorage.getItem('deskTickerRestarts') || '[]').filter(x => Date.now() - x.at < 864e5);
+    const f = x => new Date(x.at).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit', timeZone:'Asia/Kolkata' }) + ' ' + x.why;
+    document.getElementById('diag').textContent = a.length ? 'Self-restarts today: ' + a.slice(-3).reverse().map(f).join(' · ') : '';
+  } catch (x) {}
+});
 document.querySelectorAll('#viewMenu button[data-v]').forEach(b => b.addEventListener('click', e => {
   e.stopPropagation(); document.getElementById('viewMenu').classList.remove('open'); setView(b.dataset.v);
 }));
@@ -2678,7 +2708,7 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.se
 // pick up a new version of the display by itself (checked every 30 min)
 setInterval(() => { if (navigator.onLine) fetch(location.href.split('#')[0] + (location.search ? '&' : '?') + 'v=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(t => {
   const v = (t.match(/<meta name="ticker-version" content="([^"]+)"/) || [])[1];
-  if (v && v !== document.querySelector('meta[name="ticker-version"]').content) location.reload();
+  if (v && v !== document.querySelector('meta[name="ticker-version"]').content) { noteRestart('new version'); location.reload(); }
 }).catch(() => {}); }, 30 * 60 * 1000);
 </script>
 </body>
