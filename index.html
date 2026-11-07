@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v12.1-2026-11-07">
+<meta name="ticker-version" content="v12.2-2026-11-08">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1028,7 +1028,12 @@ const MODES = { day: '06:00', evening: '18:30', night: '23:30' };
 const LOCK_MINUTES = 30;
 const HOME = { lat: 12.9352, lon: 77.6245, name: 'Koramangala, Bengaluru' };
 const AWAY_KM = 20;   // further than this from home (by the phone's location) = show local weather instead of HAL
-let LAT = HOME.lat, LON = HOME.lon, away = false;
+let LAT = HOME.lat, LON = HOME.lon, away = false, awayName = '';
+var locNote = '';      // why the phone's location isn't being used, shown under the weather
+try {                  // still travelling? start in the last place we saw (re-checked shortly after start)
+  const sv = JSON.parse(localStorage.getItem('deskTickerAway') || 'null');
+  if (sv && Date.now() - sv.at < 24 * 3600e3) { LAT = sv.lat; LON = sv.lon; away = true; awayName = sv.name; }
+} catch (e) {}
 // Weather: "NOW" (big temperature, humidity, wind, conditions) is MEASURED at HAL Airport, ~2–3 km away.
 // The FORECAST (high/low, rain, next 6 hours) comes from WEATHER_SOURCE: 'metno' (MET Norway) or 'openmeteo'.
 // The two are never mixed into one number. If HAL's report is older than HAL_MAX_AGE minutes, "now" says so.
@@ -2445,7 +2450,8 @@ function renderWeather() {
     (away ? 'Now: forecast estimate for your location'
        : o ? 'Now: measured at HAL Airport, ' + fmt(o.at)
        : 'Now: forecast estimate' + (wxObs ? ' (HAL report from ' + fmt(wxObs.at) + ' is too old)' : ' (no HAL report yet)')) +
-    ' · Forecast: ' + (met ? 'MET Norway' : 'Open-Meteo') + (Math.abs(wxBias) >= 0.5 ? ', adjusted to HAL (' + (wxBias > 0 ? '+' : '−') + Math.abs(wxBias).toFixed(0) + '°)' : '');
+    ' · Forecast: ' + (met ? 'MET Norway' : 'Open-Meteo') + (Math.abs(wxBias) >= 0.5 ? ', adjusted to HAL (' + (wxBias > 0 ? '+' : '−') + Math.abs(wxBias).toFixed(0) + '°)' : '') +
+    (locNote && !away ? ' · Location: ' + locNote : '');
   // next 6 hours
   const h = wxModel && wxModel.hourly; if (!h || !h.time) return;
   const nowKey = new Date().toLocaleString('sv-SE', { timeZone:'Asia/Kolkata' }).slice(0, 13).replace(' ', 'T');
@@ -2602,24 +2608,40 @@ function setPlace(lat, lon, name, isAway) {
   if (slides[idx] === sec) document.getElementById('title').textContent = name;
   renderSky(); loadWeather(); loadAQI();
 }
-let awayVotes = 0;
+let awayVotes = 0, locRetry;
+function locSay(t) { if (locNote === t) return; locNote = t; if (typeof renderWeather === 'function' && wxModel) renderWeather(); }
 function checkLocation() {
   if (!('geolocation' in navigator) || location.protocol !== 'https:') return;
+  clearTimeout(locRetry);
   navigator.geolocation.getCurrentPosition(async p => {
-    if (p.coords.accuracy > 5000) return;                                                // too rough a fix (e.g. from the mobile network) — ignore
     const lat = +p.coords.latitude.toFixed(2), lon = +p.coords.longitude.toFixed(2);   // rounded to ~1 km
-    if (kmBetween(lat, lon, HOME.lat, HOME.lon) <= AWAY_KM) { awayVotes = 0; if (away) setPlace(HOME.lat, HOME.lon, HOME.name, false); return; }
-    if (!away && ++awayVotes < 2) { setTimeout(checkLocation, 5 * 60 * 1000); return; }   // switch only after two away readings in a row
-    if (away && kmBetween(lat, lon, LAT, LON) < 3) return;                              // still in the same place
+    const d = kmBetween(lat, lon, HOME.lat, HOME.lon), acc = p.coords.accuracy / 1000;
+    // a rough fix is fine when you're clearly far away (another city); near home it has to be sharp
+    if (acc > Math.max(5, d / 4)) { locSay('too rough (±' + Math.round(acc) + ' km), retrying'); locRetry = setTimeout(checkLocation, 2 * 60 * 1000); return; }
+    locSay('');
+    if (d <= AWAY_KM) {
+      awayVotes = 0; try { localStorage.removeItem('deskTickerAway'); } catch (e) {}
+      if (away) setPlace(HOME.lat, HOME.lon, HOME.name, false);
+      return;
+    }
+    // just outside the city: wait for a second reading; clearly another city: switch now
+    if (!away && d < 60 && ++awayVotes < 2) { locRetry = setTimeout(checkLocation, 3 * 60 * 1000); return; }
+    if (away && kmBetween(lat, lon, LAT, LON) < 3 && awayName) return;                // still in the same place
     let name = 'Your location';
     try {
       const g = await (await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`)).json();
       const a = g.locality || g.city, b = g.city && g.city !== a ? g.city : g.principalSubdivision;
       name = [a, b].filter(Boolean).join(', ') || name;
     } catch (e) {}
+    awayName = name;
+    try { localStorage.setItem('deskTickerAway', JSON.stringify({ lat, lon, name, at: Date.now() })); } catch (e) {}
     setPlace(lat, lon, name, true);
-  }, () => {}, { enableHighAccuracy: false, maximumAge: 30 * 60 * 1000, timeout: 20000 });
+  }, err => {
+    locSay(err.code === 1 ? 'not allowed for this site' : 'not available yet, retrying');
+    if (err.code !== 1) locRetry = setTimeout(checkLocation, 2 * 60 * 1000);
+  }, { enableHighAccuracy: false, maximumAge: 5 * 60 * 1000, timeout: 30000 });
 }
+if (away && awayName) { const sec = document.querySelector('section[data-wx]'); if (sec) sec.dataset.title = awayName; }
 checkLocation(); setInterval(checkLocation, 30 * 60 * 1000);
 
 /* ---------- GOLD & SILVER (gold-api.com + open.er-api.com, no key) ---------- */
