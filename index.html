@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v11.6-2026-11-07">
+<meta name="ticker-version" content="v12.0-2026-11-07">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Desk Ticker">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&family=Manrope:wght@400;500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen:wght@400;700&family=VT323&family=Share+Tech+Mono&family=Playfair+Display:wght@400;700;900&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&family=Manrope:wght@400;500;600;700;800&family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen:wght@400;700&family=VT323&family=Share+Tech+Mono&family=Playfair+Display:wght@400;700;900&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600&family=Space+Grotesk:wght@400;500;700&family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#07080c; --fg:#f2efe8; --dim:#8b90a0; --line:rgba(255,255,255,.08);
@@ -340,6 +340,10 @@
   .viewmenu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:190px;padding:6px;border-radius:14px;
     background:rgba(20,24,34,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
   .viewmenu.open{display:block}
+  .viewmenu .looks{display:grid;grid-template-columns:1fr 1fr;gap:2px;min-width:290px}
+  .viewmenu .looks button{white-space:nowrap}
+  .viewmenu{max-height:calc(100vh - 64px);max-height:calc(100dvh - 64px);overflow-y:auto;overscroll-behavior:contain}
+  @media (max-height:520px){ .viewmenu button{padding:7px 12px;font-size:13px} .viewmenu .mh{padding:4px 12px 1px} }
   .viewmenu .mh{font-size:10px;letter-spacing:2px;text-transform:uppercase;opacity:.55;padding:6px 12px 2px}
   .viewmenu button{display:block;width:100%;text-align:left;font:inherit;font-size:14px;color:#fff;background:none;border:0;padding:10px 12px;border-radius:10px;cursor:pointer}
   .viewmenu button.on{background:rgba(255,255,255,.14);font-weight:600}
@@ -738,12 +742,133 @@
   body.led .gauge{color:#f4f4f4} body.led .gauge path{stroke-linecap:butt}
   body.led .spx-p{color:#fff} body.led .spx-c.up{color:var(--up)} body.led .spx-c.down{color:var(--down)}
   body.led .mood-v .chg.up{color:var(--up)} body.led .mood-v .chg.down{color:var(--down)}
+  /* =================== 90s ANIME (Japan) — cel-shaded cards over a scene that follows the weather and the sun =================== */
+  .ani, .ani-fx{display:none}
+  body.anime{--ink:#2a1a5c;--cel:#fff8f1;--fg:#2a1a5c;--dim:#6b5a92;--line:rgba(42,26,92,.22);--up:#14a35a;--down:#e0457b;
+    --grid:rgba(42,26,92,.35);--gridtxt:#6b5a92;--edge:#2a1a5c;--band:rgba(42,26,92,.07);--hd:#fff;
+    background:#5aa8f0;color:var(--fg);font-family:"Zen Maru Gothic","Space Grotesk",sans-serif}
+  body.anime.anidark{--ink:#120a35;--cel:rgba(20,12,58,.88);--fg:#fff;--dim:#c9b9ff;--line:rgba(255,111,181,.3);--up:#5dff9d;--down:#ff7aa8;
+    --grid:rgba(255,255,255,.3);--gridtxt:#c9b9ff;--edge:#ff6fb5;--band:rgba(255,111,181,.07);background:#140c3a}
+  body.anime *{font-family:inherit}
+  body.anime .ani{display:block;position:fixed;inset:0;z-index:0;overflow:hidden}
+  body.anime .ani-fx{display:block;position:fixed;inset:0;z-index:6;pointer-events:none;overflow:hidden}
+  body.anime.night .ani, body.anime.night .ani-fx{display:none}
+  .ani-s{position:absolute;inset:0;opacity:0;transition:opacity 2.5s ease}
+  .ani-s.on{opacity:1}
+  .ani-s svg{position:absolute;display:block}
+  .ani-s .skyl{left:0;bottom:0;width:100%;height:30vh}
+  .ani-s .wires{left:0;top:3vh;width:100%;height:14vh}
+  /* scanlines, like an old tape */
+  body.anime::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:7;background:repeating-linear-gradient(0deg,rgba(0,0,0,.07) 0 1px,transparent 1px 3px)}
+  body.anime.night::after{display:none}
+  /* rain and petals drift over everything, very faintly */
+  .fx-rain{position:absolute;inset:-20%;opacity:0;transition:opacity 2s;transform:rotate(8deg);
+    background:repeating-linear-gradient(90deg,transparent 0 31px,rgba(200,225,255,.55) 31px 32px,transparent 32px 57px);
+    -webkit-mask:repeating-linear-gradient(0deg,#000 0 26px,transparent 26px 60px);mask:repeating-linear-gradient(0deg,#000 0 26px,transparent 26px 60px);
+    animation:aniRain .55s linear infinite}
+  @keyframes aniRain{to{-webkit-mask-position:0 60px;mask-position:0 60px}}
+  .fx-rain.on{opacity:.32}
+  .petal{position:absolute;top:-4vh;width:12px;height:8px;border-radius:70% 0 70% 0;background:#ffc2da;border:1px solid #c2457e;opacity:0;transition:opacity 2s}
+  .ani-fx.petals .petal{opacity:.9;animation:aniPetal linear infinite}
+  @keyframes aniPetal{0%{transform:translate(0,0) rotate(0)}50%{transform:translate(-6vw,55vh) rotate(200deg)}100%{transform:translate(4vw,112vh) rotate(420deg)}}
+  /* header sits on the sky: white type with an ink outline */
+  body.anime .time{font-family:"Dela Gothic One",sans-serif;font-weight:400;letter-spacing:0;color:#fff;text-shadow:2px 2px 0 var(--ink),0 0 10px rgba(255,255,255,.35)}
+  body.anime .time .sec{color:#fff}
+  body.anime .date, body.anime .pan, body.anime .pfest, body.anime .mkt, body.anime .hwx{color:#fff;font-weight:900;text-shadow:1px 1px 0 var(--ink),0 0 6px rgba(0,0,0,.25)}
+  body.anime .pan b, body.anime .pfest b{color:#ffe36e}
+  body.anime .mkt .open{color:#5dff9d} body.anime .mkt .shut{color:#ff8a8a}
+  body.anime .pill{font-family:"Dela Gothic One",sans-serif;background:#ffe36e;color:#2a1a5c;border:2.5px solid #2a1a5c;border-radius:5px;box-shadow:3px 3px 0 #2a1a5c;
+    padding:3px 10px;letter-spacing:1px;backdrop-filter:none;text-transform:uppercase;font-size:clamp(10px,3.2vh,14px)}
+  body.anime .pill::before{content:"EP." attr(data-ep) " ·";margin-right:-4px}
+  body.anime .pill i{display:none}
+  body.anime.anidark .pill{background:#7ff3ff}
+  body.anime .viewbtn{background:#fff;color:#2a1a5c;border:2.5px solid #2a1a5c;border-radius:14px;box-shadow:3px 3px 0 #2a1a5c;font-weight:900}
+  body.anime .viewmenu{background:#fff8f1;border:3px solid #2a1a5c;border-radius:14px;box-shadow:5px 5px 0 #2a1a5c}
+  body.anime .viewmenu button{color:#2a1a5c;font-weight:700} body.anime .viewmenu button.on{background:#ffe36e;font-weight:900}
+  body.anime .viewmenu .mh{color:#2a1a5c}
+  body.anime .navbtn{background:#fff;color:#2a1a5c;border:2.5px solid #2a1a5c;box-shadow:3px 3px 0 #2a1a5c;backdrop-filter:none}
+  body.anime .toast{background:#fff;color:#2a1a5c;border:2.5px solid #2a1a5c;box-shadow:3px 3px 0 #2a1a5c;font-weight:900}
+  /* cel-shaded cards: flat fill, thick ink outline, hard shadow, one diagonal shade band */
+  body.anime .card{background:linear-gradient(115deg,transparent 64%,var(--band) 64%),var(--cel);border:3px solid var(--edge);border-radius:18px;
+    box-shadow:5px 5px 0 var(--ink);backdrop-filter:none;-webkit-backdrop-filter:none;color:var(--fg)}
+  body.anime.anidark .card{box-shadow:5px 5px 0 var(--ink),0 0 16px rgba(255,111,181,.35)}
+  body.anime .slide{transform:none;transition:opacity 1s ease}
+  /* numbers: chunky title-card type */
+  body.anime .ix-p, body.anime .p, body.anime .fx-p, body.anime .wx-temp, body.anime .metal .price, body.anime .spx-p, body.anime .mood-k,
+  body.anime .stat .v, body.anime .ix-sub b, body.anime .hr .tp, body.anime .n-time, body.anime .chg, body.anime .fx-c, body.anime .dchg, body.anime .spx-c{
+    font-family:"Dela Gothic One",sans-serif;font-weight:400;letter-spacing:0}
+  body.anime .ix-p, body.anime .wx-temp, body.anime .spx-p, body.anime .metal .price, body.anime .fx-p{
+    background:linear-gradient(180deg,#fff7a8 0%,#ffd23f 45%,#ff8a2a 53%,#ff5a3a 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+    -webkit-text-stroke:2.5px var(--ink);paint-order:stroke fill;filter:drop-shadow(3px 3px 0 var(--ink));animation:none}
+  body.anime .wx-temp{background-image:linear-gradient(180deg,#fff 0%,#fff 50%,#cfe6ff 51%,#8fc0ff 100%)}
+  body.anime .metal.silver .price{background-image:linear-gradient(180deg,#fff 0%,#e9eef5 50%,#aab4c3 52%,#d7dee8 100%)}
+  body.anime .fx-p{background-image:linear-gradient(180deg,#fff 0%,#d9fff6 48%,#5fd6be 52%,#2fb39a 100%)}
+  body.anime.anidark .ix-p, body.anime.anidark .spx-p{background-image:linear-gradient(180deg,#fff 0%,#bfe9ff 40%,#4a4aa0 50%,#ff8ad1 62%,#ffe3f3 100%)}
+  body.anime .p{color:var(--fg)}
+  body.anime .ix-p, body.anime .fx-p, body.anime .metal .price, body.anime .spx-p, body.anime .wx-temp{padding-right:.1em;width:fit-content;max-width:none;white-space:nowrap}
+  body.anime .ix-p{font-size:clamp(26px,min(14vh,6.6vw),64px)}
+  body.anime .fx-p{font-size:clamp(22px,min(11vh,5.2vw),50px)}
+  body.anime .metal .price{font-size:clamp(24px,min(13vh,5.2vw),58px)}
+  body.anime .label{letter-spacing:1px}
+  body.anime .time{text-shadow:2px 2px 0 var(--ink),-1px -1px 0 var(--ink),1px -1px 0 var(--ink),-1px 1px 0 var(--ink)}
+  body.anime .chg.up, body.anime .fx-c.up, body.anime .dchg.up, body.anime .spx-c.up, body.anime .mood-v .chg.up{color:var(--up)}
+  body.anime .chg.down, body.anime .fx-c.down, body.anime .dchg.down, body.anime .spx-c.down, body.anime .mood-v .chg.down{color:var(--down)}
+  body.anime .chg.big{display:inline-block;color:#fff!important;border:3px solid var(--ink);border-radius:30px;padding:2px 16px 3px;box-shadow:3px 3px 0 var(--ink);background:#23b26d}
+  body.anime .chg.big.down{background:#e0457b} body.anime .chg.big:empty{display:none}
+  body.anime .ix-sub b{color:var(--fg)}
+  /* labels */
+  body.anime .ix-name, body.anime .fx-k, body.anime .tk, body.anime .k, body.anime .label, body.anime .spx-k, body.anime .nhead, body.anime .chip,
+  body.anime .nm, body.anime .wx-desc, body.anime .mood-v, body.anime .per{font-weight:900}
+  body.anime .ix-name, body.anime .fx-k, body.anime .tk, body.anime .k, body.anime .label, body.anime .spx-k, body.anime .chip, body.anime .wx-feel, body.anime .wx-sun,
+  body.anime .src, body.anime .wx-src, body.anime .nlist .sr, body.anime .mood-s, body.anime .mood-leg, body.anime .spx-s, body.anime .ix-sub, body.anime .per span, body.anime .tev{color:var(--dim)}
+  body.anime .ix-name{color:#e0457b;letter-spacing:3px} body.anime.anidark .ix-name{color:#7ff3ff}
+  body.anime .chip{background:transparent;border:2px solid var(--ink);color:var(--fg)} body.anime .chip .dot{background:#e0457b}
+  /* subtitles: the yellow outlined line of an old subtitled tape */
+  body.anime .mnote{color:#ffe94a;font-weight:900;font-size:clamp(11px,3.4vh,15px);letter-spacing:.3px;
+    text-shadow:-1.5px -1.5px 0 #111,1.5px -1.5px 0 #111,-1.5px 1.5px 0 #111,1.5px 1.5px 0 #111,0 1.5px 0 #111,0 -1.5px 0 #111}
+  body.anime .mnote::before{content:"[ "} body.anime .mnote::after{content:" ]"} body.anime .mnote:empty::before, body.anime .mnote:empty::after{content:none}
+  /* stock tiles */
+  body.anime .tile, body.anime .tile.up, body.anime .tile.down{border-color:var(--edge)}
+  body.anime .tile.up{background:linear-gradient(160deg,rgba(35,178,109,.20),transparent 55%),var(--cel)}
+  body.anime .tile.down{background:linear-gradient(160deg,rgba(224,69,123,.20),transparent 55%),var(--cel)}
+  body.anime .tile.up::before, body.anime .tile.down::before{display:none}
+  body.anime .logo{border:2px solid var(--ink);border-radius:8px!important}
+  body.anime .badge{background:#ffe36e;color:#2a1a5c;border:2px solid var(--ink);border-radius:8px!important;font-weight:900}
+  body.anime .badge.emo{background:transparent!important;border:0}
+  /* currencies */
+  body.anime .fxc, body.anime .fxc.up, body.anime .fxc.down{border-color:var(--edge)}
+  /* weather */
+  body.anime .wx2{background-image:linear-gradient(115deg,transparent 64%,var(--band) 64%)!important}
+  body.anime .stat, body.anime .hr{background:rgba(255,255,255,.55);border:2.5px solid var(--ink);border-radius:12px;box-shadow:2px 2px 0 var(--ink)}
+  body.anime.anidark .stat, body.anime.anidark .hr{background:rgba(255,255,255,.06);border-color:rgba(255,111,181,.7)}
+  body.anime .hr .rn{color:#2f7fe0} body.anime.anidark .hr .rn{color:#7ff3ff}
+  /* news */
+  body.anime .nhead{font-family:"Dela Gothic One",sans-serif;font-weight:400;border-bottom:3px solid var(--edge)}
+  body.anime .nlist .no{font-family:"Dela Gothic One",sans-serif;color:#fff;background:#e0457b;border:2px solid var(--ink);border-radius:6px;padding:0 5px;font-size:clamp(10px,3vh,13px)}
+  body.anime .nlist .tt{font-weight:900}
+  /* metals */
+  body.anime .metal::before{display:none}
+  /* market mood, S&P */
+  body.anime .gauge{color:var(--fg)} body.anime .gauge .gl{font-family:"Zen Maru Gothic",sans-serif;font-weight:900}
+  body.anime #vixMood{filter:none}
+  body.anime #sparkSvg circle{stroke:var(--ink)!important}
+  body.anime #sparkSvg text{font-family:"Zen Maru Gothic",sans-serif;font-weight:700}
+  body.anime .w52{font-weight:900}
+  /* progress: little stars */
+  body.anime footer{justify-content:center;gap:9px;padding-top:6px}
+  body.anime footer span{flex:none;width:12px;height:12px;border-radius:0;background:#fff;overflow:visible;
+    clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
+  body.anime footer span b{display:none}
+  body.anime footer span.on{background:#ffe36e;transform:scale(1.45)}
+  /* late-night clock: soft pink title-card numerals on black */
+  body.anime .n-box{color:#ff9ad0}
 </style>
 </head>
 <body>
 <div class="scene" id="sceneA"></div><div class="scene" id="sceneB"></div>
 <div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
 <div class="grain"></div><div class="vignette"></div>
+<div class="ani" id="ani"></div><div class="ani-fx" id="aniFx"><div class="fx-rain" id="fxRain"></div></div>
 
 <div class="app">
   <header>
@@ -753,7 +878,7 @@
       <div class="mkt" id="mkt"></div>
       <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
       <div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
-        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Theme</div><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button></div></div>
+        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Theme</div><div class="looks"><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button><button data-look="anime">🌸 Anime 90s</button></div></div></div>
     </div>
   </header>
 
@@ -889,7 +1014,7 @@ const SLIDE_SECONDS = 15;
 // Look: 'calm' (minimal, quiet) or 'vivid' (glows, tints, animated background).
 // Look (each phone remembers its choice): 'pixel' LED-matrix panel like a Tidbyt/Radar, 'ambient' smart-display,
 // 'retro' green CRT terminal, 'calm' minimal dark.
-const LOOKS = { ambient: 'ambient', paper: 'paper', swiss: 'swiss', retro: 'retro', calm: 'calm' };   // 'pixel' (led) is parked for now
+const LOOKS = { ambient: 'ambient', paper: 'paper', swiss: 'swiss', retro: 'retro', calm: 'calm', anime: 'anime' };   // 'pixel' (led) is parked for now
 let LOOK = 'ambient';
 try { const l = localStorage.getItem('deskTickerLook'); if (LOOKS[l]) LOOK = l; } catch (e) {}
 const THEME = LOOKS[LOOK];
@@ -1195,7 +1320,7 @@ function drawSpark() {
   const Y = v => padT + (hi - v) * (H - padT - padB) / (hi - lo);
   const line = pts.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join(' ');
   const up = lastPrev == null || lastLive >= lastPrev;
-  const col = THEME === 'swiss' ? (up ? '#2f8a5c' : '#d6452f') : up ? '#3ddc84' : '#ff5a5f';   // Swiss: a calmer green, its own red
+  const col = THEME === 'swiss' ? (up ? '#2f8a5c' : '#d6452f') : THEME === 'anime' && !document.body.classList.contains('anidark') ? (up ? '#14a35a' : '#e0457b') : up ? '#3ddc84' : '#ff5a5f';   // Swiss: a calmer green, its own red
   const lp = pts[pts.length - 1], lx = X(lp[0]), ly = Y(lp[1]);
   // dotted link from prev close at 9:15 to the first recorded point, if the page started late
   const gap = lastPrev != null && pts[0][0] > 2
@@ -1672,6 +1797,7 @@ document.body.classList.toggle('paper', THEME === 'paper');
 document.body.classList.toggle('swiss', THEME === 'swiss');
 document.body.classList.toggle('amb', THEME === 'ambient');
 document.body.classList.toggle('led', THEME === 'led');
+document.body.classList.toggle('anime', THEME === 'anime');
 
 /* ---------- AMBIENT SCENES: a soft full-screen colour scene per slide, cross-faded ---------- */
 const GLOSS = 'radial-gradient(90% 70% at 85% 0%,rgba(255,255,255,.16),transparent 60%),radial-gradient(70% 60% at 0% 100%,rgba(0,0,0,.35),transparent 70%),';
@@ -1731,6 +1857,95 @@ function setScene(name) {
   sceneOn = sceneOn === 'A' ? 'B' : 'A';
 }
 
+/* ---------- 90s ANIME look: a painted scene behind the cards that follows the weather and the sun ----------
+   morning (sunrise → 11:00, clear) cherry blossom · day (clear) summer sky · cloudy · rain (day or night) · dusk · night city */
+var ANI_SKY = {
+  morning: 'linear-gradient(180deg,#8fc8ff 0%,#c8e4ff 50%,#ffe0ec 100%)',
+  day:     'linear-gradient(180deg,#1d5fd6 0%,#3d8ff0 45%,#9fd4ff 82%,#e8f6ff 100%)',
+  cloud:   'linear-gradient(180deg,#7f93b8 0%,#a9b8d4 50%,#dfe6f2 100%)',
+  rain:    'linear-gradient(180deg,#4d5f80 0%,#6e7f9e 55%,#a3b0c6 100%)',
+  dusk:    'linear-gradient(180deg,#1d1647 0%,#4a2a7a 30%,#b6489a 62%,#ff8a6a 86%,#ffc27a 100%)',
+  night:   'linear-gradient(180deg,#0b0b2b 0%,#22104f 50%,#6a1d6e 82%,#c24a7a 100%)',
+  rainN:   'linear-gradient(180deg,#0e1a33 0%,#1e2f55 55%,#3a3566 100%)',
+};
+var ANI_DARK = { dusk: 1, night: 1, rainN: 1 };
+var aniNow = '';
+function aniSkyline(win, body, seed) {           // a city row with lit windows, drawn once
+  let s = seed, x = -10, out = '';
+  const R = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  while (x < 1010) {
+    const w = 34 + R() * 56, h = 50 + R() * 120;
+    out += `<rect x="${x.toFixed(0)}" y="${(200 - h).toFixed(0)}" width="${w.toFixed(0)}" height="${h.toFixed(0)}" fill="${body}"/>`;
+    if (win) for (let wy = 210 - h; wy < 192; wy += 11) for (let wx = x + 5; wx < x + w - 7; wx += 9)
+      if (R() < .33) out += `<rect x="${wx.toFixed(0)}" y="${wy.toFixed(0)}" width="4" height="5" fill="${win[(R() * win.length) | 0]}" opacity=".85"/>`;
+    x += w + 2;
+  }
+  return `<svg class="skyl" viewBox="0 0 1000 200" preserveAspectRatio="none">${out}</svg>`;
+}
+function aniCloud(x, y, w, ink, shade) {
+  return `<svg style="left:${x};top:${y};width:${w}" viewBox="0 0 260 120"><g stroke="${ink}" stroke-width="4">` +
+    `<path fill="#fff" d="M40,112 c-40,0 -45,-46 -8,-56 c-6,-44 58,-62 82,-30 c18,-48 104,-42 108,10 c42,-4 50,62 12,76 z"/></g>` +
+    `<path fill="${shade}" d="M52,112 c34,-10 120,-6 178,0 c14,-11 18,-30 6,-44 c-10,26 -66,36 -184,44 z"/></svg>`;
+}
+function aniBuild() {
+  const box = document.getElementById('ani'); if (!box || box.children.length) return;
+  const wires = ink => `<svg class="wires" viewBox="0 0 1000 100" preserveAspectRatio="none"><g stroke="${ink}" stroke-width="2" fill="none" opacity=".65">` +
+    `<path d="M0,20 Q450,80 1000,14" vector-effect="non-scaling-stroke"/><path d="M0,36 Q450,96 1000,30" vector-effect="non-scaling-stroke"/></g></svg>`;
+  let st = ''; for (let i = 0; i < 70; i++) st += `<circle cx="${(i * 137.5) % 1000}" cy="${(i * 61.3) % 230}" r="${(i % 3) * .5 + .6}" fill="#fff" opacity="${.35 + (i % 5) * .13}"/>`;
+  const stars = `<svg style="left:0;top:0;width:100%;height:60vh" viewBox="0 0 1000 230" preserveAspectRatio="none">${st}</svg>`;
+  const moon = `<svg style="left:46%;top:1.2vh;width:5.5vh;height:5.5vh" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="#fff6d8" style="filter:drop-shadow(0 0 6px #fff6d8)"/><circle cx="27" cy="15" r="14" fill="#0c0b2c"/></svg>`;
+  let fl = '';                                   // a blossom branch hanging from the top-right corner
+  [[40,40],[70,62],[100,38],[130,70],[160,48],[190,80],[215,58],[240,96],[262,74],[285,112],[118,18],[176,22]].forEach(([x, y], k) => {
+    fl += `<g transform="translate(${x},${y}) rotate(${k * 23}) scale(${.8 + (k % 3) * .2})">` +
+      [0, 72, 144, 216, 288].map(r => `<ellipse cx="0" cy="-8" rx="6" ry="9" fill="#ffd1e3" stroke="#c2457e" stroke-width="1.6" transform="rotate(${r})"/>`).join('') +
+      `<circle r="3" fill="#ff6f9f"/></g>`;
+  });
+  const branch = `<svg style="right:0;top:0;width:34vw;max-width:340px" viewBox="0 0 320 140"><g transform="scale(-1,1) translate(-320,0)">` +
+    `<path d="M-10,30 C60,40 120,20 180,50 S260,100 300,110" stroke="#5a3a3a" stroke-width="8" fill="none" stroke-linecap="round"/>` +
+    `<path d="M110,30 C130,10 150,4 180,4" stroke="#5a3a3a" stroke-width="4" fill="none" stroke-linecap="round"/>${fl}</g></svg>`;
+  const S = {
+    morning: branch + aniSkyline(null, 'rgba(122,106,154,.35)', 11),
+    day:     wires('#173a7a') + aniCloud('2vw', '58vh', '30vw', '#173a7a', '#c9d4f5') + aniCloud('68vw', '62vh', '24vw', '#173a7a', '#c9d4f5'),
+    cloud:   aniCloud('76vw', '3vh', '28vw', '#4a5a80', '#d6dcec') +
+             aniCloud('10vw', '64vh', '30vw', '#4a5a80', '#d6dcec') + aniCloud('60vw', '68vh', '32vw', '#4a5a80', '#d6dcec'),
+    rain:    wires('#2c3a56') + aniSkyline(['#ffe9a8'], '#3d4b66', 5),
+    dusk:    stars.replace('opacity="', 'opacity=".5" data-o="') + aniSkyline(['#ffe36e', '#ffb3dd'], '#2a1a5c', 3),
+    night:   stars + moon + aniSkyline(['#ffe9a8', '#ffb3dd', '#9ff3ff'], '#1a0f3e', 7),
+    rainN:   aniSkyline(['#ffe9a8', '#ff9ad0', '#bff8ff'], '#0b1328', 9),
+  };
+  box.innerHTML = Object.keys(S).map(k => `<div class="ani-s" data-s="${k}" style="background:${ANI_SKY[k]}">${S[k]}</div>`).join('');
+  const fx = document.getElementById('aniFx');
+  for (let i = 0; i < 9; i++) {
+    const p = document.createElement('i'); p.className = 'petal';
+    p.style.left = (8 + i * 11) + 'vw'; p.style.animationDuration = (11 + (i * 7) % 9) + 's'; p.style.animationDelay = (-i * 2.3) + 's';
+    fx.appendChild(p);
+  }
+}
+function aniPick() {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone:'Asia/Kolkata' }), t = sunTimes(today), now = new Date();
+  const wet = wxKind === 'rain' || wxKind === 'storm';
+  const dark = now < t.rise || now >= new Date(+t.set + 40 * 60e3);
+  const dusk = now >= new Date(+t.set - 40 * 60e3) && !dark;
+  if (wet) return dark || dusk ? 'rainN' : 'rain';
+  if (dark) return 'night';
+  if (dusk) return 'dusk';
+  if (wxKind === 'cloud') return 'cloud';
+  const h = +now.toLocaleString('en-US', { timeZone:'Asia/Kolkata', hour:'numeric', hour12:false });
+  return h < 11 ? 'morning' : 'day';
+}
+function aniUpdate() {
+  if (THEME !== 'anime') return;
+  aniBuild();
+  const s = aniPick(); if (s === aniNow) return;
+  aniNow = s;
+  document.querySelectorAll('#ani .ani-s').forEach(d => d.classList.toggle('on', d.dataset.s === s));
+  document.body.classList.toggle('anidark', !!ANI_DARK[s]);
+  document.getElementById('fxRain').classList.toggle('on', s === 'rain' || s === 'rainN');
+  document.getElementById('aniFx').classList.toggle('petals', s === 'morning');
+  if (typeof drawSpark === 'function') drawSpark();
+}
+if (THEME === 'anime') setInterval(aniUpdate, 60 * 1000);
+
 /* ---------- ROTATION + DAY / EVENING / NIGHT MODES ---------- */
 const allSlides = [...document.querySelectorAll('.slide')];
 const bars = document.getElementById('bars');
@@ -1752,6 +1967,7 @@ function show(i) {
     if (k === i) { b.className = 'on'; fill.style.animationDuration = SLIDE_SECONDS + 's'; }
   });
   document.getElementById('title').textContent = slides[i].dataset.title;
+  document.getElementById('pill').dataset.ep = String(i + 1).padStart(2, '0');
   document.documentElement.style.setProperty('--accent', slides[i].dataset.accent);
   if (slides[i].querySelector('#sparkSvg')) requestAnimationFrame(drawSpark);
   setScene(sceneFor(slides[i]));
@@ -1857,6 +2073,7 @@ bars.addEventListener('click', e => {
 });
 document.getElementById('pill').addEventListener('click', e => { e.stopPropagation(); if (mode !== 'night') setLock(!locked); });
 applyMode(true); setInterval(() => applyMode(false), 20 * 1000);
+aniUpdate();
 applyLight(); setInterval(applyLight, 20 * 1000);
 
 /* night screen: big dim clock, date, weather, AQI and Nifty's last close; drifts a little to protect the screen */
@@ -2190,6 +2407,7 @@ function renderWeather() {
   const kind = /Thunder/.test(desc) ? 'storm' : /rain|drizzle|shower/i.test(desc) ? 'rain' : /cloud|overcast|fog|mist|haze/i.test(desc) ? 'cloud' : isDay ? 'clear' : 'night';
   document.getElementById('wxCard').style.setProperty('--wxglow', WX_GLOW[kind]);
   wxKind = kind;
+  aniUpdate();
   const hw = document.getElementById('hWx'); if (hw) hw.textContent = icon + ' ' + Math.round(t) + '°';
   if (THEME === 'ambient' && slides[idx] && slides[idx].dataset.wx) setScene(sceneFor(slides[idx]));
   const fmt = d => d.toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' });
