@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v12.2-2026-11-08">
+<meta name="ticker-version" content="v12.3-2026-11-08">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -314,6 +314,7 @@
   .nlist li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:baseline}
   .nlist .no{font-family:"JetBrains Mono",monospace;color:var(--dim);font-size:clamp(10px,3vh,12px)}
   .nlist .tt{font-size:clamp(12px,3.9vh,16px);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .nlist.tight{gap:.6vh!important} .nlist.tight .tt{font-size:clamp(11px,min(3.6vh,1.9vw),15px)!important;line-height:1.2!important} .nlist.tight .sr{margin-top:0!important;font-size:clamp(9px,2.5vh,11px)!important}
   .nlist .sr{display:block;color:var(--dim);font-size:clamp(9px,2.8vh,11px);margin-top:.3vh;letter-spacing:.3px}
   @media (max-aspect-ratio: 13/10) { .news2{grid-template-columns:1fr} }
   .solo-news{height:calc(100% - 3.6vh);padding:2.4vh 2.6vw}
@@ -1676,8 +1677,7 @@ renderSky(); setInterval(renderSky, 5 * 60 * 1000);
 
 /* ---------- HEADLINES (sheet tab "News": column A = India, B = World; titles end in " - Source") ---------- */
 let newsReady = false;
-function fitNews(ol, page = 0) {   // split headlines into pages of whole headlines that fit; show one page
-  if (!ol || !ol._all || !ol.clientHeight) return 1;
+function newsPages(ol) {
   const pages = []; let cur = [];
   ol.replaceChildren();
   for (const li of ol._all) {
@@ -1686,6 +1686,14 @@ function fitNews(ol, page = 0) {   // split headlines into pages of whole headli
     cur.push(li);
   }
   if (cur.length) pages.push(cur);
+  return pages;
+}
+function fitNews(ol, page = 0) {   // split headlines into pages of whole headlines that fit; show one page
+  if (!ol || !ol._all || !ol.clientHeight) return 1;
+  ol.classList.remove('tight');
+  let pages = newsPages(ol);
+  // a second page holding just one or two headlines looks stuck: set the list a little tighter so they fit on one
+  if (pages.length > 1 && pages[1].length <= 2) { ol.classList.add('tight'); pages = newsPages(ol); }
   const use = pages.slice(0, 2), k = Math.min(page, use.length - 1);
   const offset = use.slice(0, k).reduce((n, p) => n + p.length, 0);
   ol.replaceChildren(...use[k]);
@@ -1993,9 +2001,11 @@ function show(i) {
   if (slides[i].querySelector('#sparkSvg')) requestAnimationFrame(drawSpark);
   setScene(sceneFor(slides[i]));
   clearInterval(newsPageTimer);
-  slides[i].querySelectorAll('.nlist').forEach(ol => requestAnimationFrame(() => {
+  const here = slides[i];
+  here.querySelectorAll('.nlist').forEach(ol => requestAnimationFrame(() => {
+    if (slides[idx] !== here) return;               // already moved on
     let pg = 0;                                     // flip between pages every half slide (keeps flipping when pinned)
-    if (fitNews(ol, 0) > 1) newsPageTimer = setInterval(() => fitNews(ol, pg = 1 - pg), SLIDE_SECONDS * 500);
+    if (fitNews(ol, 0) > 1) { clearInterval(newsPageTimer); newsPageTimer = setInterval(() => fitNews(ol, pg = 1 - pg), SLIDE_SECONDS * 500); }
   }));
 }
 function next() {
@@ -2336,7 +2346,7 @@ const WMO = {0:['Clear sky','☀️'],1:['Mostly clear','🌤️'],2:['Partly cl
   81:['Rain showers','🌧️'],82:['Heavy showers','⛈️'],95:['Thunderstorm','⛈️'],96:['Thunderstorm','⛈️'],99:['Thunderstorm','⛈️']};
 // Forecast (high/low, rain chance, next hours) from Open-Meteo; "now" from a real station report
 // (HAL airport VOBG, ~4 km from Koramangala; Kempegowda VOBL as backup) imported in the sheet's column R.
-let wxModel = null, wxObs = null, wxObsAll = [], wxBias = 0;
+let wxModel = null, wxAlt = null, wxObs = null, wxObsAll = [], wxBias = 0;
 const rhFrom = (t, td) => Math.round(100 * Math.exp(17.625 * td / (243.04 + td)) / Math.exp(17.625 * t / (243.04 + t)));
 function heatIndex(t, rh) {             // feels-like for warm, humid air (°C); below 27°C it's just the temperature
   if (t < 27) return t;
@@ -2346,7 +2356,7 @@ function heatIndex(t, rh) {             // feels-like for warm, humid air (°C);
   return (hi - 32) * 5 / 9;
 }
 function parseMetar(line) {
-  const m = String(line).match(/\b(VOBG|VOBL)\s+(\d{2})(\d{2})(\d{2})Z/); if (!m) return null;
+  const m = String(line).match(/\b([A-Z]{4})\s+(\d{2})(\d{2})(\d{2})Z/); if (!m) return null;
   const tt = String(line).match(/\s(M?\d{2})\/(M?\d{2})(\s|$)/); if (!tt) return null;
   const n = v => v[0] === 'M' ? -parseInt(v.slice(1)) : parseInt(v);
   const now = new Date();
@@ -2397,17 +2407,21 @@ function renderWeather() {
   const c = wxModel && wxModel.current, dl = wxModel && wxModel.daily;
   if (!c) return;   // forecast not loaded yet
   const isDay = c ? c.is_day : (() => { const h = +new Date().toLocaleString('en-US', { timeZone:'Asia/Kolkata', hour:'numeric', hour12:false }); return h >= 6 && h < 18 ? 1 : 0; })();
-  const o = !away && wxObs && wxObs.age <= HAL_MAX_AGE ? wxObs : null;      // measured "now", if HAL's report is recent
+  const o = away ? nearestAirport()                                          // travelling: nearest airport's report
+          : wxObs && wxObs.age <= HAL_MAX_AGE ? Object.assign({ name: 'HAL' }, wxObs) : null;   // home: HAL, if recent
+  // no measurement: average the two forecasts (when both loaded) so one model's miss is softened
+  const alt = !o && wxAlt && wxAlt.current && wxAlt.src !== (wxModel && wxModel.src) ? wxAlt.current : null;
+  const avg = (k) => alt && alt[k] != null && c[k] != null ? (c[k] + alt[k]) / 2 : c[k];
   let [desc, icon] = o ? (o.wx || ['Clear', '☀️']) : (WMO[c.weather_code] || ['—', '🌡️']);
   icon = nightIcon(icon, isDay);
   if (!isDay && icon === '🌙') icon = moonNow.up ? moonPhase()[1] : '✨';
-  const t = o ? o.t : c.temperature_2m, rh = Math.round(o ? o.rh : c.relative_humidity_2m);
-  const wind = o && o.wind != null ? o.wind : Math.round(c.wind_speed_10m);
-  const feels = o ? heatIndex(t, rh) : (c.apparent_temperature ?? heatIndex(t, rh));
+  const t = o ? o.t : avg('temperature_2m'), rh = Math.round(o ? o.rh : avg('relative_humidity_2m'));
+  const wind = o && o.wind != null ? o.wind : Math.round(avg('wind_speed_10m'));
+  const feels = o ? heatIndex(t, rh) : alt ? heatIndex(t, rh) : (c.apparent_temperature ?? heatIndex(t, rh));
   document.getElementById('wIcon').textContent = icon;
   document.getElementById('wTemp').textContent = Math.round(t) + '°';
   // say when the measured "now" is from, right next to it, once the report is more than 20 minutes old
-  document.getElementById('wDesc').textContent = desc + (o && o.age > 20 ? ' · HAL ' + new Date(o.at).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' }) : '');
+  document.getElementById('wDesc').textContent = desc + (o && o.age > 20 ? ' · ' + o.name + ' ' + new Date(o.at).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' }) : '');
   document.getElementById('wFeel').textContent = 'Feels like ' + Math.round(feels) + '°C · Wind ' + wind + ' km/h';
   const met = wxModel && wxModel.src === 'metno';
   // Forecast models run ~3–5° cool over Bengaluru by day. Correct them with HAL's measured reading:
@@ -2447,10 +2461,11 @@ function renderWeather() {
   if (THEME === 'ambient' && slides[idx] && slides[idx].dataset.wx) setScene(sceneFor(slides[idx]));
   const fmt = d => d.toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' });
   document.getElementById('wSrc').textContent =
-    (away ? 'Now: forecast estimate for your location'
+    (away && o ? 'Now: measured at ' + o.name + ' airport (' + Math.round(o.km) + ' km away), ' + fmt(o.at)
+       : away ? 'Now: ' + (alt ? 'average of MET Norway and Open-Meteo forecasts' : 'forecast estimate') + ' (no airport report nearby)'
        : o ? 'Now: measured at HAL Airport, ' + fmt(o.at)
        : 'Now: forecast estimate' + (wxObs ? ' (HAL report from ' + fmt(wxObs.at) + ' is too old)' : ' (no HAL report yet)')) +
-    ' · Forecast: ' + (met ? 'MET Norway' : 'Open-Meteo') + (Math.abs(wxBias) >= 0.5 ? ', adjusted to HAL (' + (wxBias > 0 ? '+' : '−') + Math.abs(wxBias).toFixed(0) + '°)' : '') +
+    ' · Forecast: ' + (met ? 'MET Norway' : 'Open-Meteo') + (Math.abs(wxBias) >= 0.5 ? ', adjusted to ' + (o ? o.name : 'HAL') + ' (' + (wxBias > 0 ? '+' : '−') + Math.abs(wxBias).toFixed(0) + '°)' : '') +
     (locNote && !away ? ' · Location: ' + locNote : '');
   // next 6 hours
   const h = wxModel && wxModel.hourly; if (!h || !h.time) return;
@@ -2534,6 +2549,9 @@ async function loadWeather() {
     try { wxModel = await first(); } catch (e) { console.warn('weather', e); wxModel = await second(); }   // other forecast as a backup
     wxLastSrc = wxModel.src === 'metno' ? 'metno' : 'openmeteo';
     renderWeather();
+    // second opinion: also load the other forecast, used for "now" when there is no measured report
+    if (away || !wxObs || wxObs.age > HAL_MAX_AGE) second().then(m => { wxAlt = m; renderWeather(); }).catch(() => { wxAlt = null; });
+    else wxAlt = null;
   } catch (e) {
     if (!wxModel) document.getElementById('wDesc').textContent = 'Weather loading…';
     setTimeout(loadWeather, 2 * 60 * 1000);          // keep the last reading on screen and try again shortly
@@ -2556,7 +2574,25 @@ async function loadStationAqi() {
   if (!AQI_GID) return;
   try { readStationAqi(await fetchCSVRows(AQI_GID)); } catch (e) { console.warn('AQI tab', e); }
 }
+let airports = [];                       // latest report from every airport in India (AQI tab, columns F–J), for travel
+function readAirports(rows) {
+  const list = rows.map(r => {
+    const o = parseMetar(r[9] || ''); if (!o) return null;
+    o.lat = num(r[6]); o.lon = num(r[7]); o.name = String(r[8] || r[5] || '').replace(/\s+(International|Intl|Airport|Air Force Station|Aerodrome|AFS)\b.*$/i, '');
+    return o.lat == null || o.lon == null ? null : o;
+  }).filter(Boolean);
+  if (list.length) { airports = list; renderWeather(); }
+}
+function nearestAirport() {               // a measured "now" while travelling: nearest airport within 40 km, report under 2 h old
+  let best = null;
+  for (const a of airports) {
+    const km = kmBetween(LAT, LON, a.lat, a.lon), age = (Date.now() - a.at) / 6e4;
+    if (km <= 40 && age >= 0 && age <= 120 && (!best || km < best.km)) best = Object.assign({}, a, { km, age });
+  }
+  return best;
+}
 function readStationAqi(rows) {
+  try { readAirports(rows); } catch (e) { console.warn('airports', e); }
   const r = rows[0] || [], v = num(r[0]);
   if (v == null) return;
   if (/,/.test(r[1] || '') && !/beng|bangalore/i.test(r[1])) return;     // a far-away station (e.g. an old Delhi reading): ignore
@@ -2603,7 +2639,7 @@ function kmBetween(a, b, c, d) {
   return 12742 * Math.asin(Math.sqrt(x));
 }
 function setPlace(lat, lon, name, isAway) {
-  LAT = lat; LON = lon; away = isAway;
+  LAT = lat; LON = lon; away = isAway; wxAlt = null;
   const sec = document.querySelector('section[data-wx]'); sec.dataset.title = name;
   if (slides[idx] === sec) document.getElementById('title').textContent = name;
   renderSky(); loadWeather(); loadAQI();
