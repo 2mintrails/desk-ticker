@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v12.3-2026-11-08">
+<meta name="ticker-version" content="v12.4-2026-11-10">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -206,9 +206,9 @@
 
   /* ---------- night mode: dim, warm, black (easy on the eyes, OLED friendly) ---------- */
   .nightv{display:none}
-  body.night{background:#000}
+  html:has(body.night), body.night, body.night.anime, body.night.anime.anidark{background:#000!important}   /* every look: pure black edges too (Chrome's bar showing/hiding) */
   body.night .bg, body.night .grain, body.night .vignette, body.night .app{display:none}
-  body.night .nightv{display:flex;position:fixed;inset:0;align-items:center;justify-content:center;background:#000}
+  body.night .nightv{display:flex;position:fixed;inset:-4px;min-height:100lvh;align-items:center;justify-content:center;background:#000}
   .n-box{text-align:center;color:#c8935a;opacity:.5;transition:transform 2s ease}
   .n-time{font-family:"JetBrains Mono",monospace;font-weight:500;font-size:clamp(56px,34vh,180px);letter-spacing:-4px;line-height:1}
   .n-date{font-size:clamp(13px,5vh,22px);margin-top:1.5vh;letter-spacing:1px}
