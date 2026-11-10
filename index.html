@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v12.5-2026-11-10">
+<meta name="ticker-version" content="v13.0-2026-11-10">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -312,6 +312,7 @@
   .nhd{font-size:clamp(10px,3vh,12px);letter-spacing:2.5px;text-transform:uppercase;color:var(--dim);margin-bottom:1.4vh}
   .nlist{list-style:none;display:flex;flex-direction:column;gap:1.3vh;min-height:0;flex:1;overflow:hidden}
   .nlist li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:baseline}
+  .nlist li.lk{cursor:pointer} .nlist li.lk:hover .tt{text-decoration:underline} .nlist li.tapped{opacity:.5}
   .nlist .no{font-family:"JetBrains Mono",monospace;color:var(--dim);font-size:clamp(10px,3vh,12px)}
   .nlist .tt{font-size:clamp(12px,3.9vh,16px);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .nlist.tight{gap:.6vh!important} .nlist.tight .tt{font-size:clamp(11px,min(3.6vh,1.9vw),15px)!important;line-height:1.2!important} .nlist.tight .sr{margin-top:0!important;font-size:clamp(9px,2.5vh,11px)!important}
@@ -343,6 +344,8 @@
   .viewmenu.open{display:block}
   .viewmenu .looks{display:grid;grid-template-columns:1fr 1fr;gap:2px;min-width:290px}
   .viewmenu .looks button{white-space:nowrap}
+  .viewmenu .devs{grid-template-columns:1fr 1fr 1fr} .viewmenu .devs button{padding:7px 6px;font-size:12px;text-align:center}
+  @media (max-height:520px){ .viewmenu button{padding:6px 12px} .viewmenu .sep{margin:2px 0} }
   .viewmenu .diag{font-size:10px;opacity:.55;padding:6px 12px 4px;max-width:290px;line-height:1.35}
   .viewmenu .diag:empty{display:none}
   .viewmenu{max-height:calc(100vh - 64px);max-height:calc(100dvh - 64px);overflow-y:auto;overscroll-behavior:contain}
@@ -747,6 +750,7 @@
   body.led .mood-v .chg.up{color:var(--up)} body.led .mood-v .chg.down{color:var(--down)}
   /* =================== 90s ANIME (Japan) — cel-shaded cards over a scene that follows the weather and the sun =================== */
   .ani, .ani-fx{display:none}
+  body.nofx .ani-fx{display:none!important} body.nofx::after{display:none!important}
   body.anime{--ink:#2a1a5c;--cel:#fff8f1;--fg:#2a1a5c;--dim:#6b5a92;--line:rgba(42,26,92,.22);--up:#14a35a;--down:#e0457b;
     --grid:rgba(42,26,92,.35);--gridtxt:#6b5a92;--edge:#2a1a5c;--band:rgba(42,26,92,.07);--hd:#fff;
     background:#5aa8f0;color:var(--fg);font-family:"Zen Maru Gothic","Space Grotesk",sans-serif}
@@ -881,7 +885,7 @@
       <div class="mkt" id="mkt"></div>
       <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
       <div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
-        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Theme</div><div class="looks"><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button><button data-look="anime">🌸 Anime 90s</button></div><div class="diag" id="diag"></div></div></div>
+        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Theme</div><div class="looks"><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button><button data-look="anime">🌸 Anime 90s</button></div><div class="mh">This screen</div><div class="looks devs"><button data-dev="fx" title="Rain, petals and scanlines in the Anime theme">Effects</button><button data-dev="auto" title="Switch to stock mode when a market opens">Auto stocks</button><button data-dev="loc" title="Show weather for where this device is">My location</button></div><div class="diag" id="diag"></div></div></div>
     </div>
   </header>
 
@@ -1013,7 +1017,7 @@ if (/debug/.test(location.search)) {
   setTimeout(() => log('state', { prices: document.querySelector('.ix-p[data-sym]')?.textContent, temp: document.getElementById('wTemp')?.textContent, gold: document.getElementById('gold')?.textContent, news: newsReady }), 12000);
 }
 /* ---------- SETTINGS ---------- */
-const SLIDE_SECONDS = 15;
+let SLIDE_SECONDS = 15;
 // Look: 'calm' (minimal, quiet) or 'vivid' (glows, tints, animated background).
 // Look (each phone remembers its choice): 'pixel' LED-matrix panel like a Tidbyt/Radar, 'ambient' smart-display,
 // 'retro' green CRT terminal, 'calm' minimal dark.
@@ -1029,11 +1033,51 @@ const MODES = { day: '06:00', evening: '18:30', night: '23:30' };
 const LOCK_MINUTES = 30;
 const HOME = { lat: 12.9352, lon: 77.6245, name: 'Koramangala, Bengaluru' };
 const AWAY_KM = 20;   // further than this from home (by the phone's location) = show local weather instead of HAL
+/* ---------- SETTINGS ----------
+   Same on every device: the sheet's "Settings" tab (currencies, seconds per slide, night clock, which slides show).
+   This screen only: the three switches in the top-right menu (effects, auto stock mode, my-location weather). */
+const CUR = { USD:['🇺🇸','US Dollar'], EUR:['🇪🇺','Euro'], AED:['🇦🇪','UAE Dirham'], GBP:['🇬🇧','British Pound'], SGD:['🇸🇬','Singapore Dollar'],
+  JPY:['🇯🇵','Japanese Yen'], AUD:['🇦🇺','Australian Dollar'], CAD:['🇨🇦','Canadian Dollar'], CHF:['🇨🇭','Swiss Franc'], SAR:['🇸🇦','Saudi Riyal'] };
+var FX_LIST = ['USD', 'EUR', 'AED'], HIDE = {}, settingsSig = '';
+var DEV = { fx: true, auto: true, loc: true };
+try { Object.assign(DEV, JSON.parse(localStorage.getItem('deskTickerDev') || '{}')); } catch (e) {}
+function paintFxCards() {
+  const box = document.querySelector('.fx'); if (!box) return;
+  box.style.gridTemplateColumns = 'repeat(' + FX_LIST.length + ',1fr)';
+  box.innerHTML = FX_LIST.map(c => { const sym = 'CURRENCY:' + c + 'INR';
+    return '<div class="card fxc"><div class="fx-top"><span class="flag">' + CUR[c][0] + '</span><span class="fx-k">' + (c === 'JPY' ? '100 ' : '1 ') + CUR[c][1] + '</span></div>' +
+      '<div class="fx-p" data-sym="' + sym + '" data-f="price">--</div><div class="fx-c" data-sym="' + sym + '" data-f="fx"></div></div>'; }).join('');
+}
+function applySettings(map, init) {
+  const sig = JSON.stringify(map); if (sig === settingsSig) return;
+  settingsSig = sig; try { localStorage.setItem('deskTickerSettings', sig); } catch (e) {}
+  const list = [...new Set(['Currency 1', 'Currency 2', 'Currency 3'].map(k => String(map[k] || '').trim().toUpperCase()).filter(c => CUR[c]))];
+  if (list.length && list.join() !== FX_LIST.join()) { FX_LIST = list; paintFxCards(); }
+  const sec = parseFloat(map['Seconds per slide']); if (sec >= 5 && sec <= 120) SLIDE_SECONDS = sec;
+  const tm = v => { const m = String(v || '').trim().match(/^(\d{1,2}):(\d{2})/); return m && +m[1] < 24 && +m[2] < 60 ? m[1].padStart(2, '0') + ':' + m[2] : null; };
+  if (tm(map['Night clock starts'])) MODES.night = tm(map['Night clock starts']);
+  if (tm(map['Night clock ends'])) MODES.day = tm(map['Night clock ends']);
+  const off = k => /^(false|no|0|off)$/i.test(String(map[k] == null ? '' : map[k]).trim());
+  HIDE = { cur: off('Show Currencies slide'), wx: off('Show Weather slide'), gold: off('Show Gold & silver slide'),
+           ni: off('Show India News slide'), nw: off('Show Global News slide') };
+  if (!init) { try { applyMode(true); start(); loadPrices(); } catch (e) { console.warn('settings', e); } }
+}
+function hiddenBySetting(s) {
+  const t = s.dataset.title || '';
+  return (HIDE.cur && t.startsWith('Currencies')) || (HIDE.wx && s.hasAttribute('data-wx')) || (HIDE.gold && t.startsWith('Bullion')) ||
+         (HIDE.ni && !!s.querySelector('#newsIN') && !s.querySelector('#newsMK')) || (HIDE.nw && !!s.querySelector('#newsWD'));
+}
+function readSettings(rows) {            // AQI tab, columns L–M: name, value (copied there from the Settings tab by the sheet script)
+  const map = {}; rows.forEach(r => { const k = String(r[11] || '').trim(); if (k && k !== 'Setting') map[k] = String(r[12] == null ? '' : r[12]).trim(); });
+  if (Object.keys(map).length) applySettings(map);
+}
+try { const sv = JSON.parse(localStorage.getItem('deskTickerSettings') || 'null'); if (sv) applySettings(sv, true); } catch (e) {}
+document.body.classList.toggle('nofx', !DEV.fx);
 let LAT = HOME.lat, LON = HOME.lon, away = false, awayName = '';
 var locNote = '';      // why the phone's location isn't being used, shown under the weather
 try {                  // still travelling? start in the last place we saw (re-checked shortly after start)
   const sv = JSON.parse(localStorage.getItem('deskTickerAway') || 'null');
-  if (sv && Date.now() - sv.at < 24 * 3600e3) { LAT = sv.lat; LON = sv.lon; away = true; awayName = sv.name; }
+  if (DEV.loc && sv && Date.now() - sv.at < 24 * 3600e3) { LAT = sv.lat; LON = sv.lon; away = true; awayName = sv.name; }
 } catch (e) {}
 // Weather: "NOW" (big temperature, humidity, wind, conditions) is MEASURED at HAL Airport, ~2–3 km away.
 // The FORECAST (high/low, rain, next 6 hours) comes from WEATHER_SOURCE: 'metno' (MET Norway) or 'openmeteo'.
@@ -1502,6 +1546,7 @@ async function loadPrices() {
       const pct = price != null && change != null && price !== change ? change / (price - change) * 100 : num(r[3]);
       data[sym] = { price, change, pct, hi52: num(r[4]), lo52: num(r[5]) };   // E/F: 52-week high/low (optional)
     });
+    { const y = data['CURRENCY:JPYINR']; if (y && y.price != null) { y.price *= 100; if (y.change != null) y.change *= 100; } }   // yen is quoted per 100
     BASKETS.forEach(b => {      // e.g. Defence = average % move of its stocks
       const ps = b.basket.map(x => data[x] && data[x].pct).filter(v => v != null && isFinite(v));
       if (!ps.length) return;
@@ -1570,10 +1615,11 @@ async function loadPrices() {
     document.querySelectorAll('.stock-note').forEach(n => n.textContent = 'Google Finance · last refreshed ' + at +
       ' · prices about 15–20 min behind ' + (n.dataset.mkt === 'us' ? 'the US market' : 'NSE'));
     const fxN = document.getElementById('fxNote');
-    if (fxN && data['CURRENCY:USDINR']) {
+    const fxS = FX_LIST.map(c => 'CURRENCY:' + c + 'INR');
+    if (fxN && data[fxS[0]]) {
       // "checked" = when the app last read the sheet; "rate moved" = when Google's USD rate last actually changed
       const t = d => new Date(d).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' });
-      const v = String(data['CURRENCY:USDINR'].price) + '|' + String((data['CURRENCY:EURINR'] || {}).price) + '|' + String((data['CURRENCY:AEDINR'] || {}).price);
+      const v = fxS.map(k => String((data[k] || {}).price)).join('|');
       let mv = null; try { mv = JSON.parse(localStorage.getItem('deskTickerFxMoved')); } catch (e) {}
       if (!mv || mv.v !== v) { mv = { v, at: Date.now(), first: !mv }; try { localStorage.setItem('deskTickerFxMoved', JSON.stringify(mv)); } catch (e) {} }
       fxN.textContent = 'Google Finance · checked ' + t(Date.now()) + (mv.first ? '' : ' · rates last moved ' + t(mv.at)) + ' · change vs previous day';
@@ -1593,8 +1639,7 @@ function buildTape() {
   const box = document.getElementById('tape'); if (!box || THEME !== 'led') return;
   const items = [
     ['NIFTY', 'INDEXNSE:NIFTY_50', 0], ['SENSEX', 'INDEXBOM:SENSEX', 0], ['S&P 500', 'INDEXSP:.INX', 0],
-    ['USD/INR', 'CURRENCY:USDINR', 2], ['EUR/INR', 'CURRENCY:EURINR', 2], ['AED/INR', 'CURRENCY:AEDINR', 2],
-  ];
+  ].concat(FX_LIST.map(c => [c + '/INR', 'CURRENCY:' + c + 'INR', 2]));
   const parts = [];
   items.forEach(([label, sym, dp]) => {
     const d = tapeData[sym]; if (!d || d.price == null) return;
@@ -1740,17 +1785,20 @@ async function loadNews() {
   }
 }
 function readNews(rows, at, label) {
-  const pick = col => rows.map(r => String(r[col] || '').trim())
-    .filter(x => x && !/^(India|World)$/i.test(x) && !/^(#N\/A|#ERROR|Loading)/i.test(x)).slice(0, 7);
+  const LINK = { 0: 4, 1: 5, 3: 6 };       // the article link for each headline column (written by the sheet script)
+  const pickL = col => rows.map(r => ({ t: String(r[col] || '').trim(), u: String(r[LINK[col]] || '').trim() }))
+    .filter(x => x.t && !/^(India|World)$/i.test(x.t) && !/^(#N\/A|#ERROR|Loading)/i.test(x.t)).slice(0, 7);
+  const pick = col => pickL(col).map(x => x.t);
   const fill = (id, items) => {
     const ol = document.getElementById(id); if (!ol || !items.length) return 0;
     ol.innerHTML = '';
-    items.forEach((t, i) => {
-      const k = t.lastIndexOf(' - '), title = k > 20 ? t.slice(0, k) : t, src = k > 20 ? t.slice(k + 3) : '';
+    items.forEach((it, i) => {
+      const t = it.t, k = t.lastIndexOf(' - '), title = k > 20 ? t.slice(0, k) : t, src = k > 20 ? t.slice(k + 3) : '';
       const li = document.createElement('li');
       li.innerHTML = '<span class="no"></span><span><span class="tt"></span><span class="sr"></span></span>';
       li.querySelector('.no').textContent = String(i + 1).padStart(2, '0');
       li.querySelector('.tt').textContent = title; li.querySelector('.sr').textContent = src;
+      if (/^https?:\/\//i.test(it.u)) { li.dataset.url = it.u; li.classList.add('lk'); }
       ol.appendChild(li);
     });
     ol._all = [...ol.children]; requestAnimationFrame(() => fitNews(ol));
@@ -1762,7 +1810,7 @@ function readNews(rows, at, label) {
     if (sv && sv.sig === sig) at = sv.at;
     else { at = Date.now(); try { localStorage.setItem('deskTickerNewsAt', JSON.stringify({ sig, at })); } catch (e) {} }
   }
-  const got = fill('newsIN', pick(0)) + fill('newsWD', pick(1)) + fill('newsMK', pick(3));
+  const got = fill('newsIN', pickL(0)) + fill('newsWD', pickL(1)) + fill('newsMK', pickL(3));
   if (got) {
     document.querySelectorAll('.news-note').forEach(n => n.textContent = label + (at ? (label === 'Live feeds' ? ' · updated ' : ' · new headlines at ') +
       new Date(at).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' }) : ''));
@@ -1986,7 +2034,8 @@ const hm = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 function modeNow() {
   const t = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Kolkata' })), m = t.getHours() * 60 + t.getMinutes();
   const d = hm(MODES.day), e = hm(MODES.evening), n = hm(MODES.night);
-  const base = (m >= n || m < d) ? 'night' : (m >= e ? 'evening' : 'day');
+  const isNight = n > d ? (m >= n || m < d) : (m >= n && m < d);     // the night clock may start before or after midnight
+  const base = isNight ? 'night' : (m >= e || m < d ? 'evening' : 'day');
   return base === 'night' && Date.now() < peekUntil ? 'evening' : base;
 }
 let lastShowAt = Date.now();
@@ -2081,7 +2130,7 @@ function applyMode(force, fresh) {
   const V = VIEW || 'all';
   slides = allSlides.filter(s => (V !== 'all' ? (s.dataset.views || '') === V                  // a stock mode: its own set, any time of day
                                               : !s.dataset.only && (!s.dataset.mode || s.dataset.mode === m))
-    && !(s.dataset.needs === 'news' && !newsReady) && !(s.querySelector('#newsMK') && !document.getElementById('newsMK').children.length));
+    && !hiddenBySetting(s) && !(s.dataset.needs === 'news' && !newsReady) && !(s.querySelector('#newsMK') && !document.getElementById('newsMK').children.length));
   bars.innerHTML = '';
   slides.forEach(() => { const s = document.createElement('span'); s.appendChild(document.createElement('b')); bars.appendChild(s); });
   idx = (locked || sameDay) && slides.includes(keep) ? slides.indexOf(keep) : 0;
@@ -2092,6 +2141,14 @@ function applyMode(force, fresh) {
   }
   show(idx); start();
 }
+// tap a headline: open the article in a new tab (the ticker keeps running here)
+document.addEventListener('click', e => {
+  const li = e.target.closest && e.target.closest('.nlist li.lk'); if (!li || mode === 'night') return;
+  e.stopPropagation();
+  if (swiped) { swiped = false; return; }
+  li.classList.add('tapped'); setTimeout(() => li.classList.remove('tapped'), 600);
+  window.open(li.dataset.url, '_blank', 'noopener');
+}, true);
 let lastTap = 0, tapTimer;
 let swiped = false;
 document.body.addEventListener('click', e => {
@@ -2162,6 +2219,7 @@ function marketView(now = new Date()) {
 let lastAuto = null;
 try { lastAuto = localStorage.getItem('deskTickerAutoView'); } catch (e) {}
 function autoView() {
+  if (!DEV.auto) return;
   const want = marketView();
   if (want === lastAuto) return;
   lastAuto = want; try { localStorage.setItem('deskTickerAutoView', want); } catch (e) {}
@@ -2192,6 +2250,18 @@ document.querySelectorAll('#viewMenu button[data-look]').forEach(b => {
     if (b.dataset.look === LOOK) return document.getElementById('viewMenu').classList.remove('open');
     try { localStorage.setItem('deskTickerLook', b.dataset.look); } catch (x) {}
     location.reload();
+  });
+});
+document.querySelectorAll('#viewMenu button[data-dev]').forEach(b => {
+  const label = b.textContent, paint = () => { b.textContent = (DEV[b.dataset.dev] ? '✓ ' : '✗ ') + label; b.classList.toggle('on', !!DEV[b.dataset.dev]); };
+  paint();
+  b.addEventListener('click', e => {
+    e.stopPropagation();
+    DEV[b.dataset.dev] = !DEV[b.dataset.dev]; try { localStorage.setItem('deskTickerDev', JSON.stringify(DEV)); } catch (x) {}
+    paint();
+    document.body.classList.toggle('nofx', !DEV.fx);
+    if (b.dataset.dev === 'auto' && DEV.auto) { lastAuto = null; autoView(); }
+    if (b.dataset.dev === 'loc' && typeof checkLocation === 'function') checkLocation();
   });
 });
 document.addEventListener('click', () => document.getElementById('viewMenu').classList.remove('open'));
@@ -2604,6 +2674,7 @@ function nearestAirport() {               // a measured "now" while travelling: 
   return best;
 }
 function readStationAqi(rows) {
+  try { readSettings(rows); } catch (e) { console.warn('settings', e); }
   try { readAirports(rows); } catch (e) { console.warn('airports', e); }
   const r = rows[0] || [], v = num(r[0]);
   if (v == null) return;
@@ -2659,6 +2730,7 @@ function setPlace(lat, lon, name, isAway) {
 let awayVotes = 0, locRetry;
 function locSay(t) { if (locNote === t) return; locNote = t; if (typeof renderWeather === 'function' && wxModel) renderWeather(); }
 function checkLocation() {
+  if (!DEV.loc) { try { localStorage.removeItem('deskTickerAway'); } catch (e) {} if (away) setPlace(HOME.lat, HOME.lon, HOME.name, false); return; }
   if (!('geolocation' in navigator) || location.protocol !== 'https:') return;
   clearTimeout(locRetry);
   navigator.geolocation.getCurrentPosition(async p => {
