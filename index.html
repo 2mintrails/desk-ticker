@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v13.1-2026-11-10">
+<meta name="ticker-version" content="v13.2-2026-11-10">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -338,6 +338,25 @@
   /* ---------- pinned slide ---------- */
   #pill{cursor:pointer}
   .viewsel{position:relative;margin-left:10px}
+  .viewbtn.gear{margin-left:10px;padding:6px 10px;line-height:1} body.night .viewbtn.gear{display:none}
+  /* settings panel (same plain look in every theme) */
+  .setwrap{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:10px}
+  .setwrap[hidden]{display:none}
+  .setpanel, .setpanel *{font-family:"Space Grotesk",system-ui,sans-serif!important;letter-spacing:0;text-transform:none;text-shadow:none}
+  .setpanel{width:min(760px,100%);max-height:100%;overflow-y:auto;overscroll-behavior:contain;background:#171a21;color:#eef1f6;border-radius:16px;
+    border:1px solid rgba(255,255,255,.14);box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px 16px;font-size:14px}
+  .setpanel h2{font-size:16px;font-weight:700;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
+  .setgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}
+  @media (max-width:560px){ .setgrid{grid-template-columns:1fr} }
+  .setbox{border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:8px 10px}
+  .setbox h3{font-size:11px;font-weight:700;letter-spacing:1.5px!important;text-transform:uppercase!important;opacity:.6;margin:0 0 6px}
+  .setrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 0;min-height:30px}
+  .setrow small{display:block;opacity:.55;font-size:11px}
+  .setpanel select, .setpanel input[type=time], .setpanel button{font-size:13px;color:#eef1f6;background:#262b36;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:5px 8px}
+  .setpanel button{cursor:pointer} .setpanel button.pri{background:#3b82f6;border-color:#3b82f6;font-weight:700}
+  .setpanel input[type=checkbox]{width:20px;height:20px;accent-color:#3b82f6;flex:none}
+  .setfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px}
+  .setfoot small{opacity:.55;font-size:11px;line-height:1.3}
   .viewbtn{font:inherit;font-size:clamp(10px,3vh,13px);color:inherit;background:var(--glass);border:1px solid var(--line);
     border-radius:999px;padding:6px 12px;cursor:pointer;white-space:nowrap}
   .viewmenu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:190px;padding:6px;border-radius:14px;
@@ -876,6 +895,7 @@
 <div class="scene" id="sceneA"></div><div class="scene" id="sceneB"></div>
 <div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
 <div class="grain"></div><div class="vignette"></div>
+<div class="setwrap" id="setWrap" hidden><div class="setpanel" id="setPanel"></div></div>
 <div class="ani" id="ani"></div><div class="ani-fx" id="aniFx"><div class="fx-rain" id="fxRain"></div></div>
 
 <div class="app">
@@ -885,8 +905,8 @@
       <div class="hwx" id="hWx"></div>
       <div class="mkt" id="mkt"></div>
       <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
-      <div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
-        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Theme</div><div class="looks"><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button><button data-look="anime">🌸 Anime 90s</button></div><div class="mh">This screen</div><div class="looks devs"><button data-dev="fx" title="Rain, petals and scanlines in the Anime theme">Effects</button><button data-dev="auto" title="Switch to stock mode when a market opens">Auto stocks</button><button data-dev="loc" title="Show weather for where this device is">My location</button></div><div class="diag" id="diag"></div></div></div>
+      <button class="viewbtn gear" id="gearBtn" title="Settings" aria-label="Settings">⚙</button><div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
+        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Theme</div><div class="looks"><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button><button data-look="anime">🌸 Anime 90s</button></div><div class="diag" id="diag"></div></div></div>
     </div>
   </header>
 
@@ -1049,9 +1069,23 @@ function paintFxCards() {
     return '<div class="card fxc"><div class="fx-top"><span class="flag">' + CUR[c][0] + '</span><span class="fx-k">' + (c === 'JPY' ? '100 ' : '1 ') + CUR[c][1] + '</span></div>' +
       '<div class="fx-p" data-sym="' + sym + '" data-f="price">--</div><div class="fx-c" data-sym="' + sym + '" data-f="fx"></div></div>'; }).join('');
 }
-function applySettings(map, init) {
+var sheetMap = {}, OVR = {};
+try { OVR = JSON.parse(localStorage.getItem('deskTickerOvr') || '{}') || {}; } catch (e) {}
+const HOME0 = { lat: HOME.lat, lon: HOME.lon, name: HOME.name };
+const homeHAL = () => kmBetween(HOME.lat, HOME.lon, 12.95, 77.668) < 30;      // home is in Bengaluru → HAL Airport is the local station
+const effSettings = () => Object.assign({}, sheetMap, OVR);
+function applySettings(map, init) {       // values from the sheet
+  sheetMap = map || {}; try { localStorage.setItem('deskTickerSettings', JSON.stringify(sheetMap)); } catch (e) {}
+  applyEff(init);
+}
+function applyEff(init) {
+  const map = effSettings();
   const sig = JSON.stringify(map); if (sig === settingsSig) return;
-  settingsSig = sig; try { localStorage.setItem('deskTickerSettings', sig); } catch (e) {}
+  settingsSig = sig;
+  const hl = parseFloat(map['Home lat']), ho = parseFloat(map['Home lon']), had = HOME.lat + ',' + HOME.lon;
+  if (isFinite(hl) && isFinite(ho) && Math.abs(hl) <= 90 && Math.abs(ho) <= 180) { HOME.lat = hl; HOME.lon = ho; HOME.name = map['Home name'] || 'Home'; }
+  else Object.assign(HOME, HOME0);
+  if (!init && had !== HOME.lat + ',' + HOME.lon) { try { localStorage.removeItem('deskTickerAway'); setPlace(HOME.lat, HOME.lon, HOME.name, false); checkLocation(); } catch (e) {} }
   const list = [...new Set(['Currency 1', 'Currency 2', 'Currency 3'].map(k => String(map[k] || '').trim().toUpperCase()).filter(c => CUR[c]))];
   if (list.length && list.join() !== FX_LIST.join()) { FX_LIST = list; paintFxCards(); }
   const sec = parseFloat(map['Seconds per slide']); if (sec >= 5 && sec <= 120) SLIDE_SECONDS = sec;
@@ -1072,9 +1106,10 @@ function readSettings(rows) {            // AQI tab, columns L–M: name, value 
   const map = {}; rows.forEach(r => { const k = String(r[11] || '').trim(); if (k && k !== 'Setting') map[k] = String(r[12] == null ? '' : r[12]).trim(); });
   if (Object.keys(map).length) applySettings(map);
 }
-try { const sv = JSON.parse(localStorage.getItem('deskTickerSettings') || 'null'); if (sv) applySettings(sv, true); } catch (e) {}
+try { applySettings(JSON.parse(localStorage.getItem('deskTickerSettings') || 'null') || {}, true); } catch (e) {}
 document.body.classList.toggle('nofx', !DEV.fx);
 let LAT = HOME.lat, LON = HOME.lon, away = false, awayName = '';
+if (HOME.name !== HOME0.name) { const sec = document.querySelector('section[data-wx]'); if (sec) sec.dataset.title = HOME.name; }
 var locNote = '';      // why the phone's location isn't being used, shown under the weather
 try {                  // still travelling? start in the last place we saw (re-checked shortly after start)
   const sv = JSON.parse(localStorage.getItem('deskTickerAway') || 'null');
@@ -2182,6 +2217,7 @@ document.body.addEventListener('click', e => {
 let tx = 0, ty = 0;
 document.addEventListener('touchstart', e => { const t = e.touches[0]; tx = t.clientX; ty = t.clientY; }, { passive: true });
 document.addEventListener('touchend', e => {
+  if (e.target.closest && e.target.closest('#setWrap')) return;          // swiping inside the settings panel
   const t = e.changedTouches[0], dx = t.clientX - tx, dy = t.clientY - ty;
   if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy) && mode !== 'night') {
     swiped = true; setTimeout(() => swiped = false, 600);
@@ -2282,6 +2318,87 @@ document.querySelectorAll('#viewMenu button[data-dev]').forEach(b => {
     if (b.dataset.dev === 'loc' && typeof checkLocation === 'function') checkLocation();
   });
 });
+/* ---------- SETTINGS PANEL (the ⚙ button) ----------
+   Starts from the sheet's Settings tab; anything changed here is remembered on this device only. */
+const SHOWS = [['Show Currencies slide', 'Currencies'], ['Show Weather slide', 'Weather'], ['Show Gold & silver slide', 'Gold & silver'],
+               ['Show India News slide', 'India News'], ['Show Global News slide', 'Global News']];
+function setOvr(k, v) { OVR[k] = v; try { localStorage.setItem('deskTickerOvr', JSON.stringify(OVR)); } catch (e) {} applyEff(); }
+function renderSettings() {
+  const m = effSettings(), on = k => !/^(false|no|0|off)$/i.test(String(m[k] == null ? '' : m[k]).trim());
+  const sec = String(SLIDE_SECONDS), secs = [...new Set(['10', '15', '20', '30', '45', '60', sec])].sort((a, b) => a - b);
+  const opt = (list, cur, label) => list.map(v => '<option value="' + v + '"' + (String(v) === String(cur) ? ' selected' : '') + '>' + (label ? label(v) : v) + '</option>').join('');
+  const chk = (attr, key, label, checked, note) => '<label class="setrow"><span>' + label + (note ? '<small>' + note + '</small>' : '') + '</span><input type="checkbox" ' + attr + '="' + key + '"' + (checked ? ' checked' : '') + '></label>';
+  const cur = [0, 1, 2].map(i => FX_LIST[i] || Object.keys(CUR).find(c => !FX_LIST.includes(c)));
+  document.getElementById('setPanel').innerHTML =
+    '<h2><span>⚙ Settings</span><button class="pri" data-act="close">Done</button></h2><div class="setgrid">' +
+    '<div class="setbox"><h3>Slides</h3>' +
+      '<label class="setrow"><span>Seconds per slide</span><select data-set="Seconds per slide">' + opt(secs, sec) + '</select></label>' +
+      SHOWS.map(([k, l]) => chk('data-set', k, 'Show ' + l, on(k))).join('') + '</div>' +
+    '<div class="setbox"><h3>Currencies</h3>' +
+      cur.map((c, i) => '<label class="setrow"><span>Currency ' + (i + 1) + '</span><select data-set="Currency ' + (i + 1) + '">' + opt(Object.keys(CUR), c, v => CUR[v][0] + ' ' + CUR[v][1]) + '</select></label>').join('') +
+      '<h3 style="margin-top:8px">Late-night clock</h3>' +
+      '<label class="setrow"><span>Starts</span><input type="time" data-set="Night clock starts" value="' + MODES.night + '"></label>' +
+      '<label class="setrow"><span>Ends</span><input type="time" data-set="Night clock ends" value="' + MODES.day + '"></label></div>' +
+    '<div class="setbox"><h3>This screen</h3>' +
+      chk('data-dev', 'auto', 'Auto stock mode', DEV.auto, 'Switch to Indian / US stock slides when that market opens') +
+      chk('data-dev', 'loc', 'Weather follows my location', DEV.loc, 'When travelling, show weather for where this device is') +
+      chk('data-dev', 'fx', 'Anime effects', DEV.fx, 'Rain, petals and scanlines in the Anime 90s theme') + '</div>' +
+    '<div class="setbox"><h3>Home location</h3>' +
+      '<div class="setrow"><span>' + HOME.name + '<small>' + HOME.lat.toFixed(3) + ', ' + HOME.lon.toFixed(3) + '</small></span></div>' +
+      '<div class="setrow"><button data-act="home">Set to where I am now</button><button data-act="homereset">Back to Koramangala</button></div>' +
+      '<div class="setrow"><small id="setMsg"></small></div></div>' +
+    '</div><div class="setfoot"><small>Changes here are saved on this device. The sheet’s Settings tab sets the starting values for every device.</small>' +
+    '<button data-act="reset">Use sheet values</button></div>';
+}
+(function () {
+  const wrap = document.getElementById('setWrap'), panel = document.getElementById('setPanel');
+  const close = () => { wrap.hidden = true; };
+  document.getElementById('gearBtn').addEventListener('click', e => {
+    e.stopPropagation(); document.getElementById('viewMenu').classList.remove('open'); renderSettings(); wrap.hidden = false;
+  });
+  wrap.addEventListener('click', e => { e.stopPropagation(); if (e.target === wrap) close(); });
+  panel.addEventListener('change', e => {
+    const el = e.target;
+    if (el.dataset.set) {
+      let v = el.type === 'checkbox' ? (el.checked ? 'TRUE' : 'FALSE') : el.value;
+      if (/^Currency/.test(el.dataset.set)) {           // three different currencies: swap if this one is already shown
+        const all = [...panel.querySelectorAll('select[data-set^="Currency"]')], prev = FX_LIST.slice();
+        const i = all.indexOf(el), other = all.find((x, k) => k !== i && x.value === v);
+        if (other) { other.value = prev[i] || prev[0]; OVR[other.dataset.set] = other.value; }
+        all.forEach(x => { OVR[x.dataset.set] = x.value; });
+      }
+      if (el.type === 'time' && !v) return;
+      setOvr(el.dataset.set, v);
+    } else if (el.dataset.dev) {
+      DEV[el.dataset.dev] = el.checked; try { localStorage.setItem('deskTickerDev', JSON.stringify(DEV)); } catch (x) {}
+      document.body.classList.toggle('nofx', !DEV.fx);
+      if (el.dataset.dev === 'auto' && DEV.auto) { lastAuto = null; autoView(); }
+      if (el.dataset.dev === 'loc') checkLocation();
+    }
+  });
+  panel.addEventListener('click', e => {
+    const act = e.target.dataset && e.target.dataset.act; if (!act) return;
+    const msg = t => { const el = document.getElementById('setMsg'); if (el) el.textContent = t; };
+    if (act === 'close') close();
+    else if (act === 'reset') { OVR = {}; try { localStorage.removeItem('deskTickerOvr'); } catch (x) {} applyEff(); renderSettings(); }
+    else if (act === 'homereset') { delete OVR['Home lat']; delete OVR['Home lon']; delete OVR['Home name']; try { localStorage.setItem('deskTickerOvr', JSON.stringify(OVR)); } catch (x) {} applyEff(); renderSettings(); }
+    else if (act === 'home') {
+      if (!('geolocation' in navigator) || location.protocol !== 'https:') return msg('Location isn’t available in this browser.');
+      msg('Finding where you are…');
+      navigator.geolocation.getCurrentPosition(async p => {
+        const lat = +p.coords.latitude.toFixed(3), lon = +p.coords.longitude.toFixed(3);
+        let name = 'Home';
+        try {
+          const g = await (await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`)).json();
+          const a = g.locality || g.city, b = g.city && g.city !== a ? g.city : g.principalSubdivision;
+          name = [a, b].filter(Boolean).join(', ') || name;
+        } catch (x) {}
+        OVR['Home lat'] = String(lat); OVR['Home lon'] = String(lon); setOvr('Home name', name); renderSettings();
+      }, err => msg(err.code === 1 ? 'Location is blocked for this site. Allow it in the browser, then try again.' : 'Couldn’t get a location just now. Try again.'),
+      { enableHighAccuracy: true, maximumAge: 60000, timeout: 20000 });
+    }
+  });
+})();
 document.addEventListener('click', () => document.getElementById('viewMenu').classList.remove('open'));
 setTimeout(() => { setView(VIEW); autoView(); setInterval(autoView, 30 * 1000); }, 0);
 
@@ -2507,7 +2624,7 @@ function renderWeather() {
   const c = wxModel && wxModel.current, dl = wxModel && wxModel.daily;
   if (!c) return;   // forecast not loaded yet
   const isDay = c ? c.is_day : (() => { const h = +new Date().toLocaleString('en-US', { timeZone:'Asia/Kolkata', hour:'numeric', hour12:false }); return h >= 6 && h < 18 ? 1 : 0; })();
-  const o = away ? nearestAirport()                                          // travelling: nearest airport's report
+  const o = away || !homeHAL() ? nearestAirport()                                          // travelling: nearest airport's report
           : wxObs && wxObs.age <= HAL_MAX_AGE ? Object.assign({ name: 'HAL' }, wxObs) : null;   // home: HAL, if recent
   // no measurement: average the two forecasts (when both loaded) so one model's miss is softened
   const alt = !o && wxAlt && wxAlt.current && wxAlt.src !== (wxModel && wxModel.src) ? wxAlt.current : null;
@@ -2561,8 +2678,8 @@ function renderWeather() {
   if (THEME === 'ambient' && slides[idx] && slides[idx].dataset.wx) setScene(sceneFor(slides[idx]));
   const fmt = d => d.toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' });
   document.getElementById('wSrc').textContent =
-    (away && o ? 'Now: measured at ' + o.name + ' airport (' + Math.round(o.km) + ' km away), ' + fmt(o.at)
-       : away ? 'Now: ' + (alt ? 'average of MET Norway and Open-Meteo forecasts' : 'forecast estimate') + ' (no airport report nearby)'
+    ((away || !homeHAL()) && o ? 'Now: measured at ' + o.name + ' airport (' + Math.round(o.km) + ' km away), ' + fmt(o.at)
+       : away || !homeHAL() ? 'Now: ' + (alt ? 'average of MET Norway and Open-Meteo forecasts' : 'forecast estimate') + ' (no airport report nearby)'
        : o ? 'Now: measured at HAL Airport, ' + fmt(o.at)
        : 'Now: forecast estimate' + (wxObs ? ' (HAL report from ' + fmt(wxObs.at) + ' is too old)' : ' (no HAL report yet)')) +
     ' · Forecast: ' + (met ? 'MET Norway' : 'Open-Meteo') + (Math.abs(wxBias) >= 0.5 ? ', adjusted to ' + (o ? o.name : 'HAL') + ' (' + (wxBias > 0 ? '+' : '−') + Math.abs(wxBias).toFixed(0) + '°)' : '') +
@@ -2650,7 +2767,7 @@ async function loadWeather() {
     wxLastSrc = wxModel.src === 'metno' ? 'metno' : 'openmeteo';
     renderWeather();
     // second opinion: also load the other forecast, used for "now" when there is no measured report
-    if (away || !wxObs || wxObs.age > HAL_MAX_AGE) second().then(m => { wxAlt = m; renderWeather(); }).catch(() => { wxAlt = null; });
+    if (away || !homeHAL() || !wxObs || wxObs.age > HAL_MAX_AGE) second().then(m => { wxAlt = m; renderWeather(); }).catch(() => { wxAlt = null; });
     else wxAlt = null;
   } catch (e) {
     if (!wxModel) document.getElementById('wDesc').textContent = 'Weather loading…';
@@ -2702,7 +2819,7 @@ function readStationAqi(rows) {
   stationAqi = { aqi: Math.round(v), name: String(r[1] || ''), at, main: String(r[3] || '') };
   showStationAqi();
 }
-function stationAqiFresh() { return stationAqi && !away && stationAqi.at && Date.now() - stationAqi.at < 4 * 3600e3; }
+function stationAqiFresh() { return stationAqi && !away && homeHAL() && stationAqi.at && Date.now() - stationAqi.at < 4 * 3600e3; }
 function showStationAqi() {
   if (!stationAqiFresh()) return false;
   const band = AQI_BANDS.find(b => stationAqi.aqi <= b[0]) || AQI_BANDS[5];
