@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v13.5-2026-11-10">
+<meta name="ticker-version" content="v13.6-2026-11-10">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -402,6 +402,7 @@
   .spx-p{font-weight:800;font-size:clamp(44px,22vh,110px);line-height:1;letter-spacing:-2px}
   .spx-c{font-weight:700;font-size:clamp(16px,6vh,28px)} .spx-c.up{color:#16a34a} .spx-c.down{color:#dc2626}
   .spx-s{font-size:clamp(10px,3vh,13px);opacity:.65;margin-top:1vh}
+  .ix-sub.spx-s{opacity:.6;line-height:1.35;max-width:36ch}
   body.night .viewsel{display:none}
   body.locked #lockIc::before{content:"🔒";margin-right:6px;font-size:.95em}
   body.locked footer span.on b{animation:none!important;width:100%;opacity:.45}
@@ -748,7 +749,7 @@
   body.swiss .gauge .z-greed{stroke:#ddd6ca} body.swiss .gauge .z-neutral{stroke:#a59d91} body.swiss .gauge .z-fear{stroke:#d6452f}
   body.swiss .mood-leg .z-greed{background:#ddd6ca!important} body.swiss .mood-leg .z-neutral{background:#a59d91!important} body.swiss .mood-leg .z-fear{background:#d6452f!important}
   body.swiss #vixMood{color:#151515!important;filter:none;font-weight:300} body.swiss #vixMood[data-zone=fear]{color:#d6452f!important}
-  body.swiss #sparkSvg circle{stroke:#efeae2!important}
+  body.swiss .spark svg circle{stroke:#efeae2!important}
   body.swiss .pfest b{color:#151515;font-weight:600}
   body.swiss .tile, body.swiss .tile.up, body.swiss .tile.down, body.swiss .tile.big{box-shadow:none!important;outline:0!important}
   body.swiss .gauge .gl{font-family:"Space Grotesk",sans-serif;letter-spacing:1px}
@@ -759,8 +760,8 @@
   body.paper .gauge .z-greed{stroke:#7d9471} body.paper .gauge .z-neutral{stroke:#c9a54a} body.paper .gauge .z-fear{stroke:#a5452f}
   body.paper .mood-leg .z-greed{background:#7d9471!important} body.paper .mood-leg .z-neutral{background:#c9a54a!important} body.paper .mood-leg .z-fear{background:#a5452f!important}
   body.paper #vixMood{filter:none} body.paper #vixMood[data-zone=greed]{color:#4f6b45!important} body.paper #vixMood[data-zone=neutral]{color:#8a6a1f!important} body.paper #vixMood[data-zone=fear]{color:#9b2c2c!important}
-  body.paper #sg stop{stop-color:#1d1a16!important} body.paper #sparkSvg path[stroke]{stroke:#1d1a16!important}
-  body.paper #sparkSvg circle{fill:#1d1a16!important;stroke:#f8f2e7!important}
+  body.paper .spark linearGradient stop{stop-color:#1d1a16!important} body.paper .spark svg path[stroke]{stroke:#1d1a16!important}
+  body.paper .spark svg circle{fill:#1d1a16!important;stroke:#f8f2e7!important}
   body.paper .badge.emo, body.paper .wx-icon, body.paper .hr .ic, body.paper .flag, body.paper .nflag{filter:sepia(.55) saturate(.7)}
   /* pixel look: the newer parts of the display */
   body.led .viewbtn{font-family:Silkscreen,monospace;text-transform:uppercase;border-radius:0;background:transparent;border:1px solid var(--cyan);color:var(--cyan)}
@@ -887,8 +888,8 @@
   /* market mood, S&P */
   body.anime .gauge{color:var(--fg)} body.anime .gauge .gl{font-family:"Zen Maru Gothic",sans-serif;font-weight:900}
   body.anime #vixMood{filter:none}
-  body.anime #sparkSvg circle{stroke:var(--ink)!important}
-  body.anime #sparkSvg text{font-family:"Zen Maru Gothic",sans-serif;font-weight:700}
+  body.anime .spark svg circle{stroke:var(--ink)!important}
+  body.anime .spark svg text{font-family:"Zen Maru Gothic",sans-serif;font-weight:700}
   body.anime .w52{font-weight:900}
   /* progress: little stars */
   body.anime footer{justify-content:center;gap:9px;padding-top:6px}
@@ -1312,10 +1313,16 @@ function setVixGauge(v) {
 function buildSpxSlide() {
   const sec = document.createElement('section'); sec.className = 'slide';
   sec.dataset.title = 'S&P 500'; sec.dataset.accent = '#7aa2ff'; sec.dataset.views = 'us'; sec.dataset.only = '1';
-  sec.innerHTML = `<div class="card spx"><div class="spx-k">S&amp;P 500 · US</div>
-      <div class="spx-p" data-sym="INDEXSP:.INX" data-f="price">--</div>
-      <div class="spx-c chg" data-sym="INDEXSP:.INX" data-f="chg"></div>
-      <div class="spx-s">The 500 biggest US companies · opens 8:00 pm, closes 2:30 am India time (7:00 pm–1:30 am in US summer)</div></div>
+  sec.innerHTML = `<div class="card idx">
+      <div class="ix-l">
+        <div class="ix-top"><span class="chip"><span class="dot"></span>NYSE · Index</span></div>
+        <div class="ix-name">S&amp;P 500</div>
+        <div class="ix-p" data-sym="INDEXSP:.INX" data-f="price">--</div>
+        <div class="chg big" data-sym="INDEXSP:.INX" data-f="chg"></div>
+        <div class="ix-sub spx-s">The 500 biggest US companies · India time 8:00 pm–2:30 am (7:00 pm–1:30 am in US summer)</div>
+      </div>
+      <div class="spark"><div class="k" id="spxLbl">Today · live</div><svg id="spxSvg"></svg></div>
+    </div>
     <div class="mnote stock-note" data-mkt="us"></div>`;
   document.getElementById('stockSlot').before(sec);
 }
@@ -1405,76 +1412,104 @@ function istParts() {
   const t = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Kolkata' }));
   return { date: todayIST(), min: t.getHours() * 60 + t.getMinutes() - 555, day: t.getDay() };
 }
-let memIntra = null;
-function intraday(price) {
-  const now = istParts();
-  let st = memIntra;
-  try { st = st || JSON.parse(localStorage.getItem('deskTickerNiftyIntra')); } catch (e) {}
-  const open = now.day >= 1 && now.day <= 5 && !nseHoliday() && now.min >= 0 && now.min <= SESSION_MIN;
+/* ---------- DAY CHARTS (Nifty 50, S&P 500) ----------
+   Each screen records the live price every time it refreshes, so the line builds through the session. */
+const istTime = d => d.toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit', timeZone:'Asia/Kolkata' }).replace(/\s?(am|pm)/i, ' $1').toLowerCase();
+const CHARTS = {
+  nifty: { svg:'sparkSvg', lbl:'sparkLbl', key:'deskTickerNiftyIntra', tz:'Asia/Kolkata', start:555, len:375, hol: d => NSE_HOLIDAYS.has(d),
+           ticks: () => [[0, '9:15'], [165, '12:00'], [375, '3:30']], live:null, prev:null, mem:null },
+  spx:   { svg:'spxSvg', lbl:'spxLbl', key:'deskTickerSpxIntra', tz:'America/New_York', start:570, len:390, hol: d => NYSE_HOLIDAYS.has(d),
+           ticks: c => {              // shown in India time (8:00 pm → 2:30 am in winter)
+             const t0 = sessionStartAt(c);
+             return [0, 195, 390].map(m => [m, istTime(new Date(+t0 + m * 6e4))]);
+           }, live:null, prev:null, mem:null },
+};
+function mktNow(c) {
+  const t = new Date(new Date().toLocaleString('en-US', { timeZone: c.tz }));
+  return { date: ymd(new Date(), c.tz), min: t.getHours() * 60 + t.getMinutes() - c.start, day: t.getDay() };
+}
+function sessionStartAt(c) {            // the real moment today's session opens (for India-time axis labels)
+  const n = new Date(), loc = new Date(n.toLocaleString('en-US', { timeZone: c.tz }));
+  const minsNow = loc.getHours() * 60 + loc.getMinutes();
+  return new Date(+n - (minsNow - c.start) * 6e4 - loc.getSeconds() * 1000);
+}
+function mktOpenNow(c, now = mktNow(c)) { return now.day >= 1 && now.day <= 5 && !c.hol(now.date) && now.min >= 0 && now.min <= c.len; }
+function lastSession(c) {               // the most recent day this market traded (today counts once it has opened)
+  for (let k = 0; k < 10; k++) {
+    const d = new Date(Date.now() - k * 864e5), loc = new Date(d.toLocaleString('en-US', { timeZone: c.tz }));
+    const wd = loc.getDay(), m = loc.getHours() * 60 + loc.getMinutes(), ds = ymd(d, c.tz);
+    if (wd >= 1 && wd <= 5 && !c.hol(ds) && (k > 0 || m >= c.start)) return ds;
+  }
+  return '';
+}
+function lastSessionDate() { return lastSession(CHARTS.nifty); }
+function record(c, price) {
+  const now = mktNow(c);
+  let st = c.mem;
+  try { st = st || JSON.parse(localStorage.getItem(c.key)); } catch (e) {}
+  const open = mktOpenNow(c, now);
   if (open) {
     if (!st || st.date !== now.date) st = { date: now.date, pts: [] };
     const last = st.pts[st.pts.length - 1];
     if (last && last[0] === now.min) last[1] = price; else st.pts.push([now.min, price]);
     st.pts.sort((a, b) => a[0] - b[0]);
-    memIntra = st;
-    try { localStorage.setItem('deskTickerNiftyIntra', JSON.stringify(st)); } catch (e) {}
+    c.mem = st;
+    try { localStorage.setItem(c.key, JSON.stringify(st)); } catch (e) {}
   }
   return { st, open, now };
 }
-function lastSessionDate() {             // the most recent day NSE actually traded (today counts once it has opened)
-  for (let k = 0; k < 10; k++) {
-    const d = new Date(Date.now() - k * 864e5), ist = new Date(d.toLocaleString('en-US', { timeZone:'Asia/Kolkata' }));
-    const wd = ist.getDay(), m = ist.getHours() * 60 + ist.getMinutes();
-    if (wd >= 1 && wd <= 5 && !nseHoliday(d) && (k > 0 || m >= 555)) return ymd(d, 'Asia/Kolkata');
-  }
-  return '';
-}
-function drawSpark() {
-  const svg = document.getElementById('sparkSvg'); if (!svg || lastLive == null) return;
-  const { st, open, now } = intraday(lastLive);
+function intraday(price) { return record(CHARTS.nifty, price); }
+function drawChart(c) {
+  const svg = document.getElementById(c.svg); if (!svg || c.live == null) return;
+  const L = c.len, live = c.live, prev = c.prev;
+  const { st, open, now } = record(c, live);
   // after hours, only draw what this screen recorded if it is from the latest session (not an older day's leftovers)
-  const showToday = st && (open ? st.date === now.date : st.date === lastSessionDate());
+  const showToday = st && (open ? st.date === now.date : st.date === lastSession(c));
   let pts = showToday && st ? st.pts.slice() : [];
   // closed: the line must end at the actual close, even if this screen was off for part of the day
   let tailFrom = null;
-  if (!open && pts.length && (pts[pts.length - 1][0] < SESSION_MIN - 10 || Math.abs(pts[pts.length - 1][1] - lastLive) > lastLive * 0.0005)) {
-    tailFrom = pts[pts.length - 1]; pts.push([SESSION_MIN, lastLive]);
+  if (!open && pts.length && (pts[pts.length - 1][0] < L - 10 || Math.abs(pts[pts.length - 1][1] - live) > live * 0.0005)) {
+    tailFrom = pts[pts.length - 1]; pts.push([L, live]);
   }
-  const lbl = document.getElementById('sparkLbl');
+  const lbl = document.getElementById(c.lbl);
   if (lbl) lbl.textContent = open ? 'Today · live' : (pts.length ? 'Last session' : 'Market closed');
   const W = svg.clientWidth || 300, H = svg.clientHeight || 150, padL = 6, padR = 14, padT = 14, padB = 20;
-  if (!pts.length) pts = [[open ? Math.max(0, now.min) : SESSION_MIN, lastLive]];
+  if (!pts.length) pts = [[open ? Math.max(0, now.min) : L, live]];
   const solid = tailFrom ? pts.slice(0, -1) : pts;      // the recorded part; the stretch to the close is dotted
-  const vals = pts.map(p => p[1]).concat(lastPrev != null ? [lastPrev] : []);
-  let lo = Math.min(...vals), hi = Math.max(...vals); if (hi - lo < 1) { lo -= 20; hi += 20; }
+  const vals = pts.map(p => p[1]).concat(prev != null ? [prev] : []);
+  let lo = Math.min(...vals), hi = Math.max(...vals); if (hi - lo < live * 0.0008) { const m = live * 0.0008; lo -= m; hi += m; }
   const padV = (hi - lo) * 0.08; lo -= padV; hi += padV;
-  const X = m => padL + Math.min(Math.max(m, 0), SESSION_MIN) * (W - padL - padR) / SESSION_MIN;
+  const X = m => padL + Math.min(Math.max(m, 0), L) * (W - padL - padR) / L;
   const Y = v => padT + (hi - v) * (H - padT - padB) / (hi - lo);
   const line = solid.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join(' ');
   const sl = solid[solid.length - 1];
-  const up = lastPrev == null || lastLive >= lastPrev;
+  const up = prev == null || live >= prev;
   const col = THEME === 'swiss' ? (up ? '#2f8a5c' : '#d6452f') : THEME === 'anime' && !document.body.classList.contains('anidark') ? (up ? '#14a35a' : '#e0457b') : up ? '#3ddc84' : '#ff5a5f';   // Swiss: a calmer green, its own red
-  const lp = pts[pts.length - 1], lx = X(lp[0]), ly = Y(lp[1]);
-  // dotted link from prev close at 9:15 to the first recorded point, if the page started late
-  const gap = lastPrev != null && pts[0][0] > 2
-    ? `<path d="M${X(0)} ${Y(lastPrev)} L${X(pts[0][0])} ${Y(pts[0][1])}" stroke="var(--accent)" stroke-opacity=".5" stroke-width="2" stroke-dasharray="2 5" fill="none"/>` : '';
+  const lp = pts[pts.length - 1], lx = X(lp[0]), ly = Y(lp[1]), gid = 'sg-' + c.svg;
+  // dotted link from prev close at the open to the first recorded point, if the page started late
+  const gap = prev != null && pts[0][0] > 2
+    ? `<path d="M${X(0)} ${Y(prev)} L${X(pts[0][0])} ${Y(pts[0][1])}" stroke="var(--accent)" stroke-opacity=".5" stroke-width="2" stroke-dasharray="2 5" fill="none"/>` : '';
   const tail = tailFrom ? `<path d="M${X(tailFrom[0])} ${Y(tailFrom[1])} L${lx} ${ly}" stroke="${col}" stroke-opacity=".7" stroke-width="2" stroke-dasharray="2 5" fill="none"/>` : '';
-  const tick = (m, t) => `<text x="${X(m)}" y="${H - 4}" fill="var(--gridtxt,rgba(255,255,255,.4))" font-size="10" font-family="Manrope, Space Grotesk" text-anchor="${m === 0 ? 'start' : m === SESSION_MIN ? 'end' : 'middle'}">${t}</text>`;
+  const tick = (m, t) => `<text x="${X(m)}" y="${H - 4}" fill="var(--gridtxt,rgba(255,255,255,.4))" font-size="10" font-family="Manrope, Space Grotesk" text-anchor="${m === 0 ? 'start' : m === L ? 'end' : 'middle'}">${t}</text>`;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.innerHTML =
-    `<defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity="${THEME === 'calm' ? .12 : .28}"/>` +
+    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity="${THEME === 'calm' ? .12 : .28}"/>` +
     `<stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>` +
-    (lastPrev != null ? `<line x1="${padL}" x2="${W - padR}" y1="${Y(lastPrev)}" y2="${Y(lastPrev)}" stroke="var(--grid,rgba(255,255,255,.25))" stroke-dasharray="4 5"/>` +
-      `<text x="${W - padR}" y="${Y(lastPrev) - 6}" text-anchor="end" fill="var(--gridtxt,rgba(255,255,255,.45))" font-size="11" font-family="Manrope, Space Grotesk">Prev close ${lastPrev.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</text>` : '') +
-    (solid.length > 1 ? `<path d="${line} L${X(sl[0]).toFixed(1)} ${H - padB} L${X(pts[0][0]).toFixed(1)} ${H - padB} Z" fill="url(#sg)"/>` : '') +
+    (prev != null ? `<line x1="${padL}" x2="${W - padR}" y1="${Y(prev)}" y2="${Y(prev)}" stroke="var(--grid,rgba(255,255,255,.25))" stroke-dasharray="4 5"/>` +
+      `<text x="${W - padR}" y="${Y(prev) - 6}" text-anchor="end" fill="var(--gridtxt,rgba(255,255,255,.45))" font-size="11" font-family="Manrope, Space Grotesk">Prev close ${prev.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</text>` : '') +
+    (solid.length > 1 ? `<path d="${line} L${X(sl[0]).toFixed(1)} ${H - padB} L${X(pts[0][0]).toFixed(1)} ${H - padB} Z" fill="url(#${gid})"/>` : '') +
     gap + tail +
     `<path d="${line}" fill="none" stroke="${col}" stroke-width="${THEME === 'calm' ? 1.8 : 2.5}" stroke-linejoin="round" stroke-linecap="round"/>` +
     (open ? `<circle class="ring" cx="${lx}" cy="${ly}" r="5" fill="${col}"/>` : '') +
     `<circle cx="${lx}" cy="${ly}" r="5.5" fill="${col}" stroke="#0b0d12" stroke-width="2"/>` +
-    tick(0, '9:15') + tick(165, '12:00') + tick(SESSION_MIN, '3:30');
+    c.ticks(c).map(([m, t]) => tick(m, t)).join('');
+}
+function drawSpark() {           // both charts (kept under this name; many places call it)
+  CHARTS.nifty.live = lastLive; CHARTS.nifty.prev = lastPrev;
+  drawChart(CHARTS.nifty); drawChart(CHARTS.spx);
 }
 window.addEventListener('resize', drawSpark);
-try { new ResizeObserver(() => drawSpark()).observe(document.getElementById('sparkSvg')); } catch (e) {}
+try { const ro = new ResizeObserver(() => drawSpark()); ro.observe(document.getElementById('sparkSvg')); setTimeout(() => { const x = document.getElementById('spxSvg'); if (x) ro.observe(x); }, 0); } catch (e) {}
 // GoodReturns Bangalore rates imported into the sheet: gold table in I:K, silver table in M:P.
 // Row 1 of each is the latest day, e.g. "₹13,937 (+49)" = rate (change vs previous day).
 let GR = null;
@@ -1633,6 +1668,8 @@ async function loadPrices() {
       }
       el.textContent = txt; el.className = 'w52 ' + cls;
     });
+    const sp = data['INDEXSP:.INX'];
+    if (sp && sp.price != null) { CHARTS.spx.live = sp.price; CHARTS.spx.prev = sp.change != null ? sp.price - sp.change : null; }
     const nf = data['INDEXNSE:NIFTY_50'];
     if (nf && nf.price != null) {
       lastLive = nf.price; lastPrev = nf.change != null ? nf.price - nf.change : null;
@@ -2129,7 +2166,7 @@ function show(i) {
   document.getElementById('title').textContent = slides[i].dataset.title;
   document.getElementById('pill').dataset.ep = String(i + 1).padStart(2, '0');
   document.documentElement.style.setProperty('--accent', slides[i].dataset.accent);
-  if (slides[i].querySelector('#sparkSvg')) requestAnimationFrame(drawSpark);
+  if (slides[i].querySelector('#sparkSvg, #spxSvg')) requestAnimationFrame(drawSpark);
   setScene(sceneFor(slides[i]));
   clearInterval(newsPageTimer);
   const here = slides[i];
