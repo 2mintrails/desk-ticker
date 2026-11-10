@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v12.4-2026-11-10">
+<meta name="ticker-version" content="v12.5-2026-11-10">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1292,6 +1292,22 @@ let lastLive = null, lastPrev = null;
 // Intraday Nifty: the page records the live price each time it refreshes (on this phone),
 // so the line builds through the session. 9:15 → 15:30 IST = 375 minutes.
 const SESSION_MIN = 375;
+// Exchange holidays (weekdays the market stays shut). NSE list for 2026 from the exchange circular;
+// add next year's when NSE publishes it (usually in December).
+const NSE_HOLIDAYS = new Set(['2026-01-15','2026-01-26','2026-03-03','2026-03-26','2026-03-31','2026-04-03','2026-04-14',
+  '2026-05-01','2026-05-28','2026-06-26','2026-09-14','2026-10-02','2026-10-20','2026-11-10','2026-11-24','2026-12-25']);
+const NYSE_HOLIDAYS = new Set(['2026-01-01','2026-01-19','2026-02-16','2026-04-03','2026-05-25','2026-06-19','2026-07-03',
+  '2026-09-07','2026-11-26','2026-12-25']);
+const ymd = (now, tz) => now.toLocaleDateString('en-CA', { timeZone: tz });
+function nseHoliday(now = new Date()) { return NSE_HOLIDAYS.has(ymd(now, 'Asia/Kolkata')); }
+function nseOpen(now = new Date()) {
+  const ist = new Date(now.toLocaleString('en-US', { timeZone:'Asia/Kolkata' })), m = ist.getHours() * 60 + ist.getMinutes();
+  return ist.getDay() >= 1 && ist.getDay() <= 5 && !nseHoliday(now) && m >= 555 && m < 930;
+}
+function nyseOpen(now = new Date()) {
+  const ny = new Date(now.toLocaleString('en-US', { timeZone:'America/New_York' })), m = ny.getHours() * 60 + ny.getMinutes();
+  return ny.getDay() >= 1 && ny.getDay() <= 5 && !NYSE_HOLIDAYS.has(ymd(now, 'America/New_York')) && m >= 570 && m < 960;
+}
 function istParts() {
   const t = new Date(new Date().toLocaleString('en-US', { timeZone:'Asia/Kolkata' }));
   return { date: todayIST(), min: t.getHours() * 60 + t.getMinutes() - 555, day: t.getDay() };
@@ -1301,7 +1317,7 @@ function intraday(price) {
   const now = istParts();
   let st = memIntra;
   try { st = st || JSON.parse(localStorage.getItem('deskTickerNiftyIntra')); } catch (e) {}
-  const open = now.day >= 1 && now.day <= 5 && now.min >= 0 && now.min <= SESSION_MIN;
+  const open = now.day >= 1 && now.day <= 5 && !nseHoliday() && now.min >= 0 && now.min <= SESSION_MIN;
   if (open) {
     if (!st || st.date !== now.date) st = { date: now.date, pts: [] };
     const last = st.pts[st.pts.length - 1];
@@ -2139,10 +2155,8 @@ try { const v = localStorage.getItem('deskTickerView'); VIEW = v === 'in' || v =
 // US market is open (Mon–Fri 9:30–4:00 New York time), All otherwise. It only acts when a market opens or closes,
 // so a mode you pick by hand stays until the next open/close.
 function marketView(now = new Date()) {
-  const ist = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })), im = ist.getHours() * 60 + ist.getMinutes();
-  if (ist.getDay() >= 1 && ist.getDay() <= 5 && im >= 555 && im < 930) return 'in';
-  const ny = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' })), nm = ny.getHours() * 60 + ny.getMinutes();
-  if (ny.getDay() >= 1 && ny.getDay() <= 5 && nm >= 570 && nm < 960) return 'us';
+  if (nseOpen(now)) return 'in';
+  if (nyseOpen(now)) return 'us';
   return 'all';
 }
 let lastAuto = null;
@@ -2329,11 +2343,9 @@ function tick() {
   document.getElementById('time').innerHTML = hm.replace(/\s?(am|pm)/i, '<span class="sec">$1</span>');
   document.getElementById('date').textContent =
     d.toLocaleDateString('en-IN', { weekday:'short', day:'numeric', month:'short' });
-  // NSE cash market: Mon–Fri 9:15–15:30 IST (holidays not tracked)
-  const ist = new Date(d.toLocaleString('en-US', { timeZone:'Asia/Kolkata' }));
-  const mins = ist.getHours() * 60 + ist.getMinutes(), day = ist.getDay();
-  const open = day >= 1 && day <= 5 && mins >= 555 && mins < 930;
-  document.getElementById('mkt').innerHTML = 'NSE <b class="' + (open ? 'open">● Open' : 'shut">● Closed') + '</b>';
+  // NSE cash market: Mon–Fri 9:15–15:30 IST, except exchange holidays
+  const open = nseOpen(d);
+  document.getElementById('mkt').innerHTML = 'NSE <b class="' + (open ? 'open">● Open' : nseHoliday(d) ? 'shut">● Holiday' : 'shut">● Closed') + '</b>';
 }
 // update on every second boundary so a new minute shows the moment it starts
 function everySecond(fn) { fn(); setTimeout(() => { fn(); setInterval(fn, 1000); }, 1000 - (Date.now() % 1000) + 5); }
