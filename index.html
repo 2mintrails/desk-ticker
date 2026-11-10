@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v13.2-2026-11-10">
+<meta name="ticker-version" content="v13.3-2026-11-10">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -338,7 +338,11 @@
   /* ---------- pinned slide ---------- */
   #pill{cursor:pointer}
   .viewsel{position:relative;margin-left:10px}
-  .viewbtn.gear{margin-left:10px;padding:6px 10px;line-height:1} body.night .viewbtn.gear{display:none}
+  .viewbtn.gear{position:fixed;right:max(8px,env(safe-area-inset-right));bottom:max(5px,env(safe-area-inset-bottom));z-index:50;width:28px;height:28px;padding:0;
+    display:grid;place-items:center;font-size:15px;line-height:1;border-radius:50%;opacity:.6;color:var(--text,#fff)}
+  .viewbtn.gear:hover{opacity:1} body.night .viewbtn.gear{display:none} body.amb.light .viewbtn.gear{color:#334155;opacity:.75}
+  body.anime .viewbtn.gear{box-shadow:2px 2px 0 #2a1a5c;opacity:.9}
+  footer{margin:0 34px}        /* keep the slide markers clear of the gear */
   /* settings panel (same plain look in every theme) */
   .setwrap{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:10px}
   .setwrap[hidden]{display:none}
@@ -895,6 +899,7 @@
 <div class="scene" id="sceneA"></div><div class="scene" id="sceneB"></div>
 <div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
 <div class="grain"></div><div class="vignette"></div>
+<button class="viewbtn gear" id="gearBtn" title="Settings" aria-label="Settings">⚙</button>
 <div class="setwrap" id="setWrap" hidden><div class="setpanel" id="setPanel"></div></div>
 <div class="ani" id="ani"></div><div class="ani-fx" id="aniFx"><div class="fx-rain" id="fxRain"></div></div>
 
@@ -905,7 +910,7 @@
       <div class="hwx" id="hWx"></div>
       <div class="mkt" id="mkt"></div>
       <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
-      <button class="viewbtn gear" id="gearBtn" title="Settings" aria-label="Settings">⚙</button><div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
+      <div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
         <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Theme</div><div class="looks"><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button><button data-look="anime">🌸 Anime 90s</button></div><div class="diag" id="diag"></div></div></div>
     </div>
   </header>
