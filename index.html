@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v13.4-2026-11-10">
+<meta name="ticker-version" content="v13.5-2026-11-10">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -959,6 +959,10 @@
       <div class="card ncol solo-news"><div class="nhead"><span class="nflag">📊</span>Market News</div><ol class="nlist" id="newsMK"></ol></div>
       <div class="mnote news-note"></div>
     </section>
+    <section class="slide" data-title="US Market News" data-accent="#9aa3b2" data-needs="news" data-only="1" data-views="us">
+      <div class="card ncol solo-news"><div class="nhead"><span class="nflag">🇺🇸</span>US Market News</div><ol class="nlist" id="newsUS"></ol></div>
+      <div class="mnote news-note"></div>
+    </section>
     <section class="slide" data-title="India News" data-accent="#9aa3b2" data-needs="news" data-views="in">
       <div class="card ncol solo-news"><div class="nhead"><span class="nflag">🇮🇳</span>India News</div><ol class="nlist" id="newsIN"></ol></div>
       <div class="mnote news-note"></div>
@@ -1847,7 +1851,7 @@ async function loadNews() {
   }
 }
 function readNews(rows, at, label) {
-  const LINK = { 0: 4, 1: 5, 3: 6 };       // the article link for each headline column (written by the sheet script)
+  const LINK = { 0: 4, 1: 5, 3: 6, 7: 8 };       // the article link for each headline column (written by the sheet script)
   const pickL = col => rows.map(r => ({ t: String(r[col] || '').trim(), u: String(r[LINK[col]] || '').trim() }))
     .filter(x => x.t && !/^(India|World)$/i.test(x.t) && !/^(#N\/A|#ERROR|Loading)/i.test(x.t)).slice(0, 7);
   const pick = col => pickL(col).map(x => x.t);
@@ -1872,7 +1876,7 @@ function readNews(rows, at, label) {
     if (sv && sv.sig === sig) at = sv.at;
     else { at = Date.now(); try { localStorage.setItem('deskTickerNewsAt', JSON.stringify({ sig, at })); } catch (e) {} }
   }
-  const got = fill('newsIN', pickL(0)) + fill('newsWD', pickL(1)) + fill('newsMK', pickL(3));
+  const got = fill('newsIN', pickL(0)) + fill('newsWD', pickL(1)) + fill('newsMK', pickL(3)) + fill('newsUS', pickL(7));
   if (got) {
     document.querySelectorAll('.news-note').forEach(n => n.textContent = label + (at ? (label === 'Live feeds' ? ' · updated ' : ' · new headlines at ') +
       new Date(at).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' }) : ''));
@@ -2192,7 +2196,8 @@ function applyMode(force, fresh) {
   const V = VIEW || 'all';
   slides = allSlides.filter(s => (V !== 'all' ? (s.dataset.views || '') === V                  // a stock mode: its own set, any time of day
                                               : !s.dataset.only && (!s.dataset.mode || s.dataset.mode === m))
-    && !hiddenBySetting(s) && !(s.dataset.needs === 'news' && !newsReady) && !(s.querySelector('#newsMK') && !document.getElementById('newsMK').children.length));
+    && !hiddenBySetting(s) && !(s.dataset.needs === 'news' && !newsReady) && !(s.querySelector('#newsMK') && !document.getElementById('newsMK').children.length)
+    && !(s.querySelector('#newsUS') && !document.getElementById('newsUS').children.length));
   bars.innerHTML = '';
   slides.forEach(() => { const s = document.createElement('span'); s.appendChild(document.createElement('b')); bars.appendChild(s); });
   idx = (locked || sameDay) && slides.includes(keep) ? slides.indexOf(keep) : 0;
