@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v13.0-2026-11-10">
+<meta name="ticker-version" content="v13.1-2026-11-10">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -163,7 +163,8 @@
   .metal .per span{color:var(--dim)}
   .chip{display:inline-flex;align-self:flex-start;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
     font-size:clamp(10px,3vh,12px);letter-spacing:1.5px;text-transform:uppercase;border:1px solid var(--line);color:var(--dim)}
-  .chip .dot{width:6px;height:6px;border-radius:50%}
+  .chip .dot{width:6px;height:6px;border-radius:50%;flex:none}
+  .chip{white-space:nowrap;width:max-content;max-width:100%;flex:none}
   .gold .chip .dot{background:var(--gold2)} .silver .chip .dot{background:var(--silver2)}
   .mnote{position:absolute;left:0;right:0;bottom:1.4vh;text-align:center;font-size:clamp(9px,2.8vh,11px);color:var(--dim);letter-spacing:.5px}
 
@@ -829,7 +830,7 @@
   body.anime .ix-name, body.anime .fx-k, body.anime .tk, body.anime .k, body.anime .label, body.anime .spx-k, body.anime .chip, body.anime .wx-feel, body.anime .wx-sun,
   body.anime .src, body.anime .wx-src, body.anime .nlist .sr, body.anime .mood-s, body.anime .mood-leg, body.anime .spx-s, body.anime .ix-sub, body.anime .per span, body.anime .tev{color:var(--dim)}
   body.anime .ix-name{color:#e0457b;letter-spacing:3px} body.anime.anidark .ix-name{color:#7ff3ff}
-  body.anime .chip{background:transparent;border:2px solid var(--ink);color:var(--fg)} body.anime .chip .dot{background:#e0457b}
+  body.anime .chip{background:transparent;border:2px solid var(--ink);color:var(--fg);padding:3px 12px 3px 13px} body.anime .chip .dot{background:#e0457b}
   /* subtitles: the yellow outlined line of an old subtitled tape */
   body.anime .mnote{color:#ffe94a;font-weight:900;font-size:clamp(11px,3.4vh,15px);letter-spacing:.3px;
     text-shadow:-1.5px -1.5px 0 #111,1.5px -1.5px 0 #111,-1.5px 1.5px 0 #111,1.5px 1.5px 0 #111,0 1.5px 0 #111,0 -1.5px 0 #111}
@@ -1372,27 +1373,44 @@ function intraday(price) {
   }
   return { st, open, now };
 }
+function lastSessionDate() {             // the most recent day NSE actually traded (today counts once it has opened)
+  for (let k = 0; k < 10; k++) {
+    const d = new Date(Date.now() - k * 864e5), ist = new Date(d.toLocaleString('en-US', { timeZone:'Asia/Kolkata' }));
+    const wd = ist.getDay(), m = ist.getHours() * 60 + ist.getMinutes();
+    if (wd >= 1 && wd <= 5 && !nseHoliday(d) && (k > 0 || m >= 555)) return ymd(d, 'Asia/Kolkata');
+  }
+  return '';
+}
 function drawSpark() {
   const svg = document.getElementById('sparkSvg'); if (!svg || lastLive == null) return;
   const { st, open, now } = intraday(lastLive);
-  const showToday = st && (st.date === now.date || !open);
+  // after hours, only draw what this screen recorded if it is from the latest session (not an older day's leftovers)
+  const showToday = st && (open ? st.date === now.date : st.date === lastSessionDate());
   let pts = showToday && st ? st.pts.slice() : [];
+  // closed: the line must end at the actual close, even if this screen was off for part of the day
+  let tailFrom = null;
+  if (!open && pts.length && (pts[pts.length - 1][0] < SESSION_MIN - 10 || Math.abs(pts[pts.length - 1][1] - lastLive) > lastLive * 0.0005)) {
+    tailFrom = pts[pts.length - 1]; pts.push([SESSION_MIN, lastLive]);
+  }
   const lbl = document.getElementById('sparkLbl');
   if (lbl) lbl.textContent = open ? 'Today · live' : (pts.length ? 'Last session' : 'Market closed');
   const W = svg.clientWidth || 300, H = svg.clientHeight || 150, padL = 6, padR = 14, padT = 14, padB = 20;
   if (!pts.length) pts = [[open ? Math.max(0, now.min) : SESSION_MIN, lastLive]];
+  const solid = tailFrom ? pts.slice(0, -1) : pts;      // the recorded part; the stretch to the close is dotted
   const vals = pts.map(p => p[1]).concat(lastPrev != null ? [lastPrev] : []);
   let lo = Math.min(...vals), hi = Math.max(...vals); if (hi - lo < 1) { lo -= 20; hi += 20; }
   const padV = (hi - lo) * 0.08; lo -= padV; hi += padV;
   const X = m => padL + Math.min(Math.max(m, 0), SESSION_MIN) * (W - padL - padR) / SESSION_MIN;
   const Y = v => padT + (hi - v) * (H - padT - padB) / (hi - lo);
-  const line = pts.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join(' ');
+  const line = solid.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join(' ');
+  const sl = solid[solid.length - 1];
   const up = lastPrev == null || lastLive >= lastPrev;
   const col = THEME === 'swiss' ? (up ? '#2f8a5c' : '#d6452f') : THEME === 'anime' && !document.body.classList.contains('anidark') ? (up ? '#14a35a' : '#e0457b') : up ? '#3ddc84' : '#ff5a5f';   // Swiss: a calmer green, its own red
   const lp = pts[pts.length - 1], lx = X(lp[0]), ly = Y(lp[1]);
   // dotted link from prev close at 9:15 to the first recorded point, if the page started late
   const gap = lastPrev != null && pts[0][0] > 2
     ? `<path d="M${X(0)} ${Y(lastPrev)} L${X(pts[0][0])} ${Y(pts[0][1])}" stroke="var(--accent)" stroke-opacity=".5" stroke-width="2" stroke-dasharray="2 5" fill="none"/>` : '';
+  const tail = tailFrom ? `<path d="M${X(tailFrom[0])} ${Y(tailFrom[1])} L${lx} ${ly}" stroke="${col}" stroke-opacity=".7" stroke-width="2" stroke-dasharray="2 5" fill="none"/>` : '';
   const tick = (m, t) => `<text x="${X(m)}" y="${H - 4}" fill="var(--gridtxt,rgba(255,255,255,.4))" font-size="10" font-family="Manrope, Space Grotesk" text-anchor="${m === 0 ? 'start' : m === SESSION_MIN ? 'end' : 'middle'}">${t}</text>`;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.innerHTML =
@@ -1400,8 +1418,8 @@ function drawSpark() {
     `<stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>` +
     (lastPrev != null ? `<line x1="${padL}" x2="${W - padR}" y1="${Y(lastPrev)}" y2="${Y(lastPrev)}" stroke="var(--grid,rgba(255,255,255,.25))" stroke-dasharray="4 5"/>` +
       `<text x="${W - padR}" y="${Y(lastPrev) - 6}" text-anchor="end" fill="var(--gridtxt,rgba(255,255,255,.45))" font-size="11" font-family="Manrope, Space Grotesk">Prev close ${lastPrev.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</text>` : '') +
-    (pts.length > 1 ? `<path d="${line} L${lx.toFixed(1)} ${H - padB} L${X(pts[0][0]).toFixed(1)} ${H - padB} Z" fill="url(#sg)"/>` : '') +
-    gap +
+    (solid.length > 1 ? `<path d="${line} L${X(sl[0]).toFixed(1)} ${H - padB} L${X(pts[0][0]).toFixed(1)} ${H - padB} Z" fill="url(#sg)"/>` : '') +
+    gap + tail +
     `<path d="${line}" fill="none" stroke="${col}" stroke-width="${THEME === 'calm' ? 1.8 : 2.5}" stroke-linejoin="round" stroke-linecap="round"/>` +
     (open ? `<circle class="ring" cx="${lx}" cy="${ly}" r="5" fill="${col}"/>` : '') +
     `<circle cx="${lx}" cy="${ly}" r="5.5" fill="${col}" stroke="#0b0d12" stroke-width="2"/>` +
