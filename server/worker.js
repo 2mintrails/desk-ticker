@@ -1,4 +1,4 @@
-/** v1 
+/**
  * Desk Ticker server (Cloudflare Worker).
  *
  * Does the fetching the Google Sheet's script used to do, on a timer, and keeps the results in a small database:
@@ -121,19 +121,22 @@ async function jobPrices(env) {
   const { out: Y, errs } = await yahooQuotes(syms);
   let used = 0, kept = 0;
   all.slice(1).forEach(r => {
-    const y = Y[yahooSym(r[0])]; if (!y || y.prev == null) return;
-    const g = num(r[1]);
+    const y = Y[yahooSym(r[0])]; if (!y) return;
+    const g = num(r[1]), gc = num(r[2]);
+    const prev = g != null && gc != null && g - gc > 0 ? g - gc : y.prev;      // Google's previous close (price − change); Yahoo's can be a day off
+    if (prev == null) return;
+    y.prev = prev;
     if (g != null && Math.abs(y.price - g) / g > 0.08) { kept++; return; }      // too far from Google's value: keep Google's
     while (r.length < 6) r.push('');
-    const ch = y.price - y.prev;
-    r[1] = y.price.toFixed(2); r[2] = ch.toFixed(2); r[3] = (ch / y.prev * 100).toFixed(2);
+    const ch = y.price - prev;
+    r[1] = y.price.toFixed(2); r[2] = ch.toFixed(2); r[3] = (ch / prev * 100).toFixed(2);
     if (!num(r[4]) && y.hi52) r[4] = String(y.hi52);
     if (!num(r[5]) && y.lo52) r[5] = String(y.lo52);
     used++;
   });
   const idx = [['Index', 'Price', 'Prev close', 'Quote time', 'Day line']];
   [['INDEXNSE:NIFTY_50', '^NSEI'], ['INDEXBOM:SENSEX', '^BSESN'], ['INDEXSP:.INX', '^GSPC']].forEach(([g, s]) => {
-    const y = Y[s]; if (y && y.prev != null) idx.push([g, String(y.price), String(y.prev), String(y.at || ''), y.line]);
+    const y = Y[s]; if (y && y.prev != null && all.some(r => String(r[0]).trim() === g)) idx.push([g, String(y.price), String(y.prev), String(y.at || ''), y.line]);
   });
   await dbPut(env, 'sheet1', all);
   if (idx.length > 1) await dbPut(env, 'idx', idx);
@@ -225,7 +228,8 @@ const KEEP = 10, MAX_PER_SOURCE = 2, MAX_AGE_H = 12;
 const MARKET_WORDS = /\b(sensex|nifty|nse|bse|stock|stocks|shares?|stock markets?|share market|equity|equities|ipo|rupee|rbi|sebi|fii|fiis|dii|q[1-4]|quarterly|profit|revenue|earnings|dividend|bonus|buyback|bond|bonds|yield|gold|silver|crude|inflation|gdp|mutual funds?|sip|smallcap|midcap|largecap|brokerage|target price|f&o|futures|nasdaq|dow|s&p|wall street|dalal street|investors?|valuation|market cap|promoters?)\b/i;
 const US_WORDS = /\b(wall street|s&p|nasdaq|dow|nyse|stocks?|shares?|equities|earnings|fed|federal reserve|powell|treasury|treasuries|yields?|bond|bonds|ipo|rally|selloff|sell-off|futures|dollar|inflation|cpi|jobs report|payrolls|recession|tariffs?|nvidia|apple|microsoft|amazon|alphabet|google|meta|tesla|broadcom|berkshire|jpmorgan|investors?|market cap|valuation|guidance|outlook|chipmakers?|tech stocks)\b/i;
 const decode = s => String(s || '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;|&apos;|&#x27;|&#8217;/g, "'")
-  .replace(/&quot;|&#8220;|&#8221;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#8211;|&#8212;/g, '-').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+  .replace(/&quot;|&#8220;|&#8221;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#8211;|&#8212;/g, '-').replace(/&nbsp;/g, ' ')
+  .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(+d)).replace(/\s+/g, ' ').trim();
 const tag = (x, t) => { const m = x.match(new RegExp('<' + t + '(?:\\s[^>]*)?>([\\s\\S]*?)</' + t + '>', 'i')); return m ? m[1] : ''; };
 function isEnglish(t) {
   const letters = t.replace(/[^\p{L}]/gu, ''); if (!letters.length) return false;
@@ -273,12 +277,13 @@ function pickTop(items) {
   return out;
 }
 async function jobNews(env, section) {
-  const items = (await Promise.all(FEEDS[section].map(([u, s]) => readFeed(u, s)))).flat();
+  const lists = await Promise.all(FEEDS[section].map(([u, s]) => readFeed(u, s))), items = lists.flat();
+  const perFeed = lists.map((l, i) => (FEEDS[section][i][1] || (FEEDS[section][i][0].match(/site%3A([a-z.]+)/) || [, 'GoogleNews'])[1]) + ' ' + l.length).join(', ');
   const filt = section === 'Markets' ? items.filter(x => MARKET_WORDS.test(x.title)) : section === 'USMarkets' ? items.filter(x => US_WORDS.test(x.title)) : items;
   const top = pickTop(filt);
   if (!top.length) throw new Error('no headlines from any ' + section + ' feed (kept the last list)');
   await dbPut(env, 'news_' + section, top);
-  return top.length + ' headlines · newest: ' + top[0].text.slice(0, 80);
+  return top.length + ' headlines (' + perFeed + ') · newest: ' + top[0].text.slice(0, 70);
 }
 
 /* ---------------- the timer ---------------- */
