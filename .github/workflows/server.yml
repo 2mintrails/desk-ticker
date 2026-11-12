@@ -1,0 +1,50 @@
+name: Publish server
+on:
+  push:
+    branches: [main]
+    paths: ['server/**', '.github/workflows/server.yml']
+  workflow_dispatch:
+concurrency: server
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: server } }
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Check the Cloudflare secrets are set
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not added yet — nothing published."; echo "SKIP=1" >> $GITHUB_ENV
+          fi
+      - name: Install wrangler
+        if: env.SKIP != '1'
+        run: npm i -g wrangler@4
+      - name: Database (create once)
+        if: env.SKIP != '1'
+        run: |
+          ID=$(wrangler d1 list --json | node -e "const l=JSON.parse(require('fs').readFileSync(0));const d=l.find(x=>x.name==='desk-ticker');process.stdout.write(d?d.uuid:'')")
+          if [ -z "$ID" ]; then wrangler d1 create desk-ticker; ID=$(wrangler d1 list --json | node -e "const l=JSON.parse(require('fs').readFileSync(0));process.stdout.write(l.find(x=>x.name==='desk-ticker').uuid)"); fi
+          sed -i "s/__D1_ID__/$ID/" wrangler.toml
+          wrangler d1 execute desk-ticker --remote --command "CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT, at INTEGER)"
+      - name: Publish
+        if: env.SKIP != '1'
+        run: wrangler deploy 2>&1 | tee deploy.log
+      - name: Keys for air quality
+        if: env.SKIP != '1'
+        env: { IQAIR_KEY: '${{ secrets.IQAIR_KEY }}', WAQI_KEY: '${{ secrets.WAQI_KEY }}' }
+        run: |
+          [ -n "$IQAIR_KEY" ] && echo "$IQAIR_KEY" | wrangler secret put IQAIR_KEY || true
+          [ -n "$WAQI_KEY" ] && echo "$WAQI_KEY" | wrangler secret put WAQI_KEY || true
+      - name: First run and check
+        if: env.SKIP != '1'
+        run: |
+          URL=$(grep -o 'https://[a-z0-9.-]*workers.dev' deploy.log | head -1); echo "Server: $URL"
+          sleep 8
+          for j in prices env news:India news:World news:Markets news:USMarkets; do echo "--- $j"; curl -s "$URL/v1/run?job=$j"; echo; done
+          echo "--- status"; curl -s "$URL/v1/status"; echo
+          echo "--- sample"; curl -s "$URL/v1/all" | node -e "const d=JSON.parse(require('fs').readFileSync(0));for(const [g,t] of Object.entries(d.tabs)){console.log(g, t?t.length+' rows':'none');(t||[]).slice(0,4).forEach(r=>console.log('   ',JSON.stringify(r).slice(0,220)))}"

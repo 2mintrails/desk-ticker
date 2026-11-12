@@ -1,0 +1,13 @@
+# Desk Ticker server — published by .github/workflows/server.yml on every change to this folder
+name = "desk-ticker"
+main = "worker.js"
+compatibility_date = "2025-06-01"
+workers_dev = true
+
+[triggers]
+crons = ["*/2 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "desk-ticker"
+database_id = "__D1_ID__"   # filled in by the GitHub workflow

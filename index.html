@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v15.1-2026-11-12">
+<meta name="ticker-version" content="v15.2-2026-11-12">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1680,8 +1680,34 @@ function renderGR() {
   showDelta('silverD', GR.silver, GR.silverChg != null ? GR.silver - GR.silverChg : null);
   document.getElementById('mNote').textContent = 'GoodReturns Bangalore · rates for ' + (GR.date || 'today');
 }
+// Way 0: the Desk Ticker server (Cloudflare) — it does the fetching and hands over all three tabs in one go,
+// laid out exactly like the sheet. A tab the server hasn't refreshed for a while is read from the sheet instead.
+const SERVER_URL = '';
+const SERVER_AGE = { [GID_MAIN_ID()]: ['sheet1', 45], [NEWS_GID]: ['news', 60], ['1500091563']: ['env', 40] };   // tab → [its part, max minutes old]
+function GID_MAIN_ID() { return (SHEET_URL.match(/gid=(\d+)/) || [])[1]; }
+let serverP = null, serverAt = 0, dataFrom = '';
+function serverAll() {
+  if (!serverP || Date.now() - serverAt > 25e3) {
+    serverAt = Date.now();
+    serverP = fetch(SERVER_URL + '/v1/all?_=' + Date.now(), { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error('server ' + r.status); return r.json(); });
+    serverP.catch(() => { serverAt = 0; });
+  }
+  return serverP;
+}
+async function serverRows(gid) {
+  const d = await serverAll(), t = d.tabs && d.tabs[gid], [part, maxMin] = SERVER_AGE[gid] || ['', 60];
+  const age = part === 'news' ? Math.min(...['India', 'World', 'Markets', 'USMarkets'].map(s => (d.ages || {})['news_' + s] ?? 1e9))
+                              : (d.ages || {})[part];
+  if (!t || t.length < 2 || age == null || age > maxMin * 60) throw new Error('server copy of ' + gid + ' is missing or old');
+  const rows = t.slice(1); rows.header = t[0]; rows.fromServer = true;
+  return rows;
+}
 // Way 1: the published CSV link (works when the page is served from a normal website).
 async function fetchCSVRows(gid) {
+  if (SERVER_URL) {
+    try { const rows = await serverRows(gid || GID_MAIN_ID()); dataFrom = 'server'; return rows; }
+    catch (e) { console.warn('server', e.message || e); dataFrom = 'sheet'; }
+  }
   const url = gid ? SHEET_URL.replace(/gid=\d+/, 'gid=' + gid) : SHEET_URL;
   const res = await fetch(url + (url.includes('?') ? '&' : '?') + '_=' + Date.now(), { cache: 'no-store' });
   if (!res.ok) throw new Error('csv ' + res.status);
@@ -1742,7 +1768,7 @@ async function getRows() {
     const rows = await getRowsOnce();
     const stamp = rowsStamp(rows);
     const tooOld = stamp && Date.now() - stamp > 3 * 3600e3 && tryNo < 5;   // heartbeat/HAL refresh every 10–30 min, so 3 h old = an old copy
-    if (tooOld || (stamp && stamp < bestStamp - 60 * 1000)) {      // an old copy: ignore it and ask again
+    if (tooOld || (stamp && stamp < bestStamp - (rows.fromServer ? 60 : 20 * 60) * 1000)) {   // the sheet may lag the server by a few minutes      // an old copy: ignore it and ask again
       console.warn('old copy of the sheet (' + new Date(stamp).toLocaleString() + '), retrying');
       await new Promise(r => setTimeout(r, 1500)); continue;
     }
