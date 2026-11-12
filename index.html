@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v13.7-2026-11-12">
+<meta name="ticker-version" content="v13.8-2026-11-12">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -2736,10 +2736,11 @@ function renderWeather() {
   const fmt = d => d.toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' });
   document.getElementById('wSrc').textContent =
     ((away || !homeHAL()) && o ? 'Now: measured at ' + o.name + ' airport (' + Math.round(o.km) + ' km away), ' + fmt(o.at)
-       : away || !homeHAL() ? 'Now: ' + (alt ? 'average of MET Norway and Open-Meteo forecasts' : 'forecast estimate') + ' (no airport report nearby)'
+       : away || !homeHAL() ? (wxModel.src === 'blend' ? 'Now: middle of ' + wxModel.models + ' forecast models (ECMWF, GFS, ICON' + (wxModel.models > 3 ? ', MET Norway' : '') + ')'
+                                : 'Now: ' + (alt ? 'average of MET Norway and Open-Meteo forecasts' : 'forecast estimate')) + ' — no weather station within 15 km'
        : o ? 'Now: measured at ' + o.name + ' Airport, ' + fmt(o.at)
        : 'Now: forecast estimate' + (wxObs ? ' (HAL report from ' + fmt(wxObs.at) + ' is too old)' : ' (no HAL report yet)')) +
-    ' · Forecast: ' + (met ? 'MET Norway' : 'Open-Meteo') + (wxModel.at ? ' ' + fmt(new Date(wxModel.at)) + (Date.now() - wxModel.at > 30 * 60e3 ? ' (couldn’t refresh since)' : '') : '') + (Math.abs(wxBias) >= 0.5 ? ', adjusted to ' + (o ? o.name : 'HAL') + ' (' + (wxBias > 0 ? '+' : '−') + Math.abs(wxBias).toFixed(0) + '°)' : '') +
+    ' · Forecast: ' + (wxModel.src === 'blend' ? 'model blend' : met ? 'MET Norway' : 'Open-Meteo') + (wxModel.at ? ' ' + fmt(new Date(wxModel.at)) + (Date.now() - wxModel.at > 30 * 60e3 ? ' (couldn’t refresh since)' : '') : '') + (Math.abs(wxBias) >= 0.5 ? ', adjusted to ' + (o ? o.name : 'HAL') + ' (' + (wxBias > 0 ? '+' : '−') + Math.abs(wxBias).toFixed(0) + '°)' : '') +
     (locNote && !away ? ' · Location: ' + locNote : '');
   // next 6 hours
   const h = wxModel && wxModel.hourly; if (!h || !h.time) return;
@@ -2814,6 +2815,43 @@ async function loadOpenMeteo() {
   if (!res.ok || !j.current) throw new Error(j.reason || ('HTTP ' + res.status));
   j.src = 'openmeteo'; return j;
 }
+/* Away from Bengaluru: blend three global forecast models (ECMWF, GFS, ICON via Open-Meteo) with MET Norway.
+   Taking the middle value hour by hour cancels out a single model's miss; works anywhere, no airport needed. */
+const BLEND_MODELS = ['ecmwf_ifs025', 'gfs_seamless', 'icon_seamless'];
+async function loadBlend() {
+  const v = 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,is_day';
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=${v}&models=${BLEND_MODELS.join(',')}` +
+    `&past_hours=1&forecast_hours=26&timezone=Asia%2FKolkata`;
+  const res = await fetch(url), j = await res.json();
+  if (!res.ok || !j.hourly || !j.hourly.time) throw new Error(j.reason || ('HTTP ' + res.status));
+  let metno = null; try { metno = await loadMetNo(); } catch (e) {}
+  const H = j.hourly, n = H.time.length;
+  const series = k => BLEND_MODELS.map(m => H[k + '_' + m] || H[k]).filter(a => Array.isArray(a));
+  const med = arr => { const x = arr.filter(v => v != null && isFinite(v)).sort((a, b) => a - b); if (!x.length) return null;
+    const m = x.length >> 1; return x.length % 2 ? x[m] : (x[m - 1] + x[m]) / 2; };
+  const metAt = (k, t) => { if (!metno) return null; const i = metno.hourly.time.indexOf(t); return i < 0 ? null : (k === 'temperature_2m' ? metno.hourly.temperature_2m[i] : null); };
+  const col = (k, withMet) => H.time.map((t, i) => med(series(k).map(a => a[i]).concat(withMet ? [metAt(k, t)] : [])));
+  const temp = col('temperature_2m', true), feels = col('apparent_temperature'), rh = col('relative_humidity_2m'),
+        wind = col('wind_speed_10m'), rain = col('precipitation');
+  const prob = H.time.map((t, i) => { const x = series('precipitation_probability').map(a => a[i]).filter(v => v != null); return x.length ? Math.max(...x) : null; });
+  const code = H.time.map((t, i) => { const x = series('weather_code').map(a => a[i]).filter(v => v != null);   // the code most models agree on
+    if (!x.length) return 3; const c = {}; x.forEach(v => c[v] = (c[v] || 0) + 1); return +Object.keys(c).sort((a, b) => c[b] - c[a] || a - b)[0]; });
+  const day = (H.is_day || series('is_day')[0] || []).slice();
+  const nowKey = new Date().toLocaleString('sv-SE', { timeZone:'Asia/Kolkata' }).slice(0, 13).replace(' ', 'T');
+  let i0 = H.time.findIndex(x => x.slice(0, 13) === nowKey); if (i0 < 0) i0 = 0;
+  const fut = H.time.map((t, i) => i).filter(i => i > i0).slice(0, 24);
+  const temps24 = [i0].concat(fut).map(i => temp[i]).filter(v => v != null);
+  if (temp[i0] == null) throw new Error('blend: no current temperature');
+  return {
+    src: 'blend', models: BLEND_MODELS.length + (metno ? 1 : 0),
+    current: { temperature_2m: temp[i0], apparent_temperature: feels[i0] ?? temp[i0], relative_humidity_2m: Math.round(rh[i0] ?? 50),
+      wind_speed_10m: wind[i0] ?? 0, weather_code: code[i0], is_day: day[i0] ?? 1 },
+    hourly: { time: fut.map(i => H.time[i]), temperature_2m: fut.map(i => temp[i]), weather_code: fut.map(i => code[i]),
+      is_day: fut.map(i => day[i] ?? 1), precipitation: fut.map(i => rain[i] ?? 0), precipitation_probability: fut.map(i => prob[i] ?? 0) },
+    daily: { temperature_2m_max: [Math.max(...temps24)], temperature_2m_min: [Math.min(...temps24)],
+      precipitation_probability_max: [Math.max(0, ...fut.slice(0, 12).map(i => prob[i] ?? 0))] },
+  };
+}
 let wxLastSrc = null;
 const o0 = () => (wxObs && wxObs.age <= HAL_MAX_AGE) || (wxObsBL && wxObsBL.age <= HAL_MAX_AGE);
 async function loadWeather() {
@@ -2821,6 +2859,11 @@ async function loadWeather() {
     // stick with whichever forecast worked last time, so the numbers don't flip between two services
     const pref = wxLastSrc || (WEATHER_SOURCE === 'openmeteo' ? 'openmeteo' : 'metno');
     const first = pref === 'openmeteo' ? loadOpenMeteo : loadMetNo, second = first === loadMetNo ? loadOpenMeteo : loadMetNo;
+    if (away || !homeHAL()) {                 // outside Bengaluru: the model blend, with the single services as backups
+      try { wxModel = await loadBlend(); }
+      catch (e) { console.warn('blend', e); try { wxModel = await first(); } catch (e2) { wxModel = await second(); } }
+      wxModel.at = Date.now(); wxAlt = null; renderWeather(); return;
+    }
     try { wxModel = await first(); } catch (e) { console.warn('weather', e); wxModel = await second(); }   // other forecast as a backup
     wxLastSrc = wxModel.src === 'metno' ? 'metno' : 'openmeteo';
     wxModel.at = Date.now();
@@ -2859,11 +2902,11 @@ function readAirports(rows) {
   }).filter(Boolean);
   if (list.length) { airports = list; readMetar(null); }
 }
-function nearestAirport() {               // a measured "now" while travelling: nearest airport within 40 km, report under 2 h old
+function nearestAirport() {               // a measured "now" while travelling: only an airport within 15 km, report under 1.5 h old
   let best = null;
   for (const a of airports) {
     const km = kmBetween(LAT, LON, a.lat, a.lon), age = (Date.now() - a.at) / 6e4;
-    if (km <= 40 && age >= 0 && age <= 120 && (!best || km < best.km)) best = Object.assign({}, a, { km, age });
+    if (km <= 15 && age >= 0 && age <= 90 && (!best || km < best.km)) best = Object.assign({}, a, { km, age });
   }
   return best;
 }
