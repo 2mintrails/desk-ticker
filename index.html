@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v15.0-2026-11-12">
+<meta name="ticker-version" content="v15.1-2026-11-12">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -3455,7 +3455,7 @@ keepAwake(); document.addEventListener('visibilitychange', keepAwake); document.
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
 // pick up a new version of the display by itself (checked every 30 min)
 setInterval(() => { if (navigator.onLine) fetch(location.href.split('#')[0] + (location.search ? '&' : '?') + 'v=' + Date.now(), { cache: 'no-store' }).then(r => r.text()).then(t => {
-  const v = (t.match(/<meta name="ticker-version" content="v15.0-2026-11-12"]+)"/) || [])[1];
+  const v = (t.match(/<meta name="ticker-version" content="([^"]+)"/) || [])[1];
   if (v && v !== document.querySelector('meta[name="ticker-version"]').content) { noteRestart('new version'); location.reload(); }
 }).catch(() => {}); }, 30 * 60 * 1000);
 </script>
