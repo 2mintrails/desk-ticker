@@ -119,12 +119,13 @@ async function jobPrices(env) {
   if (all.length < 2) throw new Error('Sheet1 came back empty');
   const syms = [...new Set(all.slice(1).map(r => yahooSym(r[0])).filter(Boolean))];
   const { out: Y, errs } = await yahooQuotes(syms);
-  let used = 0, kept = 0;
+  let used = 0, kept = 0, dbg = '';
   all.slice(1).forEach(r => {
     const y = Y[yahooSym(r[0])]; if (!y) return;
     const g = num(r[1]), gc = num(r[2]);
     const prev = g != null && gc != null && g - gc > 0 ? g - gc : y.prev;      // Google's previous close (price − change); Yahoo's can be a day off
     if (prev == null) return;
+    if (String(r[0]).trim() === 'INDEXNSE:NIFTY_50') dbg = ` · Nifty: Google ${g} (${gc}), Yahoo ${y.price} prev ${y.prev}`;
     y.prev = prev;
     if (g != null && Math.abs(y.price - g) / g > 0.08) { kept++; return; }      // too far from Google's value: keep Google's
     while (r.length < 6) r.push('');
@@ -140,7 +141,7 @@ async function jobPrices(env) {
   });
   await dbPut(env, 'sheet1', all);
   if (idx.length > 1) await dbPut(env, 'idx', idx);
-  return `${used} from Yahoo, ${kept} kept from Google (too far apart), ${syms.length} asked` + (errs.length ? ' · ' + errs.join(' | ') : '');
+  return `${used} from Yahoo, ${kept} kept from Google (too far apart), ${syms.length} asked` + dbg + (errs.length ? ' · ' + errs.join(' | ') : '');
 }
 
 /* ---------------- env: airport weather, air quality, settings ---------------- */
@@ -210,18 +211,23 @@ async function jobEnv(env) {
 /* ---------------- news ---------------- */
 const GN = q => 'https://news.google.com/rss/search?q=' + encodeURIComponent(q + ' when:1d') + '&hl=en-IN&gl=IN&ceid=IN:en';
 const GNUS = q => 'https://news.google.com/rss/search?q=' + encodeURIComponent(q + ' when:1d') + '&hl=en-US&gl=US&ceid=US:en';
+// Google News doesn't answer Cloudflare's servers, so the server reads papers' own feeds; whatever Google News
+// headlines the sheet's script still collects (News tab) are used to fill a section when these come up short.
 const FEEDS = {
-  India: [['https://news.google.com/rss/headlines/section/topic/NATION?hl=en-IN&gl=IN&ceid=IN:en', ''], [GN('site:ptinews.com'), ''],
-    ['https://indianexpress.com/section/india/feed/', 'Indian Express'], ['https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml', 'Hindustan Times'],
-    [GN('site:theprint.in'), ''], [GN('site:indiatoday.in'), ''], [GN('site:ndtv.com'), '']],
+  India: [['https://indianexpress.com/section/india/feed/', 'Indian Express'], ['https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml', 'Hindustan Times'],
+    ['https://feeds.feedburner.com/ndtvnews-india-news', 'NDTV'], ['https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms', 'Times of India'],
+    ['https://www.indiatoday.in/rss/1206514', 'India Today'], ['https://theprint.in/category/india/feed/', 'ThePrint'],
+    ['https://www.news18.com/commonfeeds/v1/eng/rss/india.xml', 'News18'], ['https://www.livemint.com/rss/news', 'Mint']],
   Markets: [['https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms', 'ET Markets'], ['https://www.livemint.com/rss/markets', 'Mint'],
-    ['https://www.business-standard.com/rss/markets-106.rss', 'Business Standard'], [GN('site:moneycontrol.com markets'), ''],
-    [GN('Sensex OR Nifty OR NSE OR BSE OR "Dalal Street" OR "stock market"'), '']],
+    ['https://www.business-standard.com/rss/markets-106.rss', 'Business Standard'], ['https://www.moneycontrol.com/rss/marketreports.xml', 'Moneycontrol'],
+    ['https://www.financialexpress.com/market/feed/', 'Financial Express'], ['https://www.hindustantimes.com/feeds/rss/business/rssfeed.xml', 'Hindustan Times']],
   USMarkets: [['https://www.cnbc.com/id/20910258/device/rss/rss.html', 'CNBC'], ['https://feeds.content.dowjones.io/public/rss/mw_topstories', 'MarketWatch'],
-    [GNUS('site:reuters.com markets'), ''], [GNUS('"Wall Street" OR "S&P 500" OR Nasdaq OR "Dow Jones" stocks'), '']],
-  World: [[GN('site:reuters.com'), ''], [GN('site:apnews.com'), ''], [GN('site:bloomberg.com'), ''], ['https://www.theguardian.com/world/rss', 'The Guardian'],
-    ['https://www.cnbc.com/id/100727362/device/rss/rss.html', 'CNBC'], [GN('site:dw.com/en'), ''],
-    ['https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-IN&gl=IN&ceid=IN:en', '']],
+    ['https://feeds.content.dowjones.io/public/rss/mw_marketpulse', 'MarketWatch'], ['https://finance.yahoo.com/news/rssindex', 'Yahoo Finance'],
+    ['https://www.nasdaq.com/feed/rssoutbound?category=Markets', 'Nasdaq'], ['https://www.investing.com/rss/news_25.rss', 'Investing.com']],
+  World: [['https://www.theguardian.com/world/rss', 'The Guardian'], ['https://www.cnbc.com/id/100727362/device/rss/rss.html', 'CNBC'],
+    ['https://rss.dw.com/rdf/rss-en-world', 'DW'], ['https://feeds.npr.org/1004/rss.xml', 'NPR'], ['https://feeds.skynews.com/feeds/rss/world.xml', 'Sky News'],
+    ['https://www.france24.com/en/rss', 'France 24'], ['https://www.hindustantimes.com/feeds/rss/world-news/rssfeed.xml', 'Hindustan Times'],
+    ['https://timesofindia.indiatimes.com/rssfeeds/296589292.cms', 'Times of India']],
 };
 const BLOCK = ['The Hindu', 'BBC', 'Al Jazeera', 'NDTV Sports'];
 const KEEP = 10, MAX_PER_SOURCE = 2, MAX_AGE_H = 12;
@@ -268,7 +274,7 @@ const words = t => new Set(t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s
 const sameStory = (a, b) => { let n = 0; a.forEach(w => { if (b.has(w)) n++; }); return n >= 3 && n / Math.min(a.size, b.size) >= 0.5; };
 function pickTop(items) {
   const cutoff = Date.now() - MAX_AGE_H * 3600e3, seen = new Set(), per = {}, out = [], kept = [];
-  items.filter(x => !x.t || x.t > cutoff).sort((a, b) => b.t - a.t).forEach(x => {
+  items.filter(x => !x.t || x.t === 1 || x.t > cutoff).sort((a, b) => b.t - a.t).forEach(x => {
     const key = x.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 50), ws = words(x.title);
     if (seen.has(key) || out.length >= KEEP || (per[x.source] || 0) >= MAX_PER_SOURCE || kept.some(k => sameStory(k, ws))) return;
     seen.add(key); kept.push(ws); per[x.source] = (per[x.source] || 0) + 1;
@@ -278,7 +284,16 @@ function pickTop(items) {
 }
 async function jobNews(env, section) {
   const lists = await Promise.all(FEEDS[section].map(([u, s]) => readFeed(u, s))), items = lists.flat();
-  const perFeed = lists.map((l, i) => (FEEDS[section][i][1] || (FEEDS[section][i][0].match(/site%3A([a-z.]+)/) || [, 'GoogleNews'])[1]) + ' ' + l.length).join(', ');
+  const perFeed = lists.map((l, i) => FEEDS[section][i][1] + ' ' + l.length).join(', ');
+  // the sheet's own list (Google News, collected by the sheet's script) — used after the fresh items, to fill up
+  try {
+    const col = { India: [0, 4], World: [1, 5], Markets: [3, 6], USMarkets: [7, 8] }[section];
+    (await sheetCSV(GID.news)).slice(1).forEach(r => {
+      const text = String(r[col[0]] || '').trim(); if (!text) return;
+      const k = text.lastIndexOf(' - '), title = k > 20 ? text.slice(0, k) : text, source = k > 20 ? text.slice(k + 3) : '';
+      items.push({ title, source, link: String(r[col[1]] || ''), t: 1 });          // t = 1: older than any dated item, never too old
+    });
+  } catch (e) {}
   const filt = section === 'Markets' ? items.filter(x => MARKET_WORDS.test(x.title)) : section === 'USMarkets' ? items.filter(x => US_WORDS.test(x.title)) : items;
   const top = pickTop(filt);
   if (!top.length) throw new Error('no headlines from any ' + section + ' feed (kept the last list)');
