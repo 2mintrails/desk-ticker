@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v14.1-2026-11-12">
+<meta name="ticker-version" content="v14.2-2026-11-12">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1686,6 +1686,55 @@ async function getRows() {
   throw new Error('sheet still loading');
 }
 let savedRowsAt = 0, niftyHold = null, niftyDay = '';
+// Second source for the three indices: the sheet script also reads Yahoo Finance every 10 minutes (AQI tab, columns O–S:
+// symbol, price, previous close, quote time, the day's 5-minute line). Google Finance in Sheets can freeze for a while,
+// often right after the close (seen 12 Nov: Nifty stuck at 25,216.75 while it closed near 25,299).
+let IDX2 = {};
+const IDX2_CHART = { 'INDEXNSE:NIFTY_50': 'nifty', 'INDEXSP:.INX': 'spx' };
+function readIdx2(rows) {
+  const out = {};
+  rows.concat([rows.header || []]).forEach(r => {
+    const sym = String(r[14] || '').trim(), price = num(r[15]), prev = num(r[16]), at = (num(r[17]) || 0) * 1000;
+    if (!/^INDEX/.test(sym) || price == null || !at) return;
+    out[sym] = { price, prev, at, line: String(r[18] || '') };
+  });
+  const changed = JSON.stringify(Object.keys(out).map(k => [k, out[k].price, out[k].at])) !==
+                  JSON.stringify(Object.keys(IDX2).map(k => [k, IDX2[k].price, IDX2[k].at]));
+  IDX2 = out;
+  Object.keys(out).forEach(sym => { const c = CHARTS[IDX2_CHART[sym]]; if (c) seedLine(c, out[sym].line); });
+  if (changed && lastLive != null && LIVE) loadPrices();
+}
+function idx2Fresh(sym, c) {          // the Yahoo quote belongs to the latest session and is recent enough to trust
+  const y = IDX2[sym]; if (!y) return null;
+  c = c || (sym === 'INDEXSP:.INX' ? CHARTS.spx : CHARTS.nifty);
+  if (ymd(new Date(y.at), c.tz) !== lastSession(c)) return null;
+  if (mktOpenNow(c) && Date.now() - y.at > 25 * 60e3) return null;    // during trading, only a quote under 25 min old
+  return y;
+}
+function useIdx2(data) {
+  ['INDEXNSE:NIFTY_50', 'INDEXBOM:SENSEX', 'INDEXSP:.INX'].forEach(sym => {
+    const y = idx2Fresh(sym), g = data[sym]; if (!y || y.prev == null) return;
+    const open = mktOpenNow(sym === 'INDEXSP:.INX' ? CHARTS.spx : CHARTS.nifty);
+    // after the close Yahoo's closing price wins; while trading, Google is kept unless it is clearly off (> 0.3% away)
+    if (open && g && g.price != null && Math.abs(g.price - y.price) / y.price < 0.003) return;
+    data[sym] = Object.assign({}, g || {}, { price: y.price, change: y.price - y.prev, pct: (y.price - y.prev) / y.prev * 100, src: 'yahoo' });
+  });
+}
+function seedLine(c, line) {          // fill the day chart with the whole session's line, even if this screen was off
+  const pts = String(line || '').split(';').map(x => x.split(':')).map(([t, v]) => {
+    const d = new Date(+t * 1000), loc = new Date(d.toLocaleString('en-US', { timeZone: c.tz }));
+    return [loc.getHours() * 60 + loc.getMinutes() - c.start, +v, ymd(d, c.tz)];
+  }).filter(p => isFinite(p[0]) && isFinite(p[1]) && p[0] >= 0 && p[0] <= c.len);
+  if (pts.length < 2) return;
+  const date = pts[pts.length - 1][2]; if (date !== lastSession(c)) return;
+  let st = c.mem; try { st = st || JSON.parse(localStorage.getItem(c.key)); } catch (e) {}
+  const own = st && st.date === date ? st.pts : [];
+  const lastY = pts[pts.length - 1][0];
+  const merged = pts.map(p => [p[0], p[1]]).concat(own.filter(p => p[0] > lastY));
+  c.mem = { date, pts: merged };
+  try { localStorage.setItem(c.key, JSON.stringify(c.mem)); } catch (e) {}
+  try { drawChart(c); } catch (e) {}
+}
 function savedRows() {
   try {
     const s = JSON.parse(localStorage.getItem(LAST_ROWS_KEY));
@@ -1706,7 +1755,7 @@ async function loadPrices() {
     // is held back until the next read confirms it — a briefly wrong copy then never shows
     {
       const r = rows.find(x => String(x[0] || '').trim() === 'INDEXNSE:NIFTY_50'), p = r && num(r[1]), c = r && num(r[2]);
-      if (p != null && lastLive != null && !savedRowsAt) {
+      if (p != null && lastLive != null && !savedRowsAt && !idx2Fresh('INDEXNSE:NIFTY_50')) {
         const prevNow = c != null ? p - c : null;
         const jump = Math.abs(p - lastLive) / lastLive > 0.012;
         const prevOff = prevNow != null && lastPrev != null && Math.abs(prevNow - lastPrev) / lastPrev > 0.004 && niftyDay === todayIST();
@@ -1727,6 +1776,7 @@ async function loadPrices() {
       const pct = price != null && change != null && price !== change ? change / (price - change) * 100 : num(r[3]);
       data[sym] = { price, change, pct, hi52: num(r[4]), lo52: num(r[5]) };   // E/F: 52-week high/low (optional)
     });
+    useIdx2(data);
     { const y = data['CURRENCY:JPYINR']; if (y && y.price != null) { y.price *= 100; if (y.change != null) y.change *= 100; } }   // yen is quoted per 100
     BASKETS.forEach(b => {      // e.g. Defence = average % move of its stocks
       const ps = b.basket.map(x => data[x] && data[x].pct).filter(v => v != null && isFinite(v));
@@ -2994,6 +3044,7 @@ function nearestAirport() {               // a measured "now" while travelling: 
 function readStationAqi(rows) {
   try { readSettings(rows); } catch (e) { console.warn('settings', e); }
   try { readAirports(rows); } catch (e) { console.warn('airports', e); }
+  try { readIdx2(rows); } catch (e) { console.warn('second index source', e); }
   const r = rows[0] || [], v = num(r[0]);
   if (v == null) return;
   if (/,/.test(r[1] || '') && !/beng|bangalore/i.test(r[1])) return;     // a far-away station (e.g. an old Delhi reading): ignore
