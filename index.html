@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v13.8-2026-11-12">
+<meta name="ticker-version" content="v13.9-2026-11-12">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -779,6 +779,62 @@
   body.led .spx-p{color:#fff} body.led .spx-c.up{color:var(--up)} body.led .spx-c.down{color:var(--down)}
   body.led .mood-v .chg.up{color:var(--up)} body.led .mood-v .chg.down{color:var(--down)}
   /* =================== 90s ANIME (Japan) — cel-shaded cards over a scene that follows the weather and the sun =================== */
+  /* ---------- PORTRAIT (phone held upright): same slides, re-arranged to fit a tall screen ---------- */
+  @media (orientation:portrait) and (max-aspect-ratio: 4/5) {
+    .app{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
+    /* header on two lines: clock + date, then market status · slide name · menu */
+    header{height:auto;flex-wrap:wrap;row-gap:8px;column-gap:10px;padding-bottom:2px}
+    header .left{flex:1 1 100%}
+    header .right{flex:1 1 100%;justify-content:space-between;gap:8px;min-width:0}
+    header .right .pill{flex:1 1 auto;min-width:0;overflow:hidden;letter-spacing:.6px;padding:5px 10px;font-size:clamp(11px,3.2vw,13px);justify-content:center}
+    header .right .mkt{font-size:clamp(9px,2.8vw,11px);letter-spacing:.5px;flex:none}
+    header .right .hwx{flex:none}
+    header .right .pill #title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    header .right .mkt{margin-right:0}
+    header .viewsel{margin-left:0}
+    .time{font-size:clamp(26px,9vw,40px)}
+    .date{font-size:clamp(13px,4vw,17px)} .pan{font-size:clamp(11px,3.3vw,13px)}
+    .stage{margin-top:10px}
+    /* Nifty / S&P: numbers on top, chart below */
+    .idx{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);gap:2vh;padding:3vh 5vw;align-items:stretch}
+    .ix-p{font-size:clamp(34px,13vw,64px)}
+    .chg.big{font-size:clamp(18px,6vw,28px)}
+    .spark{height:auto;min-height:0}
+    /* stock boards: one tile per row, the full height used */
+    .grid6, .grid6.g4{grid-template-columns:1fr;grid-template-rows:none;grid-auto-rows:minmax(0,1fr);gap:10px}
+    .grid6 .tile{padding:1.4vh 5vw;gap:.6vh}
+    .tile .p{font-size:clamp(22px,8vw,34px)} .tile .nm{font-size:clamp(14px,4.4vw,18px)} .tile .chg{font-size:clamp(13px,4vw,17px)}
+    /* currencies: one card per row */
+    .fx{grid-template-columns:1fr!important;grid-auto-rows:minmax(0,1fr);grid-template-rows:none}
+    .fxc{flex-direction:column;align-items:flex-start;justify-content:center;gap:1vh;padding:0 6vw}
+    .fx-p{font-size:clamp(30px,11vw,52px)}
+    .fx-c{font-size:clamp(13px,4vw,16px)}
+    /* market mood: dial on top, reading below */
+    .mood{grid-template-columns:1fr;grid-template-rows:auto auto;align-content:center;justify-items:center;gap:3vh;padding:3vh 6vw;text-align:left}
+    .mood .gauge{width:min(100%,360px)}
+    .mood > div:last-child{width:100%}
+    .mood-k{font-size:clamp(28px,10vw,44px)}
+    .mood-v{font-size:clamp(15px,4.6vw,20px)} .mood-leg{font-size:clamp(12px,3.6vw,14px)}
+    /* weather: big reading on top, details below */
+    .wx-top{grid-template-columns:1fr;gap:2vh}
+    .hours{grid-template-columns:repeat(3,minmax(0,1fr))}
+    /* gold & silver: stacked */
+    .metals{grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:12px}
+    .metal{padding:0 6vw}
+    /* news */
+    .solo-news{padding:2.4vh 5vw}
+    .solo-news .tt{font-size:clamp(14px,4.4vw,18px)}
+    .solo-news .sr{font-size:clamp(11px,3.2vw,13px)}
+    .news2{grid-template-columns:1fr}
+    /* late-night clock: sized by the screen's width */
+    .n-time{font-size:clamp(56px,24vw,140px);letter-spacing:-2px}
+    .mnote{font-size:clamp(10px,3vw,12px)}
+    /* themes that size their big numbers by screen width need a portrait size too */
+    html body.anime .ix-p, html body.anime .spx-p{font-size:clamp(34px,12.5vw,60px)}
+    html body.anime .fx-p{font-size:clamp(30px,11vw,50px)}
+    html body.anime .metal .price{font-size:clamp(32px,12vw,58px)}
+    html body.anime .pill{font-size:clamp(10px,3vw,12px)}
+  }
   .ani, .ani-fx{display:none}
   body.nofx .ani-fx{display:none!important} body.nofx::after{display:none!important}
   body.anime{--ink:#2a1a5c;--cel:#fff8f1;--fg:#2a1a5c;--dim:#6b5a92;--line:rgba(42,26,92,.22);--up:#14a35a;--down:#e0457b;
