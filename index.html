@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v13.6-2026-11-10">
+<meta name="ticker-version" content="v13.7-2026-11-12">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -2652,14 +2652,16 @@ function parseMetar(line) {
   return { stn: m[1], t, td, rh: rhFrom(t, td), wind: w ? Math.round(+w[2] * 1.852) : null, at: obs, age: (now - obs) / 6e4, wx };
 }
 let halLines = { tab: [], col: [] };
+let wxObsBL = null;                      // Kempegowda (VOBL): used when HAL's report is missing or old
 function readMetar(rows, from) {
-  halLines[from] = rows.map(r => r[from === 'tab' ? 0 : 17] || '').concat(rows.header ? [rows.header[from === 'tab' ? 0 : 17] || ''] : []);
-  const obs = halLines.tab.concat(halLines.col).map(l => parseMetar(l)).filter(o => o && o.stn === 'VOBG' && o.age >= 0)
-    .sort((a, b) => a.age - b.age);
-  // never step back: a briefly stale or half-loaded copy of the sheet must not replace a newer HAL report
-  const best = obs[0] || null;
-  if (best && (!wxObs || best.at >= wxObs.at)) wxObs = best;
-  else if (wxObs) wxObs.age = (Date.now() - wxObs.at) / 6e4;
+  if (rows) halLines[from] = rows.map(r => r[from === 'tab' ? 0 : 17] || '').concat(rows.header ? [rows.header[from === 'tab' ? 0 : 17] || ''] : []);
+  const all = halLines.tab.concat(halLines.col).map(l => parseMetar(l)).filter(Boolean)
+    .concat(airports.filter(a => a.stn === 'VOBG' || a.stn === 'VOBL'))
+    .map(o => Object.assign({}, o, { age: (Date.now() - o.at) / 6e4 })).filter(o => o.age >= 0).sort((a, b) => a.age - b.age);
+  // never step back: a briefly stale or half-loaded copy of the sheet must not replace a newer report
+  const pick = (stn, cur) => { const b = all.find(o => o.stn === stn); return b && (!cur || b.at >= cur.at) ? b : cur; };
+  wxObs = pick('VOBG', wxObs); wxObsBL = pick('VOBL', wxObsBL);
+  readMetarAgeTick();
   renderWeather();
 }
 const WX_GLOW = { clear:'radial-gradient(120% 90% at 10% 0%,rgba(255,190,90,.20),transparent 60%)',
@@ -2671,12 +2673,16 @@ function nightIcon(ic, day) {          // no sun icons after dark
   if (day) return ic;
   return { '☀️':'🌙', '🌤️':'🌙', '⛅':'☁️', '🌦️':'🌧️' }[ic] || ic;
 }
+function readMetarAgeTick() { [wxObs, wxObsBL].forEach(o => { if (o) o.age = (Date.now() - o.at) / 6e4; }); }
 function renderWeather() {
+  readMetarAgeTick();
   const c = wxModel && wxModel.current, dl = wxModel && wxModel.daily;
   if (!c) return;   // forecast not loaded yet
   const isDay = c ? c.is_day : (() => { const h = +new Date().toLocaleString('en-US', { timeZone:'Asia/Kolkata', hour:'numeric', hour12:false }); return h >= 6 && h < 18 ? 1 : 0; })();
   const o = away || !homeHAL() ? nearestAirport()                                          // travelling: nearest airport's report
-          : wxObs && wxObs.age <= HAL_MAX_AGE ? Object.assign({ name: 'HAL' }, wxObs) : null;   // home: HAL, if recent
+          : wxObs && wxObs.age <= HAL_MAX_AGE ? Object.assign({}, wxObs, { name: 'HAL' })           // home: HAL, if recent
+          : wxObsBL && wxObsBL.age <= HAL_MAX_AGE ? Object.assign({}, wxObsBL, { name: 'Kempegowda' })   // else the city's main airport
+          : null;
   // no measurement: average the two forecasts (when both loaded) so one model's miss is softened
   const alt = !o && wxAlt && wxAlt.current && wxAlt.src !== (wxModel && wxModel.src) ? wxAlt.current : null;
   const avg = (k) => alt && alt[k] != null && c[k] != null ? (c[k] + alt[k]) / 2 : c[k];
@@ -2707,7 +2713,7 @@ function renderWeather() {
   document.getElementById('wRainLbl').textContent = met ? 'Rain next 12h' : 'Rain today';
   if (dl) {
     let hi = dl.temperature_2m_max[0], lo = dl.temperature_2m_min[0];
-    if (wxBias && hb && hb.temperature_2m) {            // recompute from the corrected next 24 hours, and include "now"
+    if (hb && hb.temperature_2m) {                      // from the (corrected) next 24 hours, and include 'now'
       const n0 = Date.now(), ts = hb.time.map((x, k) => [Date.parse(x + ':00+05:30'), hb.temperature_2m[k]]).filter(([t]) => t >= n0 - 3600e3 && t <= n0 + 24 * 3600e3);
       if (ts.length) { const v = ts.map(([t, x]) => adj(x, (t - n0) / 3600e3)).concat([t]); hi = Math.max(...v); lo = Math.min(...v); }
     }
@@ -2731,9 +2737,9 @@ function renderWeather() {
   document.getElementById('wSrc').textContent =
     ((away || !homeHAL()) && o ? 'Now: measured at ' + o.name + ' airport (' + Math.round(o.km) + ' km away), ' + fmt(o.at)
        : away || !homeHAL() ? 'Now: ' + (alt ? 'average of MET Norway and Open-Meteo forecasts' : 'forecast estimate') + ' (no airport report nearby)'
-       : o ? 'Now: measured at HAL Airport, ' + fmt(o.at)
+       : o ? 'Now: measured at ' + o.name + ' Airport, ' + fmt(o.at)
        : 'Now: forecast estimate' + (wxObs ? ' (HAL report from ' + fmt(wxObs.at) + ' is too old)' : ' (no HAL report yet)')) +
-    ' · Forecast: ' + (met ? 'MET Norway' : 'Open-Meteo') + (Math.abs(wxBias) >= 0.5 ? ', adjusted to ' + (o ? o.name : 'HAL') + ' (' + (wxBias > 0 ? '+' : '−') + Math.abs(wxBias).toFixed(0) + '°)' : '') +
+    ' · Forecast: ' + (met ? 'MET Norway' : 'Open-Meteo') + (wxModel.at ? ' ' + fmt(new Date(wxModel.at)) + (Date.now() - wxModel.at > 30 * 60e3 ? ' (couldn’t refresh since)' : '') : '') + (Math.abs(wxBias) >= 0.5 ? ', adjusted to ' + (o ? o.name : 'HAL') + ' (' + (wxBias > 0 ? '+' : '−') + Math.abs(wxBias).toFixed(0) + '°)' : '') +
     (locNote && !away ? ' · Location: ' + locNote : '');
   // next 6 hours
   const h = wxModel && wxModel.hourly; if (!h || !h.time) return;
@@ -2802,13 +2808,14 @@ async function loadMetNo() {
 async function loadOpenMeteo() {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
     `&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day` +
-    `&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day&forecast_hours=12` +
+    `&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day&forecast_hours=24` +
     `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FKolkata`;
   const res = await fetch(url), j = await res.json();
   if (!res.ok || !j.current) throw new Error(j.reason || ('HTTP ' + res.status));
   j.src = 'openmeteo'; return j;
 }
 let wxLastSrc = null;
+const o0 = () => (wxObs && wxObs.age <= HAL_MAX_AGE) || (wxObsBL && wxObsBL.age <= HAL_MAX_AGE);
 async function loadWeather() {
   try {
     // stick with whichever forecast worked last time, so the numbers don't flip between two services
@@ -2816,9 +2823,10 @@ async function loadWeather() {
     const first = pref === 'openmeteo' ? loadOpenMeteo : loadMetNo, second = first === loadMetNo ? loadOpenMeteo : loadMetNo;
     try { wxModel = await first(); } catch (e) { console.warn('weather', e); wxModel = await second(); }   // other forecast as a backup
     wxLastSrc = wxModel.src === 'metno' ? 'metno' : 'openmeteo';
+    wxModel.at = Date.now();
     renderWeather();
     // second opinion: also load the other forecast, used for "now" when there is no measured report
-    if (away || !homeHAL() || !wxObs || wxObs.age > HAL_MAX_AGE) second().then(m => { wxAlt = m; renderWeather(); }).catch(() => { wxAlt = null; });
+    if (away || !homeHAL() || !o0()) second().then(m => { wxAlt = m; renderWeather(); }).catch(() => { wxAlt = null; });
     else wxAlt = null;
   } catch (e) {
     if (!wxModel) document.getElementById('wDesc').textContent = 'Weather loading…';
@@ -2842,14 +2850,14 @@ async function loadStationAqi() {
   if (!AQI_GID) return;
   try { readStationAqi(await fetchCSVRows(AQI_GID)); } catch (e) { console.warn('AQI tab', e); }
 }
-let airports = [];                       // latest report from every airport in India (AQI tab, columns F–J), for travel
+var airports = [];                       // latest report from every airport in India (AQI tab, columns F–J), for travel
 function readAirports(rows) {
   const list = rows.map(r => {
     const o = parseMetar(r[9] || ''); if (!o) return null;
     o.lat = num(r[6]); o.lon = num(r[7]); o.name = String(r[8] || r[5] || '').replace(/\s+(International|Intl|Airport|Air Force Station|Aerodrome|AFS)\b.*$/i, '');
     return o.lat == null || o.lon == null ? null : o;
   }).filter(Boolean);
-  if (list.length) { airports = list; renderWeather(); }
+  if (list.length) { airports = list; readMetar(null); }
 }
 function nearestAirport() {               // a measured "now" while travelling: nearest airport within 40 km, report under 2 h old
   let best = null;
