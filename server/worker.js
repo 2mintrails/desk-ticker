@@ -1,4 +1,4 @@
-/**
+/** v1 
  * Desk Ticker server (Cloudflare Worker).
  *
  * Does the fetching the Google Sheet's script used to do, on a timer, and keeps the results in a small database:
