@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v13.9-2026-11-12">
+<meta name="ticker-version" content="v14.0-2026-11-12">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1679,10 +1679,12 @@ async function getRows() {
   }
   throw new Error('sheet still loading');
 }
+let savedRowsAt = 0, niftyHold = null, niftyDay = '';
 function savedRows() {
   try {
     const s = JSON.parse(localStorage.getItem(LAST_ROWS_KEY));
-    if (!s || Date.now() - s.at > 12 * 3600e3) return null;
+    if (!s || Date.now() - s.at > 30 * 60e3) return null;      // only a recent copy; an old one would show stale prices
+    savedRowsAt = s.at;
     const rows = s.rows; rows.header = s.header || []; return rows;
   } catch (e) { return null; }
 }
@@ -1691,8 +1693,24 @@ async function loadPrices() {
   const note = document.getElementById('srcNote');
   try {
     let rows;
+    savedRowsAt = 0;
     try { rows = await getRows(); }
     catch (e) { rows = document.querySelector('.ix-p[data-sym]').textContent === '--' && savedRows(); if (!rows) throw e; }
+    // a copy whose Nifty jumps far from what is on screen (or whose price and change disagree with today's previous close)
+    // is held back until the next read confirms it — a briefly wrong copy then never shows
+    {
+      const r = rows.find(x => String(x[0] || '').trim() === 'INDEXNSE:NIFTY_50'), p = r && num(r[1]), c = r && num(r[2]);
+      if (p != null && lastLive != null && !savedRowsAt) {
+        const prevNow = c != null ? p - c : null;
+        const jump = Math.abs(p - lastLive) / lastLive > 0.012;
+        const prevOff = prevNow != null && lastPrev != null && Math.abs(prevNow - lastPrev) / lastPrev > 0.004 && niftyDay === todayIST();
+        if ((jump || prevOff) && !(niftyHold && Math.abs(niftyHold - p) / p < 0.003)) {
+          niftyHold = p; console.warn('Nifty value looks off (' + p + '), checking again before showing it');
+          setTimeout(loadPrices, 40 * 1000); return;
+        }
+      }
+      niftyHold = null; if (p != null) niftyDay = todayIST();
+    }
     const data = {};
     try { readGoodReturns(rows); } catch (e) { console.warn('gold/silver', e); }
     try { readMetar(rows, 'col'); } catch (e) { console.warn('HAL', e); }
@@ -1769,7 +1787,8 @@ async function loadPrices() {
           (d.change != null && !el.closest('.tile') ? '  (' + (up ? '+' : '−') + Math.abs(d.change).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ')' : '');
       }
     });
-    if (note) note.textContent = 'Google Finance · updated ' + new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+    if (note) note.textContent = savedRowsAt ? 'Saved prices from ' + new Date(savedRowsAt).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) + ' · refreshing…'
+      : 'Google Finance · updated ' + new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
     const at = new Date().toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' });
     document.querySelectorAll('.stock-note').forEach(n => n.textContent = 'Google Finance · last refreshed ' + at +
       ' · prices about 15–20 min behind ' + (n.dataset.mkt === 'us' ? 'the US market' : 'NSE'));
