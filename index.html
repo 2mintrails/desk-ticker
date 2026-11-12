@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v14.0-2026-11-12">
+<meta name="ticker-version" content="v14.1-2026-11-12">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1504,7 +1504,7 @@ function record(c, price) {
   let st = c.mem;
   try { st = st || JSON.parse(localStorage.getItem(c.key)); } catch (e) {}
   const open = mktOpenNow(c, now);
-  if (open) {
+  if (open && !(c === CHARTS.nifty && typeof savedRowsAt !== 'undefined' && savedRowsAt)) {
     if (!st || st.date !== now.date) st = { date: now.date, pts: [] };
     const last = st.pts[st.pts.length - 1];
     if (last && last[0] === now.min) last[1] = price; else st.pts.push([now.min, price]);
@@ -1522,6 +1522,12 @@ function drawChart(c) {
   // after hours, only draw what this screen recorded if it is from the latest session (not an older day's leftovers)
   const showToday = st && (open ? st.date === now.date : st.date === lastSession(c));
   let pts = showToday && st ? st.pts.slice() : [];
+  pts = pts.filter((p, i, a) => {        // a lone reading that jumps away and straight back is a bad copy, not a real move
+    if (i === 0 || i === a.length - 1) return true;
+    const d1 = p[1] - a[i - 1][1], d2 = a[i + 1][1] - p[1], lim = p[1] * 0.002;
+    return !(Math.abs(d1) > lim && Math.abs(d2) > lim && Math.sign(d1) !== Math.sign(d2));
+  });
+  if (pts.length > 1 && Math.abs(pts[0][1] - pts[1][1]) > pts[0][1] * 0.006) pts.shift();   // first reading from an old saved copy
   // closed: the line must end at the actual close, even if this screen was off for part of the day
   let tailFrom = null;
   if (!open && pts.length && (pts[pts.length - 1][0] < L - 10 || Math.abs(pts[pts.length - 1][1] - live) > live * 0.0005)) {
