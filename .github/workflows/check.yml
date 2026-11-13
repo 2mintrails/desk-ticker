@@ -7,18 +7,19 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Status and data sample
+      - name: Status
+        run: curl -s https://desk-ticker.twominutetrails.workers.dev/v1/status; echo
+      - name: Open the live app and read what it shows
         run: |
-          URL=https://desk-ticker.twominutetrails.workers.dev
-          echo "--- status"; curl -s "$URL/v1/status"; echo
-          echo "--- gold/silver columns (I–P) as the app gets them"
-          curl -s "$URL/v1/all" | node -e "const d=JSON.parse(require('fs').readFileSync(0));const t=d.tabs['1087668592'];console.log('ages',JSON.stringify(d.ages));t.slice(0,8).forEach(r=>console.log(JSON.stringify(r.slice(8,16))))"
-          echo "--- the sheet's own published copy (I–P)"
-          curl -sL "https://docs.google.com/spreadsheets/d/e/2PACX-1vQvtAtoM3GTJ--tbsHV5cWMPhFrtaofoAyvqSbRt2H2-n2_pUiQ5YYnaVsXRgRTe1ieAnODMXPw1joB/pub?gid=1087668592&single=true&output=csv" | head -8 | cut -d, -f9-20
-          echo "--- goodreturns page"
-          curl -sL -A "Mozilla/5.0" -o gr.html -w "%{http_code} %{size_download}\n" https://www.goodreturns.in/gold-rates/
-          grep -o "Gold Rate[^<]\{0,80\}" gr.html | head -5
-          grep -o "₹[0-9,]\{4,\}" gr.html | head -12 | tr '\n' ' '; echo
-          echo "--- IBJA"
-          curl -sL -A "Mozilla/5.0" -o ibja.html -w "%{http_code} %{size_download}\n" https://ibjarates.com/
-          grep -o 'lblrate24K[^<]*<[^<]*\|lblRate24K[^<]*<[^>]*>[^<]*\|lblgold999_[^>]*>[^<]*' ibja.html | head -8
+          npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install --with-deps chromium >/dev/null 2>&1
+          cat > t.mjs <<'JS'
+          import { chromium } from 'playwright';
+          const b = await chromium.launch(), pg = await b.newPage({ viewport: { width: 915, height: 412 }, timezoneId: 'Asia/Kolkata' });
+          const logs = []; pg.on('console', m => { if (m.type() !== 'log') logs.push(m.type() + ': ' + m.text()); }); pg.on('pageerror', e => logs.push('ERROR ' + e.message));
+          await pg.goto('https://2mintrails.github.io/desk-ticker/?_=' + Date.now()); await pg.waitForTimeout(25000);
+          const o = await pg.evaluate(() => ({ version: document.querySelector('meta[name="ticker-version"]').content, dataFrom,
+            nifty: document.querySelector('.ix-p').textContent, gold: document.getElementById('gold').textContent, goldD: document.getElementById('goldD').textContent,
+            silver: document.getElementById('silver').textContent, note: document.getElementById('mNote').textContent, GR }));
+          console.log(JSON.stringify(o, null, 1)); console.log(logs.slice(0, 20).join('\n')); await b.close();
+          JS
+          node t.mjs
