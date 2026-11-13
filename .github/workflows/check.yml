@@ -1,0 +1,24 @@
+name: Check server
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/check.yml', 'server/check.txt']
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Status and data sample
+        run: |
+          URL=https://desk-ticker.twominutetrails.workers.dev
+          echo "--- status"; curl -s "$URL/v1/status"; echo
+          echo "--- gold/silver columns (I–P) as the app gets them"
+          curl -s "$URL/v1/all" | node -e "const d=JSON.parse(require('fs').readFileSync(0));const t=d.tabs['1087668592'];console.log('ages',JSON.stringify(d.ages));t.slice(0,8).forEach(r=>console.log(JSON.stringify(r.slice(8,16))))"
+          echo "--- the sheet's own published copy (I–P)"
+          curl -sL "https://docs.google.com/spreadsheets/d/e/2PACX-1vQvtAtoM3GTJ--tbsHV5cWMPhFrtaofoAyvqSbRt2H2-n2_pUiQ5YYnaVsXRgRTe1ieAnODMXPw1joB/pub?gid=1087668592&single=true&output=csv" | head -8 | cut -d, -f9-20
+          echo "--- goodreturns page"
+          curl -sL -A "Mozilla/5.0" -o gr.html -w "%{http_code} %{size_download}\n" https://www.goodreturns.in/gold-rates/
+          grep -o "Gold Rate[^<]\{0,80\}" gr.html | head -5
+          grep -o "₹[0-9,]\{4,\}" gr.html | head -12 | tr '\n' ' '; echo
+          echo "--- IBJA"
+          curl -sL -A "Mozilla/5.0" -o ibja.html -w "%{http_code} %{size_download}\n" https://ibjarates.com/
+          grep -o 'lblrate24K[^<]*<[^<]*\|lblRate24K[^<]*<[^>]*>[^<]*\|lblgold999_[^>]*>[^<]*' ibja.html | head -8
