@@ -195,13 +195,7 @@ async function aqiWAQI(env, home) {
 }
 async function jobEnv(env) {
   const notes = [], prev = (await dbGet(env, ['env'])).env?.v || {}, o = { ...prev };
-  // settings: the sheet's script copies the Settings tab into the AQI tab, columns L–M
-  try {
-    const a = await sheetCSV(GID.aqi);
-    const s = a.map(r => [String(r[11] || '').trim(), String(r[12] || '').trim()]).filter(r => r[0] && r[0] !== 'Setting');
-    if (s.length) o.settings = s;
-  } catch (e) { notes.push('settings: ' + e.message); }
-  const set = Object.fromEntries((o.settings || []).map(r => [String(r[0]).trim(), String(r[1]).trim()]));
+  const set = (await getCfg(env)).settings || {};                 // home location from the shared settings
   const home = { lat: num(set['Home lat']) ?? HOME.lat, lon: num(set['Home lon']) ?? HOME.lon };
   try {
     const t = await get('https://aviationweather.gov/api/data/metar?ids=VOBG,VOBL&hours=4&format=raw');
@@ -217,14 +211,13 @@ async function jobEnv(env) {
   try { const a = (await aqiIQAir(env, home).catch(e => { notes.push('iqair: ' + e.message); return null; })) || await aqiWAQI(env, home); if (a) o.aqi = a; else notes.push('aqi: no fresh reading'); }
   catch (e) { notes.push('aqi: ' + e.message); }
   await dbPut(env, 'env', o);
-  return `metar ${o.metar?.length || 0}, airports ${o.airports?.length || 0}, aqi ${o.aqi ? o.aqi[0] + ' ' + o.aqi[1] : '—'}, settings ${o.settings?.length || 0}` + (notes.length ? ' · ' + notes.join(' | ') : '');
+  return `metar ${o.metar?.length || 0}, airports ${o.airports?.length || 0}, aqi ${o.aqi ? o.aqi[0] + ' ' + o.aqi[1] : '—'}` + (notes.length ? ' · ' + notes.join(' | ') : '');
 }
 
 /* ---------------- news ---------------- */
 const GN = q => 'https://news.google.com/rss/search?q=' + encodeURIComponent(q + ' when:1d') + '&hl=en-IN&gl=IN&ceid=IN:en';
 const GNUS = q => 'https://news.google.com/rss/search?q=' + encodeURIComponent(q + ' when:1d') + '&hl=en-US&gl=US&ceid=US:en';
-// Google News doesn't answer Cloudflare's servers, so the server reads papers' own feeds; whatever Google News
-// headlines the sheet's script still collects (News tab) are used to fill a section when these come up short.
+// Google News doesn't answer Cloudflare's servers, so the server reads papers' own feeds.
 const FEEDS = {
   India: [['https://indianexpress.com/section/india/feed/', 'Indian Express'], ['https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml', 'Hindustan Times'],
     ['https://feeds.feedburner.com/ndtvnews-india-news', 'NDTV'], ['https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms', 'Times of India'],
@@ -297,15 +290,6 @@ function pickTop(items) {
 async function jobNews(env, section) {
   const lists = await Promise.all(FEEDS[section].map(([u, s]) => readFeed(u, s))), items = lists.flat();
   const perFeed = lists.map((l, i) => FEEDS[section][i][1] + ' ' + l.length).join(', ');
-  // the sheet's own list (Google News, collected by the sheet's script) — used after the fresh items, to fill up
-  try {
-    const col = { India: [0, 4], World: [1, 5], Markets: [3, 6], USMarkets: [7, 8] }[section];
-    (await sheetCSV(GID.news)).slice(1).forEach(r => {
-      const text = String(r[col[0]] || '').trim(); if (!text) return;
-      const k = text.lastIndexOf(' - '), title = k > 20 ? text.slice(0, k) : text, source = k > 20 ? text.slice(k + 3) : '';
-      items.push({ title, source, link: String(r[col[1]] || ''), t: 1 });          // t = 1: older than any dated item, never too old
-    });
-  } catch (e) {}
   const filt = section === 'Markets' ? items.filter(x => MARKET_WORDS.test(x.title)) : section === 'USMarkets' ? items.filter(x => US_WORDS.test(x.title)) : items;
   const top = pickTop(filt);
   if (!top.length) throw new Error('no headlines from any ' + section + ' feed (kept the last list)');
