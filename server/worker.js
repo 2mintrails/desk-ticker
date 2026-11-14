@@ -2,7 +2,7 @@
  * Desk Ticker server (Cloudflare Worker).
  *
  * Does the fetching the Google Sheet's script used to do, on a timer, and keeps the results in a small database:
- *   prices  every 2 min while the Indian or US market is open (every 20 min otherwise) — Yahoo Finance,
+ *   prices  every minute while the Indian or US market is open (every 20 min otherwise) — Yahoo Finance,
  *           for every symbol in Sheet1 column A; Google Finance values from the sheet are kept as a fallback
  *   env     every 10 min — HAL / Kempegowda airport reports, airports across India, air quality (IQAir, then WAQI)
  *   news    every 10 min, one section per run — India, World, Markets, US Markets
@@ -131,6 +131,7 @@ async function jobPrices(env) {
     while (r.length < 6) r.push('');
     const ch = y.price - prev;
     r[1] = y.price.toFixed(2); r[2] = ch.toFixed(2); r[3] = (ch / prev * 100).toFixed(2);
+    while (r.length < 25) r.push(''); r[23] = 'yahoo'; r[24] = String(y.at || '');
     if (!num(r[4]) && y.hi52) r[4] = String(y.hi52);
     if (!num(r[5]) && y.lo52) r[5] = String(y.lo52);
     used++;
@@ -319,7 +320,7 @@ async function tick(env, t = Date.now()) {
   const p = istParts(t), m = p.mi, jobs = [];
   if (marketWindow(t) || m % 20 === 0) jobs.push('prices');
   if (m % 10 === 0) jobs.push('env');
-  const sec = { 2: 'India', 4: 'World', 6: 'Markets', 8: 'USMarkets' }[m % 10];
+  const sec = { 2: 'India', 4: 'World', 6: 'Markets', 8: 'USMarkets' }[m % 10];   // one news section every 2 minutes
   if (sec) jobs.push('news:' + sec);
   for (const j of jobs) await runJob(env, j);
 }
@@ -361,12 +362,56 @@ async function allTabs(env) {
   return { at: Date.now(), ages, tabs: { [GID.main]: main, [GID.news]: news, [GID.aqi]: aqi } };
 }
 
+/* ---------------- v2: one clean feed for the app ---------------- */
+const IST_DMY = s => { const m = String(s || '').match(/(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})/); return m ? Date.parse(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:00+05:30`) : null; };
+const rateOf = v => { const m = String(v || '').match(/([\d,]+(?:\.\d+)?)\s*(?:\(\s*([+\-−]?[\d,]+(?:\.\d+)?)\s*\))?/); if (!m) return null;
+  const p = parseFloat(m[1].replace(/,/g, '')), c = m[2] != null ? parseFloat(m[2].replace(/,/g, '').replace('−', '-')) : null; return p > 0 ? { p, c } : null; };
+const isoDay = s => { const t = Date.parse(s); return t ? new Date(t + 6 * 3600e3).toISOString().slice(0, 10) : null; };
+async function feed(env) {
+  const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets'];
+  const d = await dbGet(env, keys), E = d.env?.v || {}, rows = (d.sheet1?.v || []).slice(1);
+  const quotes = {};
+  rows.forEach(r => {
+    const sym = String(r[0] || '').trim(), p = num(r[1]), c = num(r[2]);
+    if (!sym || p == null) return;
+    quotes[sym] = { p, c, pct: c != null && p !== c ? c / (p - c) * 100 : num(r[3]), prev: c != null ? p - c : null,
+      hi52: num(r[4]), lo52: num(r[5]), src: r[23] === 'yahoo' ? 'yahoo' : 'google', at: num(r[24]) ? num(r[24]) * 1000 : null };
+  });
+  // gold (24K, per gram) and silver (per kg) from the GoodReturns tables: newest first
+  const metals = { gold: [], silver: [] };
+  rows.forEach(r => {
+    const g = rateOf(r[9]), gd = isoDay(r[8]), s = rateOf(r[15]), sd = isoDay(r[12]);
+    if (g && gd) metals.gold.push({ date: gd, p: g.p, c: g.c });
+    if (s && sd) metals.silver.push({ date: sd, p: s.p, c: s.c });
+  });
+  metals.source = 'GoodReturns Bangalore';
+  const charts = {};
+  (d.idx?.v || []).slice(1).forEach(r => {
+    charts[r[0]] = { p: num(r[1]), prev: num(r[2]), at: num(r[3]) ? num(r[3]) * 1000 : null,
+      line: String(r[4] || '').split(';').map(x => x.split(':').map(Number)).filter(x => x.length === 2 && isFinite(x[0]) && isFinite(x[1])).map(([t, v]) => [t * 1000, v]) };
+  });
+  const news = {};
+  ['India', 'World', 'Markets', 'USMarkets'].forEach(s => { const x = d['news_' + s]; news[s] = { at: x?.at || null, items: (x?.v || []).map(i => ({ t: i.text, u: i.link })) }; });
+  const a = E.aqi;
+  const ages = Object.fromEntries(Object.entries(d).filter(([k]) => k !== 'log' && k !== 'metal_hist').map(([k, x]) => [k, Math.round((Date.now() - x.at) / 1000)]));
+  return {
+    v: 2, at: Date.now(),
+    quotes, charts, metals, news,
+    aqi: a ? { aqi: num(a[0]), name: a[1], at: IST_DMY(a[2]), main: a[3] } : null,
+    metar: E.metar || [],
+    airports: (E.airports || []).map(x => ({ code: x[0], lat: num(x[1]), lon: num(x[2]), name: x[3], raw: x[4] })),
+    settings: Object.fromEntries((E.settings || []).map(([k, v]) => [k, v])),
+    health: { ages, runs: d.log?.v || {}, pricesAt: d.sheet1?.at || null },
+  };
+}
+
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store', 'Content-Type': 'application/json; charset=utf-8' };
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(tick(env, event.scheduledTime)); },
   async fetch(req, env) {
     const u = new URL(req.url);
     try {
+      if (u.pathname === '/v2/feed') return new Response(JSON.stringify(await feed(env)), { headers: CORS });
       if (u.pathname === '/v1/all') return new Response(JSON.stringify(await allTabs(env)), { headers: CORS });
       if (u.pathname === '/v1/status') {
         const d = await dbGet(env, ['log', 'sheet1', 'idx', 'env', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets']);
