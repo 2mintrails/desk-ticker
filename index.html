@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v16.1-2026-11-14">
+<meta name="ticker-version" content="v16.3-2026-11-14">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -133,6 +133,14 @@
   .wk .t{display:flex;flex-wrap:wrap;align-items:center;gap:.3em .9em;margin-top:.8vh;font-size:clamp(11px,3.8vh,16px);color:var(--dim)}
   .wk .t b{color:var(--wkc);font-weight:600}
   .wk .tag{font-size:.82em;font-weight:600;padding:1px 8px;border-radius:99px;color:var(--wkc);background:var(--wkbg)}
+  /* 7D · 15D · 1M: how far back the gold & silver lines go (one choice for both cards, remembered on this screen) */
+  .mrange{position:absolute;right:1.4vw;bottom:.9vh;display:flex;gap:4px;z-index:3}
+  .mrange button{font:inherit;font-size:clamp(10px,2.9vh,12px);font-weight:600;letter-spacing:.5px;color:var(--dim);background:transparent;
+    border:1px solid var(--line,rgba(255,255,255,.14));border-radius:99px;padding:2px 9px;cursor:pointer;line-height:1.5}
+  .mrange button.on{color:var(--fg);border-color:currentColor;background:rgba(127,127,127,.14)}
+  .mrange:not(.ready){display:none}
+  body.bull .mrange button, body.retro .mrange button, body.led .mrange button{border-radius:0}
+  body.bull .mrange{bottom:.4vh}
   /* Bull Run's cards are shorter (the runner's strip takes room): a flatter line, no streak text on short screens */
   body.bull .wk{margin-top:.6vh} body.bull .wk .plot{height:clamp(18px,7vh,48px)}
   body.bull .wk .tag{border-radius:0}
@@ -853,7 +861,10 @@
     .news2{grid-template-columns:1fr}
     /* late-night clock: sized by the screen's width */
     .n-time{font-size:clamp(56px,24vw,140px);letter-spacing:-2px}
-    .mnote{font-size:clamp(10px,3vw,12px)}
+    .mnote{font-size:clamp(10px,3vw,12px);text-align:left;padding-left:2vw}
+    .metals ~ .mnote{right:auto;max-width:56%;line-height:1.35;bottom:.8vh}
+    .mrange{right:2vw}
+    .mrange button{font-size:clamp(11px,3.2vw,13px);padding:3px 10px}
     /* themes that size their big numbers by screen width need a portrait size too */
     html body.anime .ix-p, html body.anime .spx-p{font-size:clamp(34px,12.5vw,60px)}
     html body.anime .fx-p{font-size:clamp(30px,11vw,50px)}
@@ -1169,6 +1180,7 @@
           <div class="wk" id="silverW"></div>
         </div>
       </div>
+      <div class="mrange" id="mRange"><button data-r="7">7D</button><button data-r="15">15D</button><button data-r="30">1M</button></div>
       <div class="mnote" id="mNote">Estimated from international spot × USD/INR</div>
     </section>
 
@@ -1648,6 +1660,7 @@ try { const ro = new ResizeObserver(() => drawSpark()); ro.observe(document.getE
 // GoodReturns Bangalore rates imported into the sheet: gold table in I:K, silver table in M:P.
 // Row 1 of each is the latest day, e.g. "₹13,937 (+49)" = rate (change vs previous day).
 let GR = null;
+var MRANGE = 7;          // gold & silver lines: last 7, 15 or 30 days
 try {   // start with the last GoodReturns rates seen on this phone (up to 2 days old) instead of an estimate
   const sv = JSON.parse(localStorage.getItem('deskTickerGR'));
   if (sv && Date.now() - sv.at < 48 * 3600e3) GR = sv.GR;
@@ -1668,8 +1681,9 @@ const dayLbl = iso => { const d = new Date(iso + 'T12:00:00+05:30'); return isNa
 function readMetals(m) {             // the server's GoodReturns rates: newest first, last several days
   if (!m || !m.gold || !m.gold.length || !m.silver || !m.silver.length) return;
   const g = m.gold[0], sv = m.silver[0];
-  const wk = list => list.slice(0, 7).reverse().map(x => ({ d: dayLbl(x.date), v: x.p }));
-  GR = { gold: g.p, goldChg: g.c, silver: sv.p, silverChg: sv.c, date: dayLbl(g.date), goldWk: wk(m.gold), silverWk: wk(m.silver) };
+  const hist = list => list.slice(0, 200).reverse().map(x => ({ iso: x.date, d: dayLbl(x.date), v: x.p }));
+  GR = { gold: g.p, goldChg: g.c, silver: sv.p, silverChg: sv.c, date: dayLbl(g.date), src: m.source || '',
+         goldHist: hist(m.gold), silverHist: hist(m.silver) };
   try { localStorage.setItem('deskTickerGR', JSON.stringify({ at: Date.now(), GR })); } catch (e) {}
   renderGR();
 }
@@ -1681,9 +1695,24 @@ function renderGR() {
   document.getElementById('silverG').textContent = inr(GR.silver / 1000);
   showDelta('goldD', GR.gold * 10, GR.goldChg != null ? (GR.gold - GR.goldChg) * 10 : null);
   showDelta('silverD', GR.silver, GR.silverChg != null ? GR.silver - GR.silverChg : null);
-  weekLine('goldW', GR.goldWk, 10); weekLine('silverW', GR.silverWk, 1);
-  document.getElementById('mNote').textContent = 'GoodReturns Bangalore · rates for ' + (GR.date || 'today') + (GR.goldWk && GR.goldWk.length > 2 ? ' · last ' + GR.goldWk.length + ' days' : '');
+  const span = h => { if (!h || !h.length) return h; const end = Date.parse(h[h.length - 1].iso || ''); if (!end) return h.slice(-MRANGE);
+    return h.filter(x => Date.parse(x.iso) > end - MRANGE * 864e5); };            // the last 7 / 15 / 30 calendar days
+  weekLine('goldW', span(GR.goldHist || GR.goldWk), 10); weekLine('silverW', span(GR.silverHist || GR.silverWk), 1);
+  const ibja = /IBJA/.test(GR.src || '');
+  document.getElementById('mNote').textContent = (ibja ? 'IBJA · official rate, before GST' : 'GoodReturns Bangalore') + ' · rates for ' + (GR.date || 'today');
+  const sec = document.getElementById('mNote').closest('section');
+  if (sec) { const t = ibja ? 'Bullion · IBJA India' : 'Bullion · Bengaluru'; if (sec.dataset.title !== t) { sec.dataset.title = t; if (slides[idx] === sec) document.getElementById('title').textContent = t; } }
+  const longest = GR.goldHist && GR.goldHist.length ? (Date.parse(GR.goldHist[GR.goldHist.length - 1].iso) - Date.parse(GR.goldHist[0].iso)) / 864e5 : 0;
+  document.querySelectorAll('#mRange button').forEach(b => { b.classList.toggle('on', +b.dataset.r === MRANGE); b.disabled = +b.dataset.r > 7 && longest < +b.dataset.r - 3; });
+  document.getElementById('mRange').classList.toggle('ready', longest >= 12);
 }
+try { MRANGE = [7, 15, 30].includes(+localStorage.getItem('deskTickerMetalRange')) ? +localStorage.getItem('deskTickerMetalRange') : 7; } catch (e) {}
+document.getElementById('mRange').addEventListener('click', e => {
+  e.stopPropagation();
+  const b = e.target.closest('button[data-r]'); if (!b || b.disabled) return;
+  MRANGE = +b.dataset.r; try { localStorage.setItem('deskTickerMetalRange', MRANGE); } catch (e2) {}
+  renderGR(); if (typeof start === 'function') start();          // stay on this slide a full turn after a tap
+});
 // a small line of the last days' rates, with the week's high, the change over the week, a falling/rising streak
 // and a tag when today is the week's low or high
 function weekLine(id, wk, mult) {
@@ -1700,7 +1729,8 @@ function weekLine(id, wk, mult) {
   const line = v.map((x, i) => (i ? 'L' : 'M') + X(i).toFixed(2) + ' ' + Y(x).toFixed(2)).join(' ');
   const gid = id + 'G', hiAt = wk[v.lastIndexOf(hi)].d;
   const streak = fall >= 2 ? `falling ${fall} days in a row` : rise >= 2 ? `rising ${rise} days in a row` : '';
-  const tag = n >= 5 && last === lo && hi > lo ? `<span class="tag">${n}-day low</span>` : n >= 5 && last === hi && hi > lo ? `<span class="tag">${n}-day high</span>` : '';
+  const per = MRANGE === 30 ? '1-month' : MRANGE + '-day', when = MRANGE === 7 ? 'this week' : MRANGE === 30 ? 'this month' : 'in 15 days';
+  const tag = n >= 4 && last === lo && hi > lo ? `<span class="tag">${per} low</span>` : n >= 4 && last === hi && hi > lo ? `<span class="tag">${per} high</span>` : '';
   box.className = 'wk ' + (up ? 'up' : 'down');
   box.innerHTML =
     `<div class="plot"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">` +
@@ -1709,7 +1739,7 @@ function weekLine(id, wk, mult) {
     `<path d="${line}" fill="none" stroke="var(--wkc)" stroke-width="2.4" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>` +
     `<i class="dot" style="top:${(Y(last) / H * 100).toFixed(1)}%"></i></div>` +
     `<div class="ax"><span>${wk[0].d}</span><span>high ${inr(hi)} · ${hiAt}</span><span>${wk[n - 1].d}</span></div>` +
-    `<div class="t"><b>${up ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}% ${n === 7 ? 'this week' : 'in ' + n + ' days'}</b>${streak ? `<span>${streak}</span>` : ''}${tag}</div>`;
+    `<div class="t"><b>${up ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}% ${when}</b>${streak ? `<span>${streak}</span>` : ''}${tag}</div>`;
   card.classList.add('has-wk');
 }
 // ---------- DATA: one clean feed from the Desk Ticker server (Cloudflare) ----------
