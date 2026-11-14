@@ -329,7 +329,7 @@ async function jobLocal(env) {
   if (!city) { await dbPut(env, 'news_Local', { city: '', items: [] }); return 'home is not near a city with a local feed'; }
   const lists = await Promise.all(city[3].map(([u, s]) => readFeed(u, s)));
   const perFeed = lists.map((l, i) => city[3][i][1] + ' ' + l.length).join(', ');
-  const top = pickTop(lists.flat(), { keep: 8, per: 4, ageH: 24 });
+  const top = pickTop(lists.flat(), { keep: 8, per: 7, ageH: 24 });
   if (!top.length) throw new Error('no ' + city[0] + ' headlines (' + perFeed + ')');
   await dbPut(env, 'news_Local', { city: city[0], items: top });
   return city[0] + ': ' + top.length + ' headlines (' + perFeed + ') · newest: ' + top[0].text.slice(0, 70);
