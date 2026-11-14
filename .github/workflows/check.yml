@@ -18,6 +18,10 @@ jobs:
           console.log('news',Object.entries(f.news).map(([k,v])=>k+':'+v.items.length).join(' '),'aqi',JSON.stringify(f.aqi));
           console.log('metar',f.metar.length,'airports',f.airports.length,'settings',Object.keys(f.settings).length);
           console.log('health',JSON.stringify(f.health.ages), Object.entries(f.health.runs).map(([k,r])=>k+':'+r.ok).join(' '));"
+      - name: Zero-change check
+        run: |
+          node -e "const f=require('./f.json');const z=Object.entries(f.quotes).filter(([k,x])=>x.c===0).map(([k,x])=>k+'='+x.p+'/'+x.src);console.log('zero change:',z.length,z.join(' '));console.log('google:',Object.entries(f.quotes).filter(([k,x])=>x.src==='google').map(([k])=>k).join(' '))"
+          curl -sL "https://docs.google.com/spreadsheets/d/e/2PACX-1vQvtAtoM3GTJ--tbsHV5cWMPhFrtaofoAyvqSbRt2H2-n2_pUiQ5YYnaVsXRgRTe1ieAnODMXPw1joB/pub?gid=1087668592&single=true&output=csv" | cut -d, -f1-4 | head -70 | tr '\n' ' '
       - name: Open the live app and read what it shows
         run: |
           npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install --with-deps chromium >/dev/null 2>&1
