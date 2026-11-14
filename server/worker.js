@@ -114,8 +114,11 @@ function marketWindow(t = Date.now()) {          // a busy time for prices: Indi
   return india || us;
 }
 async function jobPrices(env) {
-  const all = await sheetCSV(GID.main);
-  if (all.length < 2) throw new Error('Sheet1 came back empty');
+  let all = [];
+  try { all = await sheetCSV(GID.main); } catch (e) {}
+  if (all.length < 1) all = [['Symbol', 'Price', 'Change', 'ChangePct']];
+  const cfg = await getCfg(env), have = new Set(all.slice(1).map(r => String(r[0] || '').trim()));
+  [...cfg.watch.in, ...cfg.watch.large, ...cfg.watch.us].forEach(x => { if (!have.has(x.sym)) { all.push([x.sym, '', '', '']); have.add(x.sym); } });
   const syms = [...new Set(all.slice(1).map(r => yahooSym(r[0])).filter(Boolean))];
   const { out: Y, errs } = await yahooQuotes(syms);
   let used = 0, kept = 0, dbg = '';
@@ -401,12 +404,72 @@ async function allTabs(env) {
   return { at: Date.now(), ages, tabs: { [GID.main]: main, [GID.news]: news, [GID.aqi]: aqi } };
 }
 
+/* ---------------- settings & watchlist (shared by all your screens) ----------------
+   Stored here instead of the sheet. Changing them needs the PIN chosen the first time (kept only as a hash). */
+const DEFAULT_WATCH = {"in": [{"sym": "NSE:M&M", "name": "Mahindra & Mahindra", "tick": "M&M", "dom": "mahindra.com"}, {"sym": "NSE:SONACOMS", "name": "Sona BLW Precision", "tick": "SONACOMS", "dom": "sonacomstar.com"}, {"sym": "NSE:BAJFINANCE", "name": "Bajaj Finance", "tick": "BAJFINANCE", "dom": "bajajfinserv.in"}, {"sym": "NSE:BHARTIARTL", "name": "Bharti Airtel", "tick": "BHARTIARTL", "dom": "airtel.in"}, {"sym": "NSE:HDFCBANK", "name": "HDFC Bank", "tick": "HDFCBANK", "dom": "hdfcbank.com"}, {"sym": "NSE:TCS", "name": "TCS", "tick": "TCS", "dom": "tcs.com"}, {"sym": "NSE:INOXINDIA", "name": "INOX India", "tick": "INOXINDIA", "dom": "inoxindia.com"}, {"sym": "NSE:TITAN", "name": "Titan Company", "tick": "TITAN", "dom": "titancompany.in"}, {"sym": "NSE:POLYMED", "name": "Poly Medicure", "tick": "POLYMED", "dom": "polymedicure.com"}, {"sym": "NSE:ITC", "name": "ITC", "tick": "ITC", "dom": "itcportal.com"}, {"sym": "NSE:ABREL", "name": "Aditya Birla Real Estate", "tick": "ABREL", "dom": "adityabirlarealestate.com"}, {"sym": "NSE:TATACONSUM", "name": "Tata Consumer", "tick": "TATACONSUM", "dom": "tataconsumer.com"}], "large": [{"sym": "NSE:RELIANCE", "name": "Reliance", "tick": "RELIANCE", "dom": "ril.com"}, {"sym": "NSE:LT", "name": "Larsen & Toubro", "tick": "LT", "dom": "larsentoubro.com"}, {"sym": "NSE:ICICIBANK", "name": "ICICI Bank", "tick": "ICICIBANK", "dom": "icicibank.com"}, {"sym": "NSE:INFY", "name": "Infosys", "tick": "INFY", "dom": "infosys.com"}, {"sym": "NSE:HINDUNILVR", "name": "Hindustan Unilever", "tick": "HINDUNILVR", "dom": "hul.co.in"}, {"sym": "NSE:SUNPHARMA", "name": "Sun Pharma", "tick": "SUNPHARMA", "dom": "sunpharma.com"}, {"sym": "NSE:TMCV", "name": "Tata Motors", "tick": "TMCV", "dom": "tatamotors.com"}, {"sym": "NSE:TATASTEEL", "name": "Tata Steel", "tick": "TATASTEEL", "dom": "tatasteel.com"}, {"sym": "NSE:TATAPOWER", "name": "Tata Power", "tick": "TATAPOWER", "dom": "tatapower.com"}, {"sym": "NSE:INDIGO", "name": "IndiGo", "tick": "INDIGO", "dom": "goindigo.in"}, {"sym": "NSE:BEL", "name": "Bharat Electronics", "tick": "BEL", "dom": "bel-india.in"}, {"sym": "NSE:RECLTD", "name": "REC", "tick": "RECLTD", "dom": "recindia.nic.in"}, {"sym": "NSE:CIPLA", "name": "Cipla", "tick": "CIPLA", "dom": "cipla.com"}, {"sym": "NSE:DRREDDY", "name": "Dr. Reddy's", "tick": "DRREDDY", "dom": "drreddys.com"}, {"sym": "NSE:VBL", "name": "Varun Beverages", "tick": "VBL", "dom": "varunbeverages.com"}, {"sym": "NSE:AMBUJACEM", "name": "Ambuja Cements", "tick": "AMBUJACEM", "dom": "ambujacement.com"}], "us": [{"sym": "NYSE:TSM", "name": "TSMC", "tick": "TSM", "dom": "tsmc.com"}, {"sym": "NASDAQ:NVDA", "name": "Nvidia", "tick": "NVDA", "dom": "nvidia.com"}, {"sym": "NYSE:CRM", "name": "Salesforce", "tick": "CRM", "dom": "salesforce.com"}, {"sym": "NASDAQ:MSFT", "name": "Microsoft", "tick": "MSFT", "dom": "microsoft.com"}, {"sym": "NASDAQ:AAPL", "name": "Apple", "tick": "AAPL", "dom": "apple.com"}, {"sym": "NASDAQ:GOOGL", "name": "Alphabet (Google)", "tick": "GOOGL", "dom": "google.com"}, {"sym": "NASDAQ:AMZN", "name": "Amazon", "tick": "AMZN", "dom": "amazon.com"}]};
+const SALT = 'desk-ticker:v1:';
+async function sha(t) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(SALT + t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+async function getCfg(env) {
+  const d = await dbGet(env, ['cfg', 'env']);
+  if (d.cfg) return d.cfg.v;
+  const fromSheet = Object.fromEntries(((d.env?.v || {}).settings || []).map(([k, v]) => [k, v]));   // first time: copy the sheet's Settings tab
+  const cfg = { settings: fromSheet, watch: DEFAULT_WATCH, pin: null, fails: 0, lockUntil: 0, at: Date.now() };
+  await dbPut(env, 'cfg', cfg);
+  return cfg;
+}
+const SETTING_KEYS = /^(Seconds per slide|Show .+ slide|Currency [123]|Night clock (starts|ends)|Home (lat|lon|name))$/;
+function cleanWatch(w) {
+  const one = x => x && typeof x.sym === 'string' && /^[A-Z]+:[A-Z0-9&._\-]{1,20}$/.test(x.sym) ? {
+    sym: x.sym, name: String(x.name || x.sym.split(':')[1]).slice(0, 40), tick: String(x.tick || x.sym.split(':')[1]).slice(0, 20),
+    ...(x.dom && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(x.dom) ? { dom: x.dom } : {}) } : null;
+  const list = l => (Array.isArray(l) ? l : []).map(one).filter(Boolean).filter((x, i, a) => a.findIndex(y => y.sym === x.sym) === i).slice(0, 40);
+  return { in: list(w.in), large: list(w.large), us: list(w.us) };
+}
+async function saveSettings(env, body) {
+  const cfg = await getCfg(env);
+  if (cfg.lockUntil > Date.now()) return [429, { error: 'Too many wrong PINs. Try again after ' + istStamp(cfg.lockUntil).slice(11, 16) + '.' }];
+  if (!cfg.pin) {                                    // first save: choose the PIN
+    if (!/^\d{4,8}$/.test(String(body.newPin || ''))) return [403, { error: 'choose-pin' }];
+    cfg.pin = await sha(String(body.newPin));
+  } else if ((await sha(String(body.pin || ''))) !== cfg.pin) {
+    cfg.fails = (cfg.fails || 0) + 1;
+    if (cfg.fails >= 5) { cfg.lockUntil = Date.now() + 15 * 60e3; cfg.fails = 0; }
+    await dbPut(env, 'cfg', cfg);
+    return [403, { error: 'wrong-pin' }];
+  }
+  cfg.fails = 0;
+  if (body.set && typeof body.set === 'object') Object.entries(body.set).forEach(([k, v]) => {
+    if (!SETTING_KEYS.test(k)) return;
+    if (v === null) delete cfg.settings[k]; else cfg.settings[k] = String(v).slice(0, 60);
+  });
+  if (body.watch) cfg.watch = cleanWatch(body.watch);
+  cfg.at = Date.now();
+  await dbPut(env, 'cfg', cfg);
+  return [200, { ok: true, settings: cfg.settings, watch: cfg.watch, at: cfg.at }];
+}
+// find a stock by its ticker: NSE (then BSE) for India, US exchanges for the US
+async function lookup(q, mkt) {
+  q = String(q || '').trim().toUpperCase().replace(/^(NSE|BSE|NASDAQ|NYSE):/, '');
+  if (!/^[A-Z0-9&._\-]{1,20}$/.test(q)) return null;
+  const tries = mkt === 'us' ? [[q.replace(/\./g, '-'), null]] : [[q + '.NS', 'NSE'], [q + '.BO', 'BOM']];
+  for (const [ys, ex] of tries) {
+    try {
+      const m = (await get('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ys) + '?range=1d&interval=1d', { json: true })).chart.result[0].meta;
+      if (!m || m.regularMarketPrice == null) continue;
+      const e = ex || ({ NMS: 'NASDAQ', NGM: 'NASDAQ', NCM: 'NASDAQ', NYQ: 'NYSE', PCX: 'NYSEARCA', ASE: 'NYSEAMERICAN', BTS: 'BATS' }[m.exchangeName] || 'NYSE');
+      return { sym: e + ':' + q, name: String(m.longName || m.shortName || q).replace(/\s+(Limited|Ltd\.?|Inc\.?|Corporation|Corp\.?)$/i, ''), tick: q, price: m.regularMarketPrice, currency: m.currency };
+    } catch (e) {}
+  }
+  return null;
+}
+
 /* ---------------- v2: one clean feed for the app ---------------- */
 const IST_DMY = s => { const m = String(s || '').match(/(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})/); return m ? Date.parse(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:00+05:30`) : null; };
 const rateOf = v => { const m = String(v || '').match(/([\d,]+(?:\.\d+)?)\s*(?:\(\s*([+\-−]?[\d,]+(?:\.\d+)?)\s*\))?/); if (!m) return null;
   const p = parseFloat(m[1].replace(/,/g, '')), c = m[2] != null ? parseFloat(m[2].replace(/,/g, '').replace('−', '-')) : null; return p > 0 ? { p, c } : null; };
 const isoDay = s => { const t = Date.parse(s); return t ? new Date(t + 6 * 3600e3).toISOString().slice(0, 10) : null; };
 async function feed(env) {
+  const cfg = await getCfg(env);
   const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'ibja', 'gr_silver', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets'];
   const d = await dbGet(env, keys), E = d.env?.v || {}, rows = (d.sheet1?.v || []).slice(1);
   const quotes = {};
@@ -451,17 +514,24 @@ async function feed(env) {
     aqi: a ? { aqi: num(a[0]), name: a[1], at: IST_DMY(a[2]), main: a[3] } : null,
     metar: E.metar || [],
     airports: (E.airports || []).map(x => ({ code: x[0], lat: num(x[1]), lon: num(x[2]), name: x[3], raw: x[4] })),
-    settings: Object.fromEntries((E.settings || []).map(([k, v]) => [k, v])),
+    settings: cfg.settings, watchlist: cfg.watch, settingsAt: cfg.at, pinSet: !!cfg.pin,
     health: { ages, runs: d.log?.v || {}, pricesAt: d.sheet1?.at || null },
   };
 }
 
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store', 'Content-Type': 'application/json; charset=utf-8' };
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Cache-Control': 'no-store', 'Content-Type': 'application/json; charset=utf-8' };
 export default {
   async scheduled(event, env, ctx) { ctx.waitUntil(tick(env, event.scheduledTime)); },
   async fetch(req, env) {
     const u = new URL(req.url);
+    if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     try {
+      if (u.pathname === '/v2/settings' && req.method === 'POST') {
+        let body = {}; try { body = await req.json(); } catch (e) {}
+        const [code, out] = await saveSettings(env, body);
+        return new Response(JSON.stringify(out), { status: code, headers: CORS });
+      }
+      if (u.pathname === '/v2/lookup') return new Response(JSON.stringify(await lookup(u.searchParams.get('q'), u.searchParams.get('mkt'))), { headers: CORS });
       if (u.pathname === '/v2/feed') return new Response(JSON.stringify(await feed(env)), { headers: CORS });
       if (u.pathname === '/v1/all') return new Response(JSON.stringify(await allTabs(env)), { headers: CORS });
       if (u.pathname === '/v1/status') {
