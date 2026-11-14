@@ -18,6 +18,10 @@ jobs:
           console.log('news',Object.entries(f.news).map(([k,v])=>k+':'+v.items.length).join(' '),'aqi',JSON.stringify(f.aqi));
           console.log('metar',f.metar.length,'airports',f.airports.length,'settings',Object.keys(f.settings).length);
           console.log('health',JSON.stringify(f.health.ages), Object.entries(f.health.runs).map(([k,r])=>k+':'+r.ok).join(' '));"
+      - name: Yahoo daily closes
+        run: |
+          curl -s -A "Mozilla/5.0" "https://query1.finance.yahoo.com/v8/finance/spark?symbols=%5ENSEI,RELIANCE.NS,USDINR%3DX,%5EGSPC,M_M.NS,M%26M.NS&range=5d&interval=1d" | head -c 3000; echo
+          curl -s -A "Mozilla/5.0" "https://query1.finance.yahoo.com/v8/finance/chart/%5ENSEI?range=1d&interval=5m" | node -e "const m=JSON.parse(require('fs').readFileSync(0)).chart.result[0].meta;console.log(JSON.stringify({p:m.regularMarketPrice,cpc:m.chartPreviousClose,pc:m.previousClose,t:m.regularMarketTime}))"
       - name: Zero-change check
         run: |
           node -e "const f=require('./f.json');const z=Object.entries(f.quotes).filter(([k,x])=>x.c===0).map(([k,x])=>k+'='+x.p+'/'+x.src);console.log('zero change:',z.length,z.join(' '));console.log('google:',Object.entries(f.quotes).filter(([k,x])=>x.src==='google').map(([k])=>k).join(' '))"
