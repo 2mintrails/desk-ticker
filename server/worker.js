@@ -69,41 +69,40 @@ function yahooSym(g) {
   g = String(g || '').trim(); if (!g) return null;
   if (YMAP[g]) return YMAP[g];
   let m;
-  if ((m = g.match(/^NSE:(.+)$/))) return m[1].replace(/&/g, '_') + '.NS';
+  if ((m = g.match(/^NSE:(.+)$/))) return m[1] + '.NS';
   if ((m = g.match(/^BOM:(.+)$/))) return m[1] + '.BO';
   if ((m = g.match(/^CURRENCY:([A-Z]{6})$/))) return m[1] + '=X';
   if ((m = g.match(/^(NASDAQ|NYSE|NYSEARCA|NYSEAMERICAN|BATS):(.+)$/))) return m[2].replace(/\./g, '-');
   return null;
 }
-// Yahoo's "spark" endpoint gives up to 20 symbols per call; two answer shapes exist, both handled
-function readSpark(j) {
+// Prices and previous closes come from Yahoo's DAILY closes (last 5 sessions): the latest close is today's price
+// (it moves during the session), the one before it is the previous close. (Yahoo's intraday "previous close"
+// fields were seen a day off, 12–14 Nov.) The three main indices also get the day's 5-minute line.
+function readDaily(j) {
   const out = {};
-  const add = (sym, ts, cl, prev, meta) => {
-    ts = ts || []; cl = cl || [];
-    let i = cl.length - 1; while (i >= 0 && cl[i] == null) i--;
-    const price = meta?.regularMarketPrice ?? (i >= 0 ? cl[i] : null);
-    if (price == null) return;
-    out[sym] = { price, prev: prev ?? null, at: meta?.regularMarketTime ?? (i >= 0 ? ts[i] : null),
-      hi52: meta?.fiftyTwoWeekHigh ?? null, lo52: meta?.fiftyTwoWeekLow ?? null,
-      line: ts.map((t, k) => cl[k] == null ? '' : t + ':' + (+cl[k]).toFixed(2)).filter(Boolean).join(';') };
-  };
-  if (j?.spark?.result) j.spark.result.forEach(r => { const x = r.response?.[0]; if (x) add(r.symbol, x.timestamp, x.indicators?.quote?.[0]?.close, x.meta?.chartPreviousClose ?? x.meta?.previousClose, x.meta); });
-  else if (j && typeof j === 'object') Object.entries(j).forEach(([s, x]) => { if (x && Array.isArray(x.close)) add(s, x.timestamp, x.close, x.chartPreviousClose ?? x.previousClose, null); });
+  Object.entries(j || {}).forEach(([sym, x]) => {
+    if (!x || !Array.isArray(x.close)) return;
+    const c = x.close.map((v, i) => [x.timestamp[i], v]).filter(([, v]) => v != null);
+    if (c.length < 2) return;
+    out[sym] = { price: c[c.length - 1][1], prev: c[c.length - 2][1], at: null };
+  });
   return out;
 }
 async function yahooQuotes(syms) {
   const out = {}, errs = [];
   for (let i = 0; i < syms.length; i += 20) {
     const part = syms.slice(i, i + 20);
-    try { Object.assign(out, readSpark(await get('https://query1.finance.yahoo.com/v8/finance/spark?symbols=' + part.map(encodeURIComponent).join(',') + '&range=1d&interval=5m', { json: true }))); }
+    try { Object.assign(out, readDaily(await get('https://query1.finance.yahoo.com/v8/finance/spark?symbols=' + part.map(encodeURIComponent).join(',') + '&range=5d&interval=1d', { json: true }))); }
     catch (e) { errs.push(String(e.message || e)); }
   }
-  // the three indices the app relies on most: if the batch missed them, ask one by one
   for (const s of ['^NSEI', '^BSESN', '^GSPC']) {
-    if (out[s] || !syms.includes(s)) continue;
+    if (!syms.includes(s)) continue;
     try {
       const r = (await get('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(s) + '?interval=5m&range=1d', { json: true })).chart.result[0];
-      const one = readSpark({ spark: { result: [{ symbol: s, response: [r] }] } })[s]; if (one) out[s] = one;
+      const m = r.meta || {}, ts = r.timestamp || [], cl = ((r.indicators || {}).quote || [{}])[0].close || [];
+      const line = ts.map((t, k) => cl[k] == null ? '' : t + ':' + (+cl[k]).toFixed(2)).filter(Boolean).join(';');
+      const o = out[s] || {};
+      out[s] = { price: m.regularMarketPrice ?? o.price, prev: o.prev ?? m.chartPreviousClose, at: m.regularMarketTime || null, line };
     } catch (e) { errs.push(String(e.message || e)); }
   }
   return { out, errs };
@@ -123,7 +122,7 @@ async function jobPrices(env) {
   all.slice(1).forEach(r => {
     const y = Y[yahooSym(r[0])]; if (!y) return;
     const g = num(r[1]), gc = num(r[2]);
-    const prev = g != null && gc != null && g - gc > 0 ? g - gc : y.prev;      // Google's previous close (price − change); Yahoo's can be a day off
+    const prev = y.prev ?? (g != null && gc != null && g - gc > 0 ? g - gc : null);
     if (prev == null) return;
     if (String(r[0]).trim() === 'INDEXNSE:NIFTY_50') dbg = ` · Nifty: Google ${g} (${gc}), Yahoo ${y.price} prev ${y.prev}`;
     y.prev = prev;
