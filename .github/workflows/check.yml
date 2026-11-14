@@ -7,6 +7,14 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      - name: Gold history sources
+        run: |
+          for u in https://www.goodreturns.in/gold-rates/bangalore.html https://www.goodreturns.in/silver-rates/bangalore.html https://www.goodreturns.in/gold-rates/ https://ibjarates.com/; do
+            curl -sL -A "Mozilla/5.0" -o p.html -w "$u %{http_code} %{size_download}\n" "$u"
+            echo "dated rows:"; grep -o '\(Jan\|Feb\|Mar\|Apr\|May\|Jun\|Jul\|Aug\|Sep\|Oct\|Nov\|Dec\)[a-z]* [0-9]\{1,2\}, 20[0-9][0-9]' p.html | sort -u | wc -l
+            grep -o '\(Jan\|Feb\|Mar\|Apr\|May\|Jun\|Jul\|Aug\|Sep\|Oct\|Nov\|Dec\)[a-z]* [0-9]\{1,2\}, 20[0-9][0-9]' p.html | sort -u | head -40 | tr '\n' ';'; echo
+            grep -io 'href="[^"]*\(histor\|archive\|month\)[^"]*"' p.html | sort -u | head -15
+          done
       - name: Feed v2
         run: |
           curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed > f.json
