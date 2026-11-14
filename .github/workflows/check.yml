@@ -10,10 +10,13 @@ jobs:
       - name: IBJA
         run: |
           curl -sL -A "Mozilla/5.0" -o i.html https://www.ibjarates.com/
-          grep -io 'href="[^"]*"' i.html | sort -u | head -60 | tr '\n' ' '; echo
-          grep -io '<form[^>]*>' i.html | head; grep -io 'id="[^"]*\(rate\|gold\|silver\|999\|995\|916\)[^"]*"[^>]*>[^<]*' i.html | head -40
-          grep -io '[a-z/_.-]*\.\(aspx\|ashx\|php\|json\)[^"]*' i.html | sort -u | head -30 | tr '\n' ' '; echo
-          grep -o 'Historical[^<]\{0,80\}' i.html | head -5
+          python3 - <<'PY'
+          import re,html
+          s=open('i.html',encoding='utf-8',errors='replace').read()
+          i=s.find('id="ratesbody"'); print(re.sub(r'\s+',' ',s[i-3000:i+6000]))
+          for k in ['HdnGold','HdnSilver']:
+              m=re.search('id="'+k+'" value="([^"]*)"',s); v=html.unescape(m.group(1)); print(k,len(v),v[:120],'...',v[-300:])
+          PY
       - name: Feed v2
         run: |
           curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed > f.json
