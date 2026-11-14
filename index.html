@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v17.7-2026-11-14">
+<meta name="ticker-version" content="v17.8-2026-11-14">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -234,6 +234,25 @@
   .n-time{font-family:"JetBrains Mono",monospace;font-weight:500;font-size:clamp(56px,34vh,180px);letter-spacing:-4px;line-height:1}
   .n-date{font-size:clamp(13px,5vh,22px);margin-top:1.5vh;letter-spacing:1px}
   .n-info{font-size:clamp(11px,4vh,17px);margin-top:1.2vh;opacity:.8}
+  /* ---------- watchlist summary: every stock ranked by today's move ---------- */
+  .ws{height:calc(100% - max(3.4vh, 22px));display:flex;flex-direction:column;gap:1.3vh;padding:2vh 2.2vw 1.6vh;min-height:0;box-sizing:border-box}
+  .ws-h{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;font-weight:700;font-size:clamp(14px,4.2vh,21px);flex:none}
+  .ws-h small{font-size:.7em;font-weight:700;white-space:nowrap} .ws-h small span{margin-right:.7em}
+  .ws-h em{font-style:normal;margin-left:auto;font-size:.6em;color:var(--dim);font-weight:600}
+  .ws-h .up{color:var(--up)} .ws-h .dn{color:var(--down)} .ws-h .fl{color:var(--dim)}
+  .ws-bar{height:6px;border-radius:99px;overflow:hidden;display:flex;background:rgba(128,128,128,.25);flex:none}
+  .ws-bar i{display:block;height:100%} .ws-bar .u{background:var(--up)} .ws-bar .f{background:rgba(128,128,128,.6)} .ws-bar .d{background:var(--down)}
+  .ws-rows{flex:1;min-height:0;display:grid;grid-auto-flow:column;gap:.3vh 3.5vw}
+  .ws-r{display:grid;grid-template-columns:minmax(0,38%) minmax(0,1fr) 4.4em;align-items:center;gap:8px;min-height:0;overflow:hidden}
+  .ws-r .n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:clamp(11px,3vh,16px)}
+  .ws-r .t{height:55%;min-height:5px;max-height:14px;border-radius:4px;background:rgba(128,128,128,.16);position:relative;overflow:hidden}
+  .ws-r .t i{position:absolute;top:0;bottom:0;left:0;border-radius:4px;background:rgba(128,128,128,.7)}
+  .ws-r.up .t i{background:var(--up)} .ws-r.dn .t i{background:var(--down)}
+  .ws-r .v{font-size:clamp(11px,3vh,16px);font-weight:700;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--dim)}
+  .ws-r.up .v{color:var(--up)} .ws-r.dn .v{color:var(--down)}
+  @media (orientation:portrait) and (max-aspect-ratio: 4/5){
+    .ws{padding:1.6vh 4.5vw 1.4vh} .ws-h{font-size:clamp(17px,5.2vw,23px)} .ws-r .n, .ws-r .v{font-size:clamp(14px,4.1vw,18px)} .ws-r .t{max-height:18px}
+  }
   /* ---------- large-cap board: six tiles per slide ---------- */
   .grid6{height:calc(100% - 3.4vh);display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:10px}
   .tile{display:flex;flex-direction:column;justify-content:center;gap:1vh;padding:0 1.6vw;min-width:0}
@@ -1463,6 +1482,44 @@ function buildSpxSlide() {
     <div class="mnote stock-note" data-mkt="us"></div>`;
   document.getElementById('stockSlot').before(sec);
 }
+// Indian stock mode opens with the whole watchlist ranked by today's move: one slide in landscape, two (leaders, laggards) in portrait
+const wsPortrait = () => matchMedia('(orientation:portrait) and (max-aspect-ratio: 4/5)').matches;
+let wsData = null, wsWasPortrait = null;
+function buildWatchSummary() {
+  ['A', 'B'].forEach(k => {
+    const sec = document.createElement('section'); sec.className = 'slide'; sec.id = 'ws' + k; sec.dataset.ws = k;
+    sec.dataset.title = 'Watchlist today'; sec.dataset.accent = '#ff8a3d'; sec.dataset.views = 'in'; sec.dataset.only = '1'; sec.dataset.empty = '1';
+    sec.innerHTML = '<div class="card ws"><div class="ws-h"><span class="ws-t">Watchlist today</span><small class="ws-c"></small><em class="ws-pg"></em></div>' +
+      '<div class="ws-bar"><i class="u"></i><i class="f"></i><i class="d"></i></div><div class="ws-rows"></div></div><div class="mnote stock-note" data-mkt="in"></div>';
+    document.getElementById('stockSlot').before(sec);
+  });
+}
+function renderWatchSummary(data) {
+  if (data) wsData = data; data = wsData;
+  const A = document.getElementById('wsA'), B = document.getElementById('wsB'); if (!A || !data) return;
+  const all = W_IN.map(x => { const d = data[x.sym], p = d && d.pct != null && isFinite(d.pct) ? Math.round(d.pct * 10) / 10 : null; return { name: x.name, p }; });
+  const have = all.filter(x => x.p != null).sort((a, b) => b.p - a.p || a.name.localeCompare(b.name));
+  const was = A.dataset.empty || '', port = wsPortrait();
+  A.dataset.empty = have.length ? '' : '1';
+  if (have.length) {
+    const up = have.filter(x => x.p > 0).length, dn = have.filter(x => x.p < 0).length, fl = have.length - up - dn, max = Math.max(1, ...have.map(x => Math.abs(x.p)));
+    const row = x => '<div class="ws-r ' + (x.p > 0 ? 'up' : x.p < 0 ? 'dn' : '') + '"><span class="n">' + esc(x.name) + '</span><span class="t"><i style="width:' + Math.max(2, Math.abs(x.p) / max * 100).toFixed(1) + '%"></i></span>' +
+      '<span class="v">' + (x.p > 0 ? '+' : x.p < 0 ? '−' : '') + Math.abs(x.p).toFixed(1) + '%</span></div>';
+    const fill = (sec, rows, cols, title, pg) => {
+      sec.querySelector('.ws-t').textContent = title; sec.querySelector('.ws-pg').textContent = pg; sec.dataset.title = title;
+      sec.querySelector('.ws-c').innerHTML = '<span class="up">▲ ' + up + '</span><span class="dn">▼ ' + dn + '</span>' + (fl ? '<span class="fl">● ' + fl + '</span>' : '');
+      const [u, f, d] = sec.querySelectorAll('.ws-bar i'); u.style.width = up / have.length * 100 + '%'; f.style.width = fl / have.length * 100 + '%'; d.style.width = dn / have.length * 100 + '%';
+      const g = sec.querySelector('.ws-rows'); g.style.gridTemplateColumns = 'repeat(' + cols + ',minmax(0,1fr))'; g.style.gridTemplateRows = 'repeat(' + Math.ceil(rows.length / cols) + ',minmax(0,1fr))';
+      g.innerHTML = rows.map(row).join('');
+    };
+    if (port && have.length > 8) { const h = Math.ceil(have.length / 2); fill(A, have.slice(0, h), 1, 'Watchlist today · leaders', '1 / 2'); fill(B, have.slice(h).reverse(), 1, 'Watchlist today · laggards', '2 / 2'); B.dataset.empty = ''; }
+    else { fill(A, have, port || have.length <= 8 ? 1 : 2, 'Watchlist today', ''); B.dataset.empty = '1'; }
+    if (typeof slides !== 'undefined' && slides[idx] && slides[idx].dataset.ws) document.getElementById('title').textContent = slides[idx].dataset.title;
+  } else B.dataset.empty = '1';
+  const now = (A.dataset.empty || '') + '|' + (B.dataset.empty || '');
+  if (renderWatchSummary.sig !== now) { renderWatchSummary.sig = now; if (typeof applyMode === 'function' && typeof mode !== 'undefined' && mode) applyMode(true); }
+}
+addEventListener('resize', () => { const p = wsPortrait(); if (p !== wsWasPortrait) { wsWasPortrait = p; renderWatchSummary(); } });
 function buildGridSlides(list, title, accent, mode, per, view) {
   const slot = document.getElementById('stockSlot');
   const n = Math.ceil(list.length / per);                    // balanced slides: sizes differ by at most one (13 → 4, 3, 3, 3)
@@ -1501,7 +1558,8 @@ const watchSig = w => w ? [oneIn(w), w.us || []].map(l => l.map(x => x.sym).join
 const W_IN = WATCH ? enrich(oneIn(WATCH)) : oneIn({ in: IN_STOCKS, large: LARGE_CAPS });
 const W_US = WATCH ? enrich(WATCH.us).concat(US_STOCKS.filter(x => /^INDEX/.test(x.sym))) : US_STOCKS;
 const W_SIG = WATCH ? watchSig(WATCH) : watchSig({ in: IN_STOCKS, large: LARGE_CAPS, us: US_STOCKS.filter(x => !/^INDEX/.test(x.sym)) });
-buildGridSlides(byName(W_IN), 'Watchlist · India', '#ff8a3d', '', 4, 'in-only');   // Indian stock mode only
+buildWatchSummary();
+buildGridSlides(byName(W_IN), 'Watchlist · India', '#ff8a3d', '', 6, 'in-only');   // Indian stock mode only
 buildGridSlides(SECTORS, 'Sectors · India', '#ffb347', '', 4, 'in-only');
 buildMoodSlide();
 buildSpxSlide();
@@ -1833,6 +1891,7 @@ function renderPrices(f) {
     });
     if (data['INDEXNSE:INDIA_VIX']) setVixGauge(data['INDEXNSE:INDIA_VIX'].price);
     tapeData = data; try { buildTape(); } catch (e) {}
+    try { renderWatchSummary(data); } catch (e) {}
     // 52-week markers on stock tiles: at (within 1%) or near (within 3%) the 52-week high or low
     document.querySelectorAll('.w52[data-w52]').forEach(el => {
       const d = data[el.dataset.w52]; let txt = '', cls = '';
@@ -2400,6 +2459,7 @@ function applyMode(force, fresh) {
                                               : !s.dataset.only && (!s.dataset.mode || s.dataset.mode === m))
     && !hiddenBySetting(s) && !(s.dataset.needs === 'news' && !newsReady) && !(s.querySelector('#newsMK') && !document.getElementById('newsMK').children.length)
     && !(s.querySelector('#newsUS') && !document.getElementById('newsUS').children.length)
+    && !(s.dataset.ws && s.dataset.empty)
     && !['newsLC', 'newsWL'].some(id => s.querySelector('#' + id) && !document.getElementById(id).children.length));
   bars.innerHTML = '';
   slides.forEach(() => { const s = document.createElement('span'); s.appendChild(document.createElement('b')); bars.appendChild(s); });
