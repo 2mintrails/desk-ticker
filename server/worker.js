@@ -140,6 +140,15 @@ async function jobPrices(env) {
     const y = Y[s]; if (y && y.prev != null && all.some(r => String(r[0]).trim() === g)) idx.push([g, String(y.price), String(y.prev), String(y.at || ''), y.line]);
   });
   await dbPut(env, 'sheet1', all);
+  // keep each day's gold (24K per gram) and silver (per kg) rate, so longer trends are possible later
+  try {
+    const rate = v => num(String(v || '').split('(')[0]);
+    const hist = (await dbGet(env, ['metal_hist'])).metal_hist?.v || {};
+    let changed = false;
+    all.slice(1, 10).forEach(r => { const d = Date.parse(r[8]), g = rate(r[9]), sv = rate(r[15]);
+      if (d && g && sv) { const k = new Date(d + 6 * 3600e3).toISOString().slice(0, 10); if (!hist[k] || hist[k].gold !== g || hist[k].silver !== sv) { hist[k] = { gold: g, silver: sv }; changed = true; } } });
+    if (changed) { const keys = Object.keys(hist).sort(); keys.slice(0, Math.max(0, keys.length - 800)).forEach(k => delete hist[k]); await dbPut(env, 'metal_hist', hist); }
+  } catch (e) {}
   if (idx.length > 1) await dbPut(env, 'idx', idx);
   return `${used} from Yahoo, ${kept} kept from Google (too far apart), ${syms.length} asked` + dbg + (errs.length ? ' · ' + errs.join(' | ') : '');
 }

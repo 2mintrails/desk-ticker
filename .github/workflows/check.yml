@@ -19,7 +19,7 @@ jobs:
           await pg.goto('https://2mintrails.github.io/desk-ticker/?_=' + Date.now()); await pg.waitForTimeout(25000);
           const o = await pg.evaluate(() => ({ version: document.querySelector('meta[name="ticker-version"]').content, dataFrom,
             nifty: document.querySelector('.ix-p').textContent, gold: document.getElementById('gold').textContent, goldD: document.getElementById('goldD').textContent,
-            silver: document.getElementById('silver').textContent, note: document.getElementById('mNote').textContent, GR }));
+            silver: document.getElementById('silver').textContent, note: document.getElementById('mNote').textContent, goldWk: document.getElementById('goldW').innerText, silverWk: document.getElementById('silverW').innerText, GR }));
           console.log(JSON.stringify(o, null, 1)); console.log(logs.slice(0, 20).join('\n')); await b.close();
           JS
           node t.mjs
