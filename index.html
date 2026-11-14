@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v17.3-2026-11-14">
+<meta name="ticker-version" content="v17.4-2026-11-14">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -400,6 +400,20 @@
   .setfoot small{opacity:.55;font-size:11px;line-height:1.3}
   .setfoot .setmsg.bad, .setmsg.bad{opacity:1;color:#ffb347}
   .setbox.wide{grid-column:1 / -1}
+  /* collapsible sections: a one-line summary row; tap to open */
+  .setgrid{align-items:start;grid-template-columns:repeat(2,minmax(0,1fr))}
+  @media (max-width:560px){ .setgrid{grid-template-columns:minmax(0,1fr)} }
+  .setgrid > *{min-width:0} .setpanel{overflow-x:hidden} .wchip{max-width:100%;min-width:0} .wchip small{overflow:hidden;text-overflow:ellipsis}
+  details.setbox{padding:0}
+  details.setbox > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px 12px;min-height:44px;box-sizing:border-box}
+  details.setbox > summary::-webkit-details-marker{display:none}
+  details.setbox > summary h3{margin:0;flex:none}
+  details.setbox > summary .sum{flex:1;min-width:0;text-align:right;font-size:13px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  details.setbox > summary::after{content:'›';font-size:20px;line-height:1;opacity:.6;transition:transform .15s;flex:none}
+  details.setbox[open] > summary::after{transform:rotate(90deg)}
+  details.setbox[open] > summary{border-bottom:1px solid rgba(255,255,255,.08)}
+  details.setbox > .setbody{padding:8px 12px 10px}
+  .sum .ok{color:#4ade80} .sum .bad{color:#f87171}
   .pinbox{border:1px solid #3b82f6;background:rgba(59,130,246,.12);border-radius:12px;padding:10px;margin:8px 0 0}
   .pinbox small{display:block;opacity:.75;font-size:12px;margin:2px 0 4px}
   .pinbox .setrow{justify-content:flex-start}
@@ -2531,6 +2545,7 @@ function workingWatch() {
   return { in: pick(w.in), large: pick(w.large), us: pick(w.us) };
 }
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let SET_OPEN = new Set();          // which settings sections are open (kept while the panel is re-drawn)
 function renderSettings() {
   const m = effSettings(), on = k => !/^(false|no|0|off)$/i.test(String(m[k] == null ? '' : m[k]).trim());
   const sec = String(SLIDE_SECONDS), secs = [...new Set(['10', '15', '20', '30', '45', '60', sec])].sort((a, b) => a - b);
@@ -2545,32 +2560,38 @@ function renderSettings() {
   const pinBox = pinWait ? '<div class="pinbox"><b>' + (pinWait.choose ? 'Choose a settings PIN' : 'Enter your settings PIN') + '</b>' +
       '<small>' + (pinWait.choose ? '4–8 digits. You’ll enter it once on each screen; it stops anyone else changing your settings.' : pinWait.wrong ? 'That PIN didn’t match. Try again.' : 'Needed once on this screen to save changes.') + '</small>' +
       '<div class="setrow"><input type="password" inputmode="numeric" maxlength="8" id="pinIn" autocomplete="off" placeholder="PIN"><button class="pri" data-act="pin">Save</button><button data-act="pincancel">Cancel</button></div></div>' : '';
+  const sec_ = (id, title, sum, cls, body) => '<details class="setbox' + cls + '" data-sec="' + id + '"' + (SET_OPEN.has(id) ? ' open' : '') + '>' +
+    '<summary><h3>' + title + '</h3><span class="sum">' + sum + '</span></summary><div class="setbody">' + body + '</div></details>';
+  const t12 = t => { const [h, mm] = String(t).split(':').map(Number); return isNaN(h) ? t : ((h % 12) || 12) + ':' + String(mm || 0).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM'); };
   document.getElementById('setPanel').innerHTML =
     '<div class="sethead"><h2><span>⚙ Settings</span><button class="pri" data-act="close">Done</button></h2><small id="setMsg" class="setmsg"></small>' + pinBox + '</div><div class="setgrid">' +
-    '<div class="setbox"><h3>Slides · all screens</h3>' +
+    sec_('slides', 'Slides', SHOWS.filter(([k]) => on(k)).length + ' of ' + SHOWS.length + ' shown · ' + sec + 's', '',
       '<label class="setrow"><span>Seconds per slide</span><select data-set="Seconds per slide">' + opt(secs, sec) + '</select></label>' +
-      SHOWS.map(([k, l]) => chk('data-set', k, 'Show ' + l, on(k))).join('') + '</div>' +
-    '<div class="setbox"><h3>Currencies · all screens</h3>' +
-      cur.map((c, i) => '<label class="setrow"><span>Currency ' + (i + 1) + '</span><select data-set="Currency ' + (i + 1) + '">' + opt(Object.keys(CUR), c, v => CUR[v][0] + ' ' + CUR[v][1]) + '</select></label>').join('') +
-      '<h3 style="margin-top:8px">Late-night clock · all screens</h3>' +
+      SHOWS.map(([k, l]) => chk('data-set', k, 'Show ' + l, on(k))).join('')) +
+    sec_('fx', 'Currencies', cur.join(' · '), '',
+      cur.map((c, i) => '<label class="setrow"><span>Currency ' + (i + 1) + '</span><select data-set="Currency ' + (i + 1) + '">' + opt(Object.keys(CUR), c, v => CUR[v][0] + ' ' + CUR[v][1]) + '</select></label>').join('')) +
+    sec_('night', 'Late-night clock', t12(MODES.night) + ' – ' + t12(MODES.day), '',
       '<label class="setrow"><span>Starts</span><input type="time" data-set="Night clock starts" value="' + MODES.night + '"></label>' +
-      '<label class="setrow"><span>Ends</span><input type="time" data-set="Night clock ends" value="' + MODES.day + '"></label></div>' +
-    '<div class="setbox wide"><h3>Stocks · all screens</h3>' + group('in', 'Watchlist · India') + group('large', 'Large caps · India') + group('us', 'Watchlist · US') +
+      '<label class="setrow"><span>Ends</span><input type="time" data-set="Night clock ends" value="' + MODES.day + '"></label>') +
+    sec_('home', 'Home location', esc(HOME.name), '',
+      '<div class="setrow"><span>' + esc(HOME.name) + '<small>' + HOME.lat.toFixed(3) + ', ' + HOME.lon.toFixed(3) + '</small></span></div>' +
+      '<div class="setrow"><button data-act="home">Set to where I am now</button><button data-act="homereset">Back to Koramangala</button></div>') +
+    sec_('stocks', 'Stocks', w.in.length + ' India · ' + w.large.length + ' large caps · ' + w.us.length + ' US', ' wide',
+      group('in', 'Watchlist · India') + group('large', 'Large caps · India') + group('us', 'Watchlist · US') +
       '<div class="setrow wadd"><input type="text" id="wAdd" placeholder="Ticker, e.g. ZOMATO or NVDA" autocomplete="off" autocapitalize="characters">' +
       '<select id="wGrp"><option value="in">Watchlist · India</option><option value="large">Large caps · India</option><option value="us">Watchlist · US</option></select>' +
-      '<button data-act="wadd">Add</button></div><small id="wMsg" class="setmsg"></small></div>' +
-    '<div class="setbox"><h3>Home location · all screens</h3>' +
-      '<div class="setrow"><span>' + esc(HOME.name) + '<small>' + HOME.lat.toFixed(3) + ', ' + HOME.lon.toFixed(3) + '</small></span></div>' +
-      '<div class="setrow"><button data-act="home">Set to where I am now</button><button data-act="homereset">Back to Koramangala</button></div></div>' +
-    '<div class="setbox"><h3>This screen only</h3>' +
+      '<button data-act="wadd">Add</button></div><small id="wMsg" class="setmsg"></small>') +
+    sec_('dev', 'This screen only', [DEV.auto && 'Auto mode', DEV.loc && 'Follows location', DEV.fx && 'Effects'].filter(Boolean).join(' · ') || 'All off', '',
       chk('data-dev', 'auto', 'Auto stock mode', DEV.auto, 'Switch to Indian / US stock slides when that market opens') +
       chk('data-dev', 'loc', 'Weather follows my location', DEV.loc, 'When travelling, show weather for where this device is') +
-      chk('data-dev', 'fx', 'Anime effects', DEV.fx, 'Rain, petals and scanlines in the Anime 90s theme') + '</div>' +
-    '<div class="setbox wide"><h3>Data</h3><div class="runs">' +
+      chk('data-dev', 'fx', 'Anime effects', DEV.fx, 'Rain, petals and scanlines in the Anime 90s theme')) +
+    sec_('data', 'Data', (() => { const xs = RUN.map(([k]) => runs[k]).filter(Boolean), bad = xs.filter(x => !x.ok).length;
+        return !FEED ? 'No data yet' : feedSavedAt ? '<span class="bad">Server unreachable</span>' : bad ? '<span class="bad">' + bad + ' failing</span>' : '<span class="ok">All updating</span>'; })(), ' wide',
+      '<div class="runs">' +
       RUN.map(([k, l]) => { const x = runs[k]; return '<div class="run"><span class="' + (!x ? '' : x.ok ? 'ok' : 'bad') + '">●</span> ' + l +
         ' <small>' + (x ? (x.ok ? 'updated ' : 'failed ') + String(x.at || '').slice(11, 16) : 'not yet') + '</small></div>'; }).join('') +
-      '</div><small>' + (FEED ? (feedSavedAt ? 'Showing a saved copy from ' + tm2(feedSavedAt) + ' · server unreachable' : 'Server feed read at ' + tm2(FEED.at)) : 'No data from the server yet') + '</small></div>' +
-    '</div><div class="setfoot"><small>Changes save as soon as you make them. “All screens” settings are saved on the server and need your PIN once per screen; “This screen only” stays on this device.</small><button class="pri" data-act="close">Done</button></div>';
+      '</div><small>' + (FEED ? (feedSavedAt ? 'Showing a saved copy from ' + tm2(feedSavedAt) + ' · server unreachable' : 'Server feed read at ' + tm2(FEED.at)) : 'No data from the server yet') + '</small>') +
+    '</div><div class="setfoot"><small>Tap a section to open it. Changes save as soon as you make them; everything except “This screen only” applies to all your screens.</small><button class="pri" data-act="close">Done</button></div>';
   const pi = document.getElementById('pinIn'); if (pi) setTimeout(() => pi.focus(), 50);
 }
 (function () {
@@ -2580,6 +2601,7 @@ function renderSettings() {
     e.stopPropagation(); document.getElementById('viewMenu').classList.remove('open'); renderSettings(); wrap.hidden = false;
   });
   wrap.addEventListener('click', e => { e.stopPropagation(); if (e.target === wrap) close(); });
+  panel.addEventListener('toggle', e => { const d = e.target; if (d.dataset && d.dataset.sec) d.open ? SET_OPEN.add(d.dataset.sec) : SET_OPEN.delete(d.dataset.sec); }, true);
   panel.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'pinIn') panel.querySelector('[data-act="pin"]').click();
     if (e.key === 'Enter' && e.target.id === 'wAdd') panel.querySelector('[data-act="wadd"]').click(); });
   panel.addEventListener('change', e => {
