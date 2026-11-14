@@ -7,14 +7,13 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Gold history sources
+      - name: IBJA
         run: |
-          for u in https://www.goodreturns.in/gold-rates/bangalore.html https://www.goodreturns.in/silver-rates/bangalore.html https://www.goodreturns.in/gold-rates/ https://ibjarates.com/; do
-            curl -sL -A "Mozilla/5.0" -o p.html -w "$u %{http_code} %{size_download}\n" "$u"
-            echo "dated rows:"; grep -o '\(Jan\|Feb\|Mar\|Apr\|May\|Jun\|Jul\|Aug\|Sep\|Oct\|Nov\|Dec\)[a-z]* [0-9]\{1,2\}, 20[0-9][0-9]' p.html | sort -u | wc -l
-            grep -o '\(Jan\|Feb\|Mar\|Apr\|May\|Jun\|Jul\|Aug\|Sep\|Oct\|Nov\|Dec\)[a-z]* [0-9]\{1,2\}, 20[0-9][0-9]' p.html | sort -u | head -40 | tr '\n' ';'; echo
-            grep -io 'href="[^"]*\(histor\|archive\|month\)[^"]*"' p.html | sort -u | head -15
-          done
+          curl -sL -A "Mozilla/5.0" -o i.html https://www.ibjarates.com/
+          grep -io 'href="[^"]*"' i.html | sort -u | head -60 | tr '\n' ' '; echo
+          grep -io '<form[^>]*>' i.html | head; grep -io 'id="[^"]*\(rate\|gold\|silver\|999\|995\|916\)[^"]*"[^>]*>[^<]*' i.html | head -40
+          grep -io '[a-z/_.-]*\.\(aspx\|ashx\|php\|json\)[^"]*' i.html | sort -u | head -30 | tr '\n' ' '; echo
+          grep -o 'Historical[^<]\{0,80\}' i.html | head -5
       - name: Feed v2
         run: |
           curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed > f.json
