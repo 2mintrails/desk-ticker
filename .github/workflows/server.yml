@@ -45,6 +45,6 @@ jobs:
         run: |
           URL=$(grep -o 'https://[a-z0-9.-]*workers.dev' deploy.log | head -1); echo "Server: $URL"
           sleep 8
-          for j in prices env news:India news:World news:Markets news:USMarkets; do echo "--- $j"; curl -s "$URL/v1/run?job=$j"; echo; done
+          for j in prices env metals news:India news:World news:Markets news:USMarkets; do echo "--- $j"; curl -s "$URL/v1/run?job=$j"; echo; done
           echo "--- status"; curl -s "$URL/v1/status"; echo
           echo "--- sample"; curl -s "$URL/v1/all" | node -e "const d=JSON.parse(require('fs').readFileSync(0));for(const [g,t] of Object.entries(d.tabs)){console.log(g, t?t.length+' rows':'none');(t||[]).slice(0,4).forEach(r=>console.log('   ',JSON.stringify(r).slice(0,220)))}"

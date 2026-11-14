@@ -310,15 +310,40 @@ async function jobNews(env, section) {
   return top.length + ' headlines (' + perFeed + ') · newest: ' + top[0].text.slice(0, 70);
 }
 
+/* ---------------- gold & silver: IBJA (India Bullion and Jewellers Association) ----------------
+   The official national rates (before GST and making charges), published on working days around noon and 5 pm.
+   Their home page carries about four months of daily rates in two hidden fields: gold 999 per 10 g, silver 999 per kg. */
+const unesc = t => String(t).replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+async function jobMetals(env) {
+  const html = await get('https://www.ibjarates.com/');
+  const field = id => { const m = html.match(new RegExp('id="' + id + '"\\s+value="([^"]*)"')) || html.match(new RegExp('value="([^"]*)"\\s+id="' + id + '"')); return m ? JSON.parse(unesc(m[1])) : null; };
+  const G = field('HdnGold'), S = field('HdnSilver');
+  if (!G || !S) throw new Error('IBJA page layout changed (no rate history found)');
+  const iso = l => { const m = String(l).match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : null; };
+  const series = (labels, vals, div) => labels.map((l, i) => ({ date: iso(l), p: vals[i] != null ? +vals[i] / div : null })).filter(x => x.date && x.p > 0);
+  const gold = series(G.labels || [], G.purity999 || [], 10);          // → per gram
+  const silver = series(S.labels || [], S.silverRate || [], 1);        // per kg
+  if (gold.length < 5 || silver.length < 5) throw new Error('IBJA history too short');
+  // the latest published rate (today's noon/5 pm) can be newer than the history: add it as today's point
+  const now = num((html.match(/id="GoldRatesCompare999"[^>]*>\s*([\d,.]+)/) || [])[1]);
+  const p = istParts(), today = `${p.y}-${p2(p.mo)}-${p2(p.d)}`, weekday = p.wd >= 1 && p.wd <= 5;
+  if (now && weekday && p.h >= 12 && gold[gold.length - 1].date !== today && Math.abs(now - gold[gold.length - 1].p) > 0.5) gold.push({ date: today, p: now, live: true });
+  const o = { gold, silver, at: Date.now() };
+  await dbPut(env, 'ibja', o);
+  const g = gold[gold.length - 1], sv = silver[silver.length - 1];
+  return `gold 999 ₹${g.p}/g (${g.date}), silver ₹${sv.p}/kg (${sv.date}), ${gold.length} days of history`;
+}
+
 /* ---------------- the timer ---------------- */
 async function runJob(env, job) {
-  try { const note = job.startsWith('news:') ? await jobNews(env, job.slice(5)) : job === 'env' ? await jobEnv(env) : await jobPrices(env); await logRun(env, job, true, note); return note; }
+  try { const note = job.startsWith('news:') ? await jobNews(env, job.slice(5)) : job === 'env' ? await jobEnv(env) : job === 'metals' ? await jobMetals(env) : await jobPrices(env); await logRun(env, job, true, note); return note; }
   catch (e) { await logRun(env, job, false, e.message || e); return 'failed: ' + (e.message || e); }
 }
 async function tick(env, t = Date.now()) {
   const p = istParts(t), m = p.mi, jobs = [];
   if (marketWindow(t) || m % 20 === 0) jobs.push('prices');
   if (m % 10 === 0) jobs.push('env');
+  if (m % 10 === 5 && (p.wd >= 1 && p.wd <= 5 && p.h >= 11 && p.h <= 19 || m === 5)) jobs.push('metals');   // every 10 min on working afternoons, else hourly
   const sec = { 2: 'India', 4: 'World', 6: 'Markets', 8: 'USMarkets' }[m % 10];   // one news section every 2 minutes
   if (sec) jobs.push('news:' + sec);
   for (const j of jobs) await runJob(env, j);
@@ -367,7 +392,7 @@ const rateOf = v => { const m = String(v || '').match(/([\d,]+(?:\.\d+)?)\s*(?:\
   const p = parseFloat(m[1].replace(/,/g, '')), c = m[2] != null ? parseFloat(m[2].replace(/,/g, '').replace('−', '-')) : null; return p > 0 ? { p, c } : null; };
 const isoDay = s => { const t = Date.parse(s); return t ? new Date(t + 6 * 3600e3).toISOString().slice(0, 10) : null; };
 async function feed(env) {
-  const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets'];
+  const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'ibja', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets'];
   const d = await dbGet(env, keys), E = d.env?.v || {}, rows = (d.sheet1?.v || []).slice(1);
   const quotes = {};
   rows.forEach(r => {
@@ -384,6 +409,11 @@ async function feed(env) {
     if (s && sd) metals.silver.push({ date: sd, p: s.p, c: s.c });
   });
   metals.source = 'GoodReturns Bangalore';
+  const I = d.ibja?.v;
+  if (I && I.gold?.length && I.silver?.length) {           // IBJA (official, before GST), with ~4 months of history: newest first
+    const withChg = list => list.map((x, i) => ({ date: x.date, p: x.p, c: i ? +(x.p - list[i - 1].p).toFixed(2) : null })).reverse();
+    metals.gold = withChg(I.gold); metals.silver = withChg(I.silver); metals.source = 'IBJA'; metals.at = d.ibja.at;
+  }
   const charts = {};
   (d.idx?.v || []).slice(1).forEach(r => {
     charts[r[0]] = { p: num(r[1]), prev: num(r[2]), at: num(r[3]) ? num(r[3]) * 1000 : null,
@@ -392,7 +422,7 @@ async function feed(env) {
   const news = {};
   ['India', 'World', 'Markets', 'USMarkets'].forEach(s => { const x = d['news_' + s]; news[s] = { at: x?.at || null, items: (x?.v || []).map(i => ({ t: i.text, u: i.link })) }; });
   const a = E.aqi;
-  const ages = Object.fromEntries(Object.entries(d).filter(([k]) => k !== 'log' && k !== 'metal_hist').map(([k, x]) => [k, Math.round((Date.now() - x.at) / 1000)]));
+  const ages = Object.fromEntries(Object.entries(d).filter(([k]) => k !== 'log' && k !== 'metal_hist' && k !== 'ibja').map(([k, x]) => [k, Math.round((Date.now() - x.at) / 1000)]));
   return {
     v: 2, at: Date.now(),
     quotes, charts, metals, news,
@@ -419,7 +449,7 @@ export default {
       }
       if (u.pathname === '/v1/run') {                 // run one job now (used once after each deploy); at most once a minute per job
         const job = u.searchParams.get('job') || 'prices';
-        if (!/^(prices|env|news:(India|World|Markets|USMarkets))$/.test(job)) return new Response('unknown job', { status: 400 });
+        if (!/^(prices|env|metals|news:(India|World|Markets|USMarkets))$/.test(job)) return new Response('unknown job', { status: 400 });
         const last = (await dbGet(env, ['log'])).log?.v?.[job];
         if (last && last.at === istStamp().slice(0, 16) + last.at.slice(16)) return new Response(JSON.stringify({ job, note: 'ran this minute already', last }), { headers: CORS });
         return new Response(JSON.stringify({ job, note: await runJob(env, job) }), { headers: CORS });
