@@ -395,9 +395,13 @@ const SALT = 'desk-ticker:v1:';
 async function sha(t) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(SALT + t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
 async function getCfg(env) {
   const d = await dbGet(env, ['cfg', 'env']);
-  if (d.cfg) return d.cfg.v;
+  if (d.cfg) {
+    const c = d.cfg.v;
+    if (c.watch && c.watch.large && c.watch.large.length) { c.watch = cleanWatch(c.watch); c.at = Date.now(); await dbPut(env, 'cfg', c); }   // fold the old large-caps list into the one Indian watchlist
+    return c;
+  }
   const fromSheet = Object.fromEntries(((d.env?.v || {}).settings || []).map(([k, v]) => [k, v]));   // first time: copy the sheet's Settings tab
-  const cfg = { settings: fromSheet, watch: DEFAULT_WATCH, pin: null, fails: 0, lockUntil: 0, at: Date.now() };
+  const cfg = { settings: fromSheet, watch: cleanWatch(DEFAULT_WATCH), pin: null, fails: 0, lockUntil: 0, at: Date.now() };
   await dbPut(env, 'cfg', cfg);
   return cfg;
 }
@@ -406,8 +410,8 @@ function cleanWatch(w) {
   const one = x => x && typeof x.sym === 'string' && /^[A-Z]+:[A-Z0-9&._\-]{1,20}$/.test(x.sym) ? {
     sym: x.sym, name: String(x.name || x.sym.split(':')[1]).slice(0, 40), tick: String(x.tick || x.sym.split(':')[1]).slice(0, 20),
     ...(x.dom && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(x.dom) ? { dom: x.dom } : {}) } : null;
-  const list = l => (Array.isArray(l) ? l : []).map(one).filter(Boolean).filter((x, i, a) => a.findIndex(y => y.sym === x.sym) === i).slice(0, 40);
-  return { in: list(w.in), large: list(w.large), us: list(w.us) };
+  const list = l => (Array.isArray(l) ? l : []).map(one).filter(Boolean).filter((x, i, a) => a.findIndex(y => y.sym === x.sym) === i).slice(0, 60);
+  return { in: list([...(Array.isArray(w.in) ? w.in : []), ...(Array.isArray(w.large) ? w.large : [])]), large: [], us: list(w.us) };   // one Indian list
 }
 async function saveSettings(env, body) {
   const cfg = await getCfg(env);

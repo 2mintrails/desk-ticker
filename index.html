@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v17.4-2026-11-14">
+<meta name="ticker-version" content="v17.5-2026-11-14">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1484,12 +1484,13 @@ const byName = l => l.slice().sort((a, b) => a.name.localeCompare(b.name, 'en', 
 let WATCH = null; try { const f = JSON.parse(localStorage.getItem('deskTickerFeed') || 'null'); if (f && f.watchlist) WATCH = f.watchlist; } catch (e) {}
 const KNOWN = {}; [...IN_STOCKS, ...LARGE_CAPS, ...US_STOCKS].forEach(x => { KNOWN[x.sym] = x; });
 const enrich = l => (l || []).map(x => Object.assign({}, KNOWN[x.sym] || { tv: x.sym }, x, { dom: x.dom || (KNOWN[x.sym] || {}).dom }));
-const watchSig = w => w ? ['in', 'large', 'us'].map(k => (w[k] || []).map(x => x.sym).join(',')).join('|') : '';
-const W_IN = WATCH ? enrich(WATCH.in) : IN_STOCKS, W_LARGE = WATCH ? enrich(WATCH.large) : LARGE_CAPS;
+// one Indian watchlist: the old separate "large caps" list is folded into it
+const oneIn = w => [...(w.in || []), ...(w.large || [])].filter((x, i, a) => a.findIndex(y => y.sym === x.sym) === i);
+const watchSig = w => w ? [oneIn(w), w.us || []].map(l => l.map(x => x.sym).join(',')).join('|') : '';
+const W_IN = WATCH ? enrich(oneIn(WATCH)) : oneIn({ in: IN_STOCKS, large: LARGE_CAPS });
 const W_US = WATCH ? enrich(WATCH.us).concat(US_STOCKS.filter(x => /^INDEX/.test(x.sym))) : US_STOCKS;
 const W_SIG = WATCH ? watchSig(WATCH) : watchSig({ in: IN_STOCKS, large: LARGE_CAPS, us: US_STOCKS.filter(x => !/^INDEX/.test(x.sym)) });
 buildGridSlides(byName(W_IN), 'Watchlist · India', '#ff8a3d', '', 4, 'in-only');   // Indian stock mode only
-buildGridSlides(byName(W_LARGE), 'Large caps · India', '#f5b041', '', 4, 'in-only');
 buildGridSlides(SECTORS, 'Sectors · India', '#ffb347', '', 4, 'in-only');
 buildMoodSlide();
 buildSpxSlide();
@@ -2542,7 +2543,7 @@ async function saveShared(body) {
 function workingWatch() {
   const w = (FEED && FEED.watchlist) || { in: IN_STOCKS, large: LARGE_CAPS, us: US_STOCKS.filter(x => !/^INDEX/.test(x.sym)) };
   const pick = l => (l || []).map(x => ({ sym: x.sym, name: x.name, tick: x.tick, ...(x.dom ? { dom: x.dom } : {}) }));
-  return { in: pick(w.in), large: pick(w.large), us: pick(w.us) };
+  return { in: pick(oneIn(w)), large: [], us: pick(w.us) };
 }
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let SET_OPEN = new Set();          // which settings sections are open (kept while the panel is re-drawn)
@@ -2554,7 +2555,7 @@ function renderSettings() {
   const cur = [0, 1, 2].map(i => FX_LIST[i] || Object.keys(CUR).find(c => !FX_LIST.includes(c)));
   const w = workingWatch();
   const group = (k, label) => '<div class="wgrp"><div class="wlbl">' + label + ' <small>(' + w[k].length + ')</small></div><div class="wlist">' +
-    (w[k].length ? w[k].map(x => '<span class="wchip">' + esc(x.name) + ' <small>' + esc(x.tick) + '</small><button data-act="wdel" data-g="' + k + '" data-sym="' + esc(x.sym) + '" title="Remove">×</button></span>').join('') : '<small>None</small>') + '</div></div>';
+    (w[k].length ? byName(w[k]).map(x => '<span class="wchip">' + esc(x.name) + ' <small>' + esc(x.tick) + '</small><button data-act="wdel" data-g="' + k + '" data-sym="' + esc(x.sym) + '" title="Remove">×</button></span>').join('') : '<small>None</small>') + '</div></div>';
   const runs = (FEED && FEED.health && FEED.health.runs) || {};
   const RUN = [['prices', 'Prices'], ['metals', 'Gold & silver'], ['env', 'Weather reports & AQI'], ['news:India', 'News · India'], ['news:World', 'News · World'], ['news:Markets', 'News · Markets'], ['news:USMarkets', 'News · US markets']];
   const pinBox = pinWait ? '<div class="pinbox"><b>' + (pinWait.choose ? 'Choose a settings PIN' : 'Enter your settings PIN') + '</b>' +
@@ -2576,10 +2577,10 @@ function renderSettings() {
     sec_('home', 'Home location', esc(HOME.name), '',
       '<div class="setrow"><span>' + esc(HOME.name) + '<small>' + HOME.lat.toFixed(3) + ', ' + HOME.lon.toFixed(3) + '</small></span></div>' +
       '<div class="setrow"><button data-act="home">Set to where I am now</button><button data-act="homereset">Back to Koramangala</button></div>') +
-    sec_('stocks', 'Stocks', w.in.length + ' India · ' + w.large.length + ' large caps · ' + w.us.length + ' US', ' wide',
-      group('in', 'Watchlist · India') + group('large', 'Large caps · India') + group('us', 'Watchlist · US') +
+    sec_('stocks', 'Stocks', w.in.length + ' India · ' + w.us.length + ' US', ' wide',
+      group('in', 'Watchlist · India') + group('us', 'Watchlist · US') +
       '<div class="setrow wadd"><input type="text" id="wAdd" placeholder="Ticker, e.g. ZOMATO or NVDA" autocomplete="off" autocapitalize="characters">' +
-      '<select id="wGrp"><option value="in">Watchlist · India</option><option value="large">Large caps · India</option><option value="us">Watchlist · US</option></select>' +
+      '<select id="wGrp"><option value="in">Watchlist · India</option><option value="us">Watchlist · US</option></select>' +
       '<button data-act="wadd">Add</button></div><small id="wMsg" class="setmsg"></small>') +
     sec_('dev', 'This screen only', [DEV.auto && 'Auto mode', DEV.loc && 'Follows location', DEV.fx && 'Effects'].filter(Boolean).join(' · ') || 'All off', '',
       chk('data-dev', 'auto', 'Auto stock mode', DEV.auto, 'Switch to Indian / US stock slides when that market opens') +
@@ -2663,7 +2664,7 @@ function renderSettings() {
       try { x = await (await fetch(SERVER_URL + '/v2/lookup?q=' + encodeURIComponent(q) + '&mkt=' + (g === 'us' ? 'us' : 'in'))).json(); } catch (err) {}
       if (!x || !x.sym) return setMsg('Couldn’t find ' + q + (g === 'us' ? ' on US exchanges.' : ' on NSE or BSE.') + ' Check the ticker.', true);
       const w = workingWatch();
-      if ([...w.in, ...w.large, ...w.us].some(y => y.sym === x.sym)) return setMsg(x.name + ' is already in your lists.', true);
+      if ([...w.in, ...w.large, ...w.us].some(y => y.sym === x.sym)) return setMsg(x.name + ' is already in your watchlist.', true);
       w[g].push({ sym: x.sym, name: x.name, tick: x.tick });
       saveShared({ watch: w });
     }
