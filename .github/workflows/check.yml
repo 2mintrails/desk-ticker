@@ -7,19 +7,31 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Status
-        run: curl -s https://desk-ticker.twominutetrails.workers.dev/v1/status; echo
+      - name: Feed v2
+        run: |
+          curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed > f.json
+          node -e "const f=require('./f.json');const q=f.quotes;console.log('at',new Date(f.at).toISOString(),'quotes',Object.keys(q).length);
+          for(const s of ['INDEXNSE:NIFTY_50','INDEXBOM:SENSEX','INDEXSP:.INX','CURRENCY:USDINR','NSE:RELIANCE'])console.log(s,JSON.stringify(q[s]));
+          const src={};Object.values(q).forEach(x=>src[x.src]=(src[x.src]||0)+1);console.log('sources',JSON.stringify(src));
+          console.log('charts',Object.entries(f.charts).map(([k,v])=>k+':'+v.line.length+' pts, last '+JSON.stringify(v.line.slice(-1))).join(' | '));
+          console.log('metals',JSON.stringify(f.metals.gold.slice(0,3)),JSON.stringify(f.metals.silver.slice(0,2)));
+          console.log('news',Object.entries(f.news).map(([k,v])=>k+':'+v.items.length).join(' '),'aqi',JSON.stringify(f.aqi));
+          console.log('metar',f.metar.length,'airports',f.airports.length,'settings',Object.keys(f.settings).length);
+          console.log('health',JSON.stringify(f.health.ages), Object.entries(f.health.runs).map(([k,r])=>k+':'+r.ok).join(' '));"
       - name: Open the live app and read what it shows
         run: |
           npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install --with-deps chromium >/dev/null 2>&1
           cat > t.mjs <<'JS'
           import { chromium } from 'playwright';
           const b = await chromium.launch(), pg = await b.newPage({ viewport: { width: 915, height: 412 }, timezoneId: 'Asia/Kolkata' });
-          const logs = []; pg.on('console', m => { if (m.type() !== 'log') logs.push(m.type() + ': ' + m.text()); }); pg.on('pageerror', e => logs.push('ERROR ' + e.message));
-          await pg.goto('https://2mintrails.github.io/desk-ticker/?_=' + Date.now()); await pg.waitForTimeout(25000);
+          const logs = []; pg.on('console', m => { if (m.type() !== 'log' && !/Failed to load resource/.test(m.text())) logs.push(m.type() + ': ' + m.text()); }); pg.on('pageerror', e => logs.push('ERROR ' + e.message));
+          await pg.goto('https://2mintrails.github.io/desk-ticker/?_=' + Date.now()); await pg.waitForTimeout(20000);
           const o = await pg.evaluate(() => ({ version: document.querySelector('meta[name="ticker-version"]').content, dataFrom,
-            nifty: document.querySelector('.ix-p').textContent, gold: document.getElementById('gold').textContent, goldD: document.getElementById('goldD').textContent,
-            silver: document.getElementById('silver').textContent, note: document.getElementById('mNote').textContent, goldWk: document.getElementById('goldW').innerText, silverWk: document.getElementById('silverW').innerText, GR }));
+            nifty: document.querySelector('.ix-p').textContent, chg: document.querySelector('.ix-p').parentElement.textContent.replace(/\s+/g,' ').slice(0,120),
+            note: (document.getElementById('srcNote')||{}).textContent, dataLine: (document.getElementById('dataLine')||{}).textContent,
+            gold: document.getElementById('gold').textContent, goldWk: document.getElementById('goldW').innerText.replace(/\n/g,' | '),
+            news: [...document.querySelectorAll('#newsIN li .tt')].length, aqi: document.getElementById('wAqi').textContent, temp: (document.getElementById('wTemp')||{}).textContent,
+            chartPts: (CHARTS.nifty.mem||{pts:[]}).pts.length }));
           console.log(JSON.stringify(o, null, 1)); console.log(logs.slice(0, 20).join('\n')); await b.close();
           JS
           node t.mjs
