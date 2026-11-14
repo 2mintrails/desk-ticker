@@ -50,7 +50,7 @@ jobs:
           const o = await pg.evaluate(() => ({ version: document.querySelector('meta[name="ticker-version"]').content, dataFrom,
             nifty: document.querySelector('.ix-p').textContent, chg: document.querySelector('.ix-p').parentElement.textContent.replace(/\s+/g,' ').slice(0,120),
             note: (document.getElementById('srcNote')||{}).textContent, dataLine: (document.getElementById('dataLine')||{}).textContent,
-            gold: document.getElementById('gold').textContent, goldWk: document.getElementById('goldW').innerText.replace(/\n/g,' | '),
+            gold: document.getElementById('gold').textContent, goldWk: document.getElementById('goldW').innerText.replace(/\n/g,' | '), silver: document.getElementById('silver').textContent, silverWk: document.getElementById('silverW').innerText.replace(/\n/g,' | '), mnote: document.getElementById('mNote').textContent, ranges: [...document.querySelectorAll('#mRange button')].map(b=>b.textContent+(b.disabled?'(off)':'')+(b.classList.contains('on')?'*':'')).join(' '),
             news: [...document.querySelectorAll('#newsIN li .tt')].length, aqi: document.getElementById('wAqi').textContent, temp: (document.getElementById('wTemp')||{}).textContent,
             chartPts: (CHARTS.nifty.mem||{pts:[]}).pts.length }));
           console.log(JSON.stringify(o, null, 1)); console.log(logs.slice(0, 20).join('\n')); await b.close();
