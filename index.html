@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v17.1-2026-11-14">
+<meta name="ticker-version" content="v17.2-2026-11-14">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -369,12 +369,19 @@
   .gearbtn:hover, .gearbtn:active{opacity:1;transform:rotate(60deg)}
   body.anime .gearbtn{color:#fff;opacity:.95;filter:drop-shadow(1.5px 1.5px 0 var(--ink))}
   /* settings panel (same plain look in every theme) */
-  .setwrap{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:10px}
+  .setwrap{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;
+    padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))}
   .setwrap[hidden]{display:none}
   .setpanel, .setpanel *{font-family:"Space Grotesk",system-ui,sans-serif!important;letter-spacing:0;text-transform:none;text-shadow:none}
   .setpanel{width:min(760px,100%);max-height:100%;overflow-y:auto;overscroll-behavior:contain;background:#171a21;color:#eef1f6;border-radius:16px;
     border:1px solid rgba(255,255,255,.14);box-shadow:0 20px 60px rgba(0,0,0,.6);padding:14px 16px;font-size:14px}
-  .setpanel h2{font-size:16px;font-weight:700;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
+  .setpanel h2{font-size:16px;font-weight:700;margin:0;display:flex;justify-content:space-between;align-items:center}
+  /* the title bar (Done, the PIN box, "Saved") stays at the top while the panel scrolls */
+  .sethead{position:sticky;top:-14px;z-index:2;margin:-14px -16px 10px;padding:14px 16px 8px;background:#171a21;border-bottom:1px solid rgba(255,255,255,.08)}
+  .sethead .setmsg{display:block;font-size:12px;opacity:.75;margin-top:4px;min-height:1em}
+  .sethead .setmsg:empty{display:none}
+  .setpanel h2 button.pri{padding:7px 16px;font-size:14px}
+  .setfoot .pri{flex:none;padding:7px 16px}
   .setgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}
   @media (max-width:560px){ .setgrid{grid-template-columns:1fr} }
   .setbox{border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:8px 10px}
@@ -388,7 +395,7 @@
   .setfoot small{opacity:.55;font-size:11px;line-height:1.3}
   .setfoot .setmsg.bad, .setmsg.bad{opacity:1;color:#ffb347}
   .setbox.wide{grid-column:1 / -1}
-  .pinbox{border:1px solid #3b82f6;background:rgba(59,130,246,.12);border-radius:12px;padding:10px;margin:0 0 10px}
+  .pinbox{border:1px solid #3b82f6;background:rgba(59,130,246,.12);border-radius:12px;padding:10px;margin:8px 0 0}
   .pinbox small{display:block;opacity:.75;font-size:12px;margin:2px 0 4px}
   .pinbox .setrow{justify-content:flex-start}
   #wMsg{font-size:12px;opacity:.75;display:block;min-height:1em}
@@ -2534,7 +2541,7 @@ function renderSettings() {
       '<small>' + (pinWait.choose ? '4–8 digits. You’ll enter it once on each screen; it stops anyone else changing your settings.' : pinWait.wrong ? 'That PIN didn’t match. Try again.' : 'Needed once on this screen to save changes.') + '</small>' +
       '<div class="setrow"><input type="password" inputmode="numeric" maxlength="8" id="pinIn" autocomplete="off" placeholder="PIN"><button class="pri" data-act="pin">Save</button><button data-act="pincancel">Cancel</button></div></div>' : '';
   document.getElementById('setPanel').innerHTML =
-    '<h2><span>⚙ Settings</span><button class="pri" data-act="close">Done</button></h2>' + pinBox + '<div class="setgrid">' +
+    '<div class="sethead"><h2><span>⚙ Settings</span><button class="pri" data-act="close">Done</button></h2><small id="setMsg" class="setmsg"></small>' + pinBox + '</div><div class="setgrid">' +
     '<div class="setbox"><h3>Slides · all screens</h3>' +
       '<label class="setrow"><span>Seconds per slide</span><select data-set="Seconds per slide">' + opt(secs, sec) + '</select></label>' +
       SHOWS.map(([k, l]) => chk('data-set', k, 'Show ' + l, on(k))).join('') + '</div>' +
@@ -2558,7 +2565,7 @@ function renderSettings() {
       RUN.map(([k, l]) => { const x = runs[k]; return '<div class="run"><span class="' + (!x ? '' : x.ok ? 'ok' : 'bad') + '">●</span> ' + l +
         ' <small>' + (x ? (x.ok ? 'updated ' : 'failed ') + String(x.at || '').slice(11, 16) : 'not yet') + '</small></div>'; }).join('') +
       '</div><small>' + (FEED ? (feedSavedAt ? 'Showing a saved copy from ' + tm2(feedSavedAt) + ' · server unreachable' : 'Server feed read at ' + tm2(FEED.at)) : 'No data from the server yet') + '</small></div>' +
-    '</div><div class="setfoot"><small id="setMsg" class="setmsg">“All screens” settings are saved on the server and need your PIN; “This screen only” stays on this device.</small></div>';
+    '</div><div class="setfoot"><small>Changes save as soon as you make them. “All screens” settings are saved on the server and need your PIN once per screen; “This screen only” stays on this device.</small><button class="pri" data-act="close">Done</button></div>';
   const pi = document.getElementById('pinIn'); if (pi) setTimeout(() => pi.focus(), 50);
 }
 (function () {
