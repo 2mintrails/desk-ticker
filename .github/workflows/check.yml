@@ -25,7 +25,7 @@ jobs:
           console.log('charts',Object.entries(f.charts).map(([k,v])=>k+':'+v.line.length+' pts, last '+JSON.stringify(v.line.slice(-1))).join(' | '));
           console.log('metals',JSON.stringify(f.metals.gold.slice(0,3)),JSON.stringify(f.metals.silver.slice(0,2)));
           console.log('news',Object.entries(f.news).map(([k,v])=>k+':'+v.items.length).join(' '),'aqi',JSON.stringify(f.aqi));
-          console.log('metar',f.metar.length,'airports',f.airports.length,'settings',Object.keys(f.settings).length);
+          console.log('metar',f.metar.length,'airports',f.airports.length,'settings',JSON.stringify(f.settings),'pinSet',f.pinSet,'watch',Object.entries(f.watchlist||{}).map(([k,v])=>k+':'+v.length).join(' '));
           console.log('health',JSON.stringify(f.health.ages), Object.entries(f.health.runs).map(([k,r])=>k+':'+r.ok).join(' '));"
       - name: Yahoo daily closes
         run: |
@@ -48,7 +48,8 @@ jobs:
             note: (document.getElementById('srcNote')||{}).textContent, dataLine: (document.getElementById('dataLine')||{}).textContent,
             gold: document.getElementById('gold').textContent, goldWk: document.getElementById('goldW').innerText.replace(/\n/g,' | '), silver: document.getElementById('silver').textContent, silverWk: document.getElementById('silverW').innerText.replace(/\n/g,' | '), mnote: document.getElementById('mNote').textContent, ranges: [...document.querySelectorAll('#mRange button')].map(b=>b.textContent+(b.disabled?'(off)':'')+(b.classList.contains('on')?'*':'')).join(' '),
             news: [...document.querySelectorAll('#newsIN li .tt')].length, aqi: document.getElementById('wAqi').textContent, temp: (document.getElementById('wTemp')||{}).textContent,
-            chartPts: (CHARTS.nifty.mem||{pts:[]}).pts.length }));
+            chartPts: (CHARTS.nifty.mem||{pts:[]}).pts.length, fx: FX_LIST.join(), watchSlides: [...document.querySelectorAll('.slide')].map(s=>s.dataset.title).filter(t=>/Watchlist|Large/.test(t)).join(' | ') }));
+          await pg.click('#gearBtn'); await pg.waitForTimeout(500); console.log('panel:', (await pg.textContent('#setPanel')).replace(/\s+/g,' ').slice(0,600));
           console.log(JSON.stringify(o, null, 1)); console.log(logs.slice(0, 20).join('\n')); await b.close();
           JS
           node t.mjs

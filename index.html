@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v16.6-2026-11-14">
+<meta name="ticker-version" content="v17.0-2026-11-14">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -386,6 +386,22 @@
   .setpanel input[type=checkbox]{width:20px;height:20px;accent-color:#3b82f6;flex:none}
   .setfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px}
   .setfoot small{opacity:.55;font-size:11px;line-height:1.3}
+  .setfoot .setmsg.bad, .setmsg.bad{opacity:1;color:#ffb347}
+  .setbox.wide{grid-column:1 / -1}
+  .pinbox{border:1px solid #3b82f6;background:rgba(59,130,246,.12);border-radius:12px;padding:10px;margin:0 0 10px}
+  .pinbox small{display:block;opacity:.75;font-size:12px;margin:2px 0 4px}
+  .pinbox .setrow{justify-content:flex-start}
+  #wMsg{font-size:12px;opacity:.75;display:block;min-height:1em}
+  .pinbox input{font-size:16px;color:#eef1f6;background:#262b36;border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:6px 10px;width:120px;letter-spacing:4px}
+  .wgrp{margin:2px 0 8px} .wlbl{font-size:12px;opacity:.75;margin-bottom:4px} .wlbl small{opacity:.6}
+  .wlist{display:flex;flex-wrap:wrap;gap:5px}
+  .wchip{display:inline-flex;align-items:center;gap:4px;font-size:12px;background:#222733;border:1px solid rgba(255,255,255,.12);border-radius:99px;padding:2px 3px 2px 9px}
+  .wchip small{opacity:.55;font-size:10px}
+  .setpanel .wchip button{border:0;background:transparent;padding:0 6px;font-size:15px;line-height:1;opacity:.6}
+  .setpanel .wchip button:hover{opacity:1;color:#ff8a8a}
+  .wadd input{flex:1;min-width:0;font-size:13px;color:#eef1f6;background:#262b36;border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:6px 8px;text-transform:uppercase}
+  .runs{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:2px 12px;font-size:12px;margin-bottom:4px}
+  .run small{opacity:.55} .run .ok{color:#3ddc84} .run .bad{color:#ff6b6b} .run span{opacity:.9}
   .viewbtn{font:inherit;font-size:clamp(10px,3vh,13px);color:inherit;background:var(--glass);border:1px solid var(--line);
     border-radius:999px;padding:6px 12px;cursor:pointer;white-space:nowrap}
   .viewmenu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:190px;padding:6px;border-radius:14px;
@@ -1176,8 +1192,8 @@ var sheetMap = {}, OVR = {};
 try { OVR = JSON.parse(localStorage.getItem('deskTickerOvr') || '{}') || {}; } catch (e) {}
 const HOME0 = { lat: HOME.lat, lon: HOME.lon, name: HOME.name };
 const homeHAL = () => kmBetween(HOME.lat, HOME.lon, 12.95, 77.668) < 30;      // home is in Bengaluru → HAL Airport is the local station
-const effSettings = () => Object.assign({}, sheetMap, OVR);
-function applySettings(map, init) {       // values from the sheet
+const effSettings = () => Object.assign({}, sheetMap);       // shared settings, from the server
+function applySettings(map, init) {       // shared values from the server
   sheetMap = map || {}; try { localStorage.setItem('deskTickerSettings', JSON.stringify(sheetMap)); } catch (e) {}
   applyEff(init);
 }
@@ -1405,9 +1421,9 @@ function buildSpxSlide() {
 }
 function buildGridSlides(list, title, accent, mode, per, view) {
   const slot = document.getElementById('stockSlot');
-  const n = Math.ceil(list.length / per), size = Math.ceil(list.length / n);   // balanced slides
-  for (let i = 0; i < list.length; i += size) {
-    const part = list.slice(i, i + size);
+  const n = Math.ceil(list.length / per);                    // balanced slides: sizes differ by at most one (13 → 4, 3, 3, 3)
+  for (let k = 0, i = 0; k < n; k++) {
+    const size = Math.floor(list.length / n) + (k < list.length % n ? 1 : 0), part = list.slice(i, i + size); i += size;
     const sec = document.createElement('section'); sec.className = 'slide';
     const ab = n > 1 && !list[0].icon ? ' · ' + part[0].name[0].toUpperCase() + '–' + part[part.length - 1].name[0].toUpperCase() : '';
     sec.dataset.title = title + ab; sec.dataset.accent = accent; if (mode) sec.dataset.mode = mode;
@@ -1431,12 +1447,20 @@ const SECTORS = [
   NSE('NIFTY_CONSUMPTION', 'Retail & Consumer', '🛍️'), NSE('NIFTY_INFRA', 'Nifty Infra', '🏗️')];
 const BASKETS = SECTORS.filter(x => x.basket);
 const byName = l => l.slice().sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
-buildGridSlides(byName(IN_STOCKS), 'Watchlist · India', '#ff8a3d', '', 4, 'in-only');   // Indian stock mode only
-buildGridSlides(byName(LARGE_CAPS), 'Large caps · India', '#f5b041', '', 4, 'in-only');
+// The watchlist is kept on the server (edited in ⚙ Settings); the lists above are the starting set and supply logos & events.
+let WATCH = null; try { const f = JSON.parse(localStorage.getItem('deskTickerFeed') || 'null'); if (f && f.watchlist) WATCH = f.watchlist; } catch (e) {}
+const KNOWN = {}; [...IN_STOCKS, ...LARGE_CAPS, ...US_STOCKS].forEach(x => { KNOWN[x.sym] = x; });
+const enrich = l => (l || []).map(x => Object.assign({}, KNOWN[x.sym] || { tv: x.sym }, x, { dom: x.dom || (KNOWN[x.sym] || {}).dom }));
+const watchSig = w => w ? ['in', 'large', 'us'].map(k => (w[k] || []).map(x => x.sym).join(',')).join('|') : '';
+const W_IN = WATCH ? enrich(WATCH.in) : IN_STOCKS, W_LARGE = WATCH ? enrich(WATCH.large) : LARGE_CAPS;
+const W_US = WATCH ? enrich(WATCH.us).concat(US_STOCKS.filter(x => /^INDEX/.test(x.sym))) : US_STOCKS;
+const W_SIG = WATCH ? watchSig(WATCH) : watchSig({ in: IN_STOCKS, large: LARGE_CAPS, us: US_STOCKS.filter(x => !/^INDEX/.test(x.sym)) });
+buildGridSlides(byName(W_IN), 'Watchlist · India', '#ff8a3d', '', 4, 'in-only');   // Indian stock mode only
+buildGridSlides(byName(W_LARGE), 'Large caps · India', '#f5b041', '', 4, 'in-only');
 buildGridSlides(SECTORS, 'Sectors · India', '#ffb347', '', 4, 'in-only');
 buildMoodSlide();
 buildSpxSlide();
-buildGridSlides(byName(US_STOCKS), 'Watchlist · US', '#7aa2ff', '', 4, 'us-only');   // US stock mode only
+buildGridSlides(byName(W_US), 'Watchlist · US', '#7aa2ff', '', 4, 'us-only');   // US stock mode only
 if (!LIVE) {   // no sheet yet: Sensex 1-month chart from TradingView
   const c = document.getElementById('idxCard'); c.className = 'card tv'; c.innerHTML = '';
   c.closest('.slide').dataset.title = 'Sensex · 1 month';
@@ -1703,6 +1727,13 @@ const loadPrices = loadFeed, loadNews = loadFeed;     // older names used around
 function applyFeed(f) {
   const step = (name, fn) => { try { fn(); } catch (e) { console.warn(name, e); } };
   step('settings', () => { if (f.settings && Object.keys(f.settings).length) applySettings(f.settings); });
+  step('watchlist', () => {
+    if (!f.watchlist || watchSig(f.watchlist) === W_SIG || !document.getElementById('setWrap').hidden) return;
+    let last = 0; try { last = +sessionStorage.getItem('deskTickerWatchReload') || 0; } catch (e) {}
+    if (Date.now() - last < 120e3) return;                       // never loop
+    try { sessionStorage.setItem('deskTickerWatchReload', Date.now()); } catch (e) {}
+    noteRestart('watchlist changed'); location.reload();
+  });
   step('gold/silver', () => readMetals(f.metals));
   step('airports', () => readAirports(f.airports || []));
   step('HAL', () => { halLines.col = (f.metar || []).slice(); readMetar(null); });
@@ -2442,56 +2473,109 @@ document.querySelectorAll('#viewMenu button[data-dev]').forEach(b => {
   });
 });
 /* ---------- SETTINGS PANEL (the ⚙ button) ----------
-   Starts from the sheet's Settings tab; anything changed here is remembered on this device only. */
+   Shared settings and the watchlist live on the server: a change here reaches all your screens within a minute.
+   Saving needs the settings PIN (chosen the first time, then entered once on each screen). "This screen" settings stay on this device. */
 const SHOWS = [['Show Currencies slide', 'Currencies'], ['Show Weather slide', 'Weather'], ['Show Gold & silver slide', 'Gold & silver'],
                ['Show India News slide', 'India News'], ['Show Global News slide', 'Global News']];
-function setOvr(k, v) { OVR[k] = v; try { localStorage.setItem('deskTickerOvr', JSON.stringify(OVR)); } catch (e) {} applyEff(); }
+let PIN = ''; try { PIN = localStorage.getItem('deskTickerPin') || ''; } catch (e) {}
+let pinWait = null, setNeedsReload = false;
+const setMsg = (t, bad) => ['setMsg', 'wMsg'].forEach(id => { const el = document.getElementById(id); if (el) { el.textContent = t; el.className = 'setmsg' + (bad ? ' bad' : ''); } });
+async function saveShared(body) {
+  if (body.set) { Object.entries(body.set).forEach(([k, v]) => { if (v === null) delete sheetMap[k]; else sheetMap[k] = String(v); }); applyEff(); }
+  setMsg('Saving…');
+  let r, j = {};
+  try {
+    r = await fetch(SERVER_URL + '/v2/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ pin: PIN }, body)) });
+    j = await r.json().catch(() => ({}));
+  } catch (e) { r = null; }
+  if (r && r.ok) {
+    if (body.newPin) PIN = body.newPin;
+    if (body.newPin || body.pin) { try { localStorage.setItem('deskTickerPin', PIN); } catch (e) {} }
+    if (FEED) { FEED.settings = j.settings; FEED.watchlist = j.watch; FEED.pinSet = true; try { localStorage.setItem(FEED_KEY, JSON.stringify(FEED)); } catch (e) {} }
+    sheetMap = j.settings || sheetMap; applyEff();
+    if (body.watch) setNeedsReload = true;
+    pinWait = null; renderSettings(); setMsg('Saved · all your screens update within a minute');
+    return true;
+  }
+  if (r && r.status === 403 && (j.error === 'choose-pin' || j.error === 'wrong-pin')) {
+    pinWait = { body, choose: j.error === 'choose-pin', wrong: j.error === 'wrong-pin' && !!PIN };
+    if (j.error === 'wrong-pin') { PIN = ''; try { localStorage.removeItem('deskTickerPin'); } catch (e) {} }
+    renderSettings(); return false;
+  }
+  if (FEED) { sheetMap = FEED.settings || sheetMap; applyEff(); renderSettings(); }   // undo the change on screen
+  setMsg(r ? (j.error || 'Couldn’t save (' + r.status + ')') : 'Couldn’t reach the server — not saved. Try again.', true);
+  return false;
+}
+function workingWatch() {
+  const w = (FEED && FEED.watchlist) || { in: IN_STOCKS, large: LARGE_CAPS, us: US_STOCKS.filter(x => !/^INDEX/.test(x.sym)) };
+  const pick = l => (l || []).map(x => ({ sym: x.sym, name: x.name, tick: x.tick, ...(x.dom ? { dom: x.dom } : {}) }));
+  return { in: pick(w.in), large: pick(w.large), us: pick(w.us) };
+}
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function renderSettings() {
   const m = effSettings(), on = k => !/^(false|no|0|off)$/i.test(String(m[k] == null ? '' : m[k]).trim());
   const sec = String(SLIDE_SECONDS), secs = [...new Set(['10', '15', '20', '30', '45', '60', sec])].sort((a, b) => a - b);
   const opt = (list, cur, label) => list.map(v => '<option value="' + v + '"' + (String(v) === String(cur) ? ' selected' : '') + '>' + (label ? label(v) : v) + '</option>').join('');
   const chk = (attr, key, label, checked, note) => '<label class="setrow"><span>' + label + (note ? '<small>' + note + '</small>' : '') + '</span><input type="checkbox" ' + attr + '="' + key + '"' + (checked ? ' checked' : '') + '></label>';
   const cur = [0, 1, 2].map(i => FX_LIST[i] || Object.keys(CUR).find(c => !FX_LIST.includes(c)));
+  const w = workingWatch();
+  const group = (k, label) => '<div class="wgrp"><div class="wlbl">' + label + ' <small>(' + w[k].length + ')</small></div><div class="wlist">' +
+    (w[k].length ? w[k].map(x => '<span class="wchip">' + esc(x.name) + ' <small>' + esc(x.tick) + '</small><button data-act="wdel" data-g="' + k + '" data-sym="' + esc(x.sym) + '" title="Remove">×</button></span>').join('') : '<small>None</small>') + '</div></div>';
+  const runs = (FEED && FEED.health && FEED.health.runs) || {};
+  const RUN = [['prices', 'Prices'], ['metals', 'Gold & silver'], ['env', 'Weather reports & AQI'], ['news:India', 'News · India'], ['news:World', 'News · World'], ['news:Markets', 'News · Markets'], ['news:USMarkets', 'News · US markets']];
+  const pinBox = pinWait ? '<div class="pinbox"><b>' + (pinWait.choose ? 'Choose a settings PIN' : 'Enter your settings PIN') + '</b>' +
+      '<small>' + (pinWait.choose ? '4–8 digits. You’ll enter it once on each screen; it stops anyone else changing your settings.' : pinWait.wrong ? 'That PIN didn’t match. Try again.' : 'Needed once on this screen to save changes.') + '</small>' +
+      '<div class="setrow"><input type="password" inputmode="numeric" maxlength="8" id="pinIn" autocomplete="off" placeholder="PIN"><button class="pri" data-act="pin">Save</button><button data-act="pincancel">Cancel</button></div></div>' : '';
   document.getElementById('setPanel').innerHTML =
-    '<h2><span>⚙ Settings</span><button class="pri" data-act="close">Done</button></h2><div class="setgrid">' +
-    '<div class="setbox"><h3>Slides</h3>' +
+    '<h2><span>⚙ Settings</span><button class="pri" data-act="close">Done</button></h2>' + pinBox + '<div class="setgrid">' +
+    '<div class="setbox"><h3>Slides · all screens</h3>' +
       '<label class="setrow"><span>Seconds per slide</span><select data-set="Seconds per slide">' + opt(secs, sec) + '</select></label>' +
       SHOWS.map(([k, l]) => chk('data-set', k, 'Show ' + l, on(k))).join('') + '</div>' +
-    '<div class="setbox"><h3>Currencies</h3>' +
+    '<div class="setbox"><h3>Currencies · all screens</h3>' +
       cur.map((c, i) => '<label class="setrow"><span>Currency ' + (i + 1) + '</span><select data-set="Currency ' + (i + 1) + '">' + opt(Object.keys(CUR), c, v => CUR[v][0] + ' ' + CUR[v][1]) + '</select></label>').join('') +
-      '<h3 style="margin-top:8px">Late-night clock</h3>' +
+      '<h3 style="margin-top:8px">Late-night clock · all screens</h3>' +
       '<label class="setrow"><span>Starts</span><input type="time" data-set="Night clock starts" value="' + MODES.night + '"></label>' +
       '<label class="setrow"><span>Ends</span><input type="time" data-set="Night clock ends" value="' + MODES.day + '"></label></div>' +
-    '<div class="setbox"><h3>This screen</h3>' +
+    '<div class="setbox wide"><h3>Stocks · all screens</h3>' + group('in', 'Watchlist · India') + group('large', 'Large caps · India') + group('us', 'Watchlist · US') +
+      '<div class="setrow wadd"><input type="text" id="wAdd" placeholder="Ticker, e.g. ZOMATO or NVDA" autocomplete="off" autocapitalize="characters">' +
+      '<select id="wGrp"><option value="in">Watchlist · India</option><option value="large">Large caps · India</option><option value="us">Watchlist · US</option></select>' +
+      '<button data-act="wadd">Add</button></div><small id="wMsg" class="setmsg"></small></div>' +
+    '<div class="setbox"><h3>Home location · all screens</h3>' +
+      '<div class="setrow"><span>' + esc(HOME.name) + '<small>' + HOME.lat.toFixed(3) + ', ' + HOME.lon.toFixed(3) + '</small></span></div>' +
+      '<div class="setrow"><button data-act="home">Set to where I am now</button><button data-act="homereset">Back to Koramangala</button></div></div>' +
+    '<div class="setbox"><h3>This screen only</h3>' +
       chk('data-dev', 'auto', 'Auto stock mode', DEV.auto, 'Switch to Indian / US stock slides when that market opens') +
       chk('data-dev', 'loc', 'Weather follows my location', DEV.loc, 'When travelling, show weather for where this device is') +
       chk('data-dev', 'fx', 'Anime effects', DEV.fx, 'Rain, petals and scanlines in the Anime 90s theme') + '</div>' +
-    '<div class="setbox"><h3>Home location</h3>' +
-      '<div class="setrow"><span>' + HOME.name + '<small>' + HOME.lat.toFixed(3) + ', ' + HOME.lon.toFixed(3) + '</small></span></div>' +
-      '<div class="setrow"><button data-act="home">Set to where I am now</button><button data-act="homereset">Back to Koramangala</button></div>' +
-      '<div class="setrow"><small id="setMsg"></small></div></div>' +
-    '</div><div class="setfoot"><small>Changes here are saved on this device. The sheet’s Settings tab sets the starting values for every device.</small>' +
-    '<button data-act="reset">Use sheet values</button></div>';
+    '<div class="setbox wide"><h3>Data</h3><div class="runs">' +
+      RUN.map(([k, l]) => { const x = runs[k]; return '<div class="run"><span class="' + (!x ? '' : x.ok ? 'ok' : 'bad') + '">●</span> ' + l +
+        ' <small>' + (x ? (x.ok ? 'updated ' : 'failed ') + String(x.at || '').slice(11, 16) : 'not yet') + '</small></div>'; }).join('') +
+      '</div><small>' + (FEED ? (feedSavedAt ? 'Showing a saved copy from ' + tm2(feedSavedAt) + ' · server unreachable' : 'Server feed read at ' + tm2(FEED.at)) : 'No data from the server yet') + '</small></div>' +
+    '</div><div class="setfoot"><small id="setMsg" class="setmsg">“All screens” settings are saved on the server and need your PIN; “This screen only” stays on this device.</small></div>';
+  const pi = document.getElementById('pinIn'); if (pi) setTimeout(() => pi.focus(), 50);
 }
 (function () {
   const wrap = document.getElementById('setWrap'), panel = document.getElementById('setPanel');
-  const close = () => { wrap.hidden = true; };
+  const close = () => { wrap.hidden = true; pinWait = null; if (setNeedsReload) { setNeedsReload = false; location.reload(); } };
   document.getElementById('gearBtn').addEventListener('click', e => {
     e.stopPropagation(); document.getElementById('viewMenu').classList.remove('open'); renderSettings(); wrap.hidden = false;
   });
   wrap.addEventListener('click', e => { e.stopPropagation(); if (e.target === wrap) close(); });
+  panel.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'pinIn') panel.querySelector('[data-act="pin"]').click();
+    if (e.key === 'Enter' && e.target.id === 'wAdd') panel.querySelector('[data-act="wadd"]').click(); });
   panel.addEventListener('change', e => {
     const el = e.target;
     if (el.dataset.set) {
       let v = el.type === 'checkbox' ? (el.checked ? 'TRUE' : 'FALSE') : el.value;
+      if (el.type === 'time' && !v) return;
+      const set = { [el.dataset.set]: v };
       if (/^Currency/.test(el.dataset.set)) {           // three different currencies: swap if this one is already shown
         const all = [...panel.querySelectorAll('select[data-set^="Currency"]')], prev = FX_LIST.slice();
         const i = all.indexOf(el), other = all.find((x, k) => k !== i && x.value === v);
-        if (other) { other.value = prev[i] || prev[0]; OVR[other.dataset.set] = other.value; }
-        all.forEach(x => { OVR[x.dataset.set] = x.value; });
+        if (other) other.value = prev[i] || prev[0];
+        all.forEach(x => { set[x.dataset.set] = x.value; });
       }
-      if (el.type === 'time' && !v) return;
-      setOvr(el.dataset.set, v);
+      saveShared({ set });
     } else if (el.dataset.dev) {
       DEV[el.dataset.dev] = el.checked; try { localStorage.setItem('deskTickerDev', JSON.stringify(DEV)); } catch (x) {}
       document.body.classList.toggle('nofx', !DEV.fx);
@@ -2499,26 +2583,48 @@ function renderSettings() {
       if (el.dataset.dev === 'loc') checkLocation();
     }
   });
-  panel.addEventListener('click', e => {
-    const act = e.target.dataset && e.target.dataset.act; if (!act) return;
-    const msg = t => { const el = document.getElementById('setMsg'); if (el) el.textContent = t; };
+  panel.addEventListener('click', async e => {
+    const b = e.target.closest('[data-act]'), act = b && b.dataset.act; if (!act) return;
     if (act === 'close') close();
-    else if (act === 'reset') { OVR = {}; try { localStorage.removeItem('deskTickerOvr'); } catch (x) {} applyEff(); renderSettings(); }
-    else if (act === 'homereset') { delete OVR['Home lat']; delete OVR['Home lon']; delete OVR['Home name']; try { localStorage.setItem('deskTickerOvr', JSON.stringify(OVR)); } catch (x) {} applyEff(); renderSettings(); }
+    else if (act === 'pincancel') { pinWait = null; if (FEED) { sheetMap = FEED.settings || sheetMap; applyEff(); } renderSettings(); setMsg('Not saved.'); }
+    else if (act === 'pin') {
+      const v = (document.getElementById('pinIn').value || '').trim();
+      if (!/^\d{4,8}$/.test(v)) return setMsg('The PIN is 4–8 digits.', true);
+      const body = Object.assign({}, pinWait.body);
+      if (pinWait.choose) body.newPin = v; else { PIN = v; body.pin = v; }
+      saveShared(body);
+    }
+    else if (act === 'homereset') saveShared({ set: { 'Home lat': null, 'Home lon': null, 'Home name': null } });
     else if (act === 'home') {
-      if (!('geolocation' in navigator) || location.protocol !== 'https:') return msg('Location isn’t available in this browser.');
-      msg('Finding where you are…');
+      if (!('geolocation' in navigator) || location.protocol !== 'https:') return setMsg('Location isn’t available in this browser.', true);
+      setMsg('Finding where you are…');
       navigator.geolocation.getCurrentPosition(async p => {
         const lat = +p.coords.latitude.toFixed(3), lon = +p.coords.longitude.toFixed(3);
         let name = 'Home';
         try {
           const g = await (await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`)).json();
-          const a = g.locality || g.city, b = g.city && g.city !== a ? g.city : g.principalSubdivision;
-          name = [a, b].filter(Boolean).join(', ') || name;
+          const a = g.locality || g.city, c = g.city && g.city !== a ? g.city : g.principalSubdivision;
+          name = [a, c].filter(Boolean).join(', ') || name;
         } catch (x) {}
-        OVR['Home lat'] = String(lat); OVR['Home lon'] = String(lon); setOvr('Home name', name); renderSettings();
-      }, err => msg(err.code === 1 ? 'Location is blocked for this site. Allow it in the browser, then try again.' : 'Couldn’t get a location just now. Try again.'),
+        saveShared({ set: { 'Home lat': String(lat), 'Home lon': String(lon), 'Home name': name } });
+      }, err => setMsg(err.code === 1 ? 'Location is blocked for this site. Allow it in the browser, then try again.' : 'Couldn’t get a location just now. Try again.', true),
       { enableHighAccuracy: true, maximumAge: 60000, timeout: 20000 });
+    }
+    else if (act === 'wdel') {
+      const w = workingWatch(); w[b.dataset.g] = w[b.dataset.g].filter(x => x.sym !== b.dataset.sym);
+      saveShared({ watch: w });
+    }
+    else if (act === 'wadd') {
+      const q = (document.getElementById('wAdd').value || '').trim().toUpperCase(), g = document.getElementById('wGrp').value;
+      if (!q) return setMsg('Type a ticker first, e.g. ZOMATO or NVDA.', true);
+      setMsg('Looking up ' + q + '…');
+      let x = null;
+      try { x = await (await fetch(SERVER_URL + '/v2/lookup?q=' + encodeURIComponent(q) + '&mkt=' + (g === 'us' ? 'us' : 'in'))).json(); } catch (err) {}
+      if (!x || !x.sym) return setMsg('Couldn’t find ' + q + (g === 'us' ? ' on US exchanges.' : ' on NSE or BSE.') + ' Check the ticker.', true);
+      const w = workingWatch();
+      if ([...w.in, ...w.large, ...w.us].some(y => y.sym === x.sym)) return setMsg(x.name + ' is already in your lists.', true);
+      w[g].push({ sym: x.sym, name: x.name, tick: x.tick });
+      saveShared({ watch: w });
     }
   });
 })();
