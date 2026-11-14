@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v17.5-2026-11-14">
+<meta name="ticker-version" content="v17.6-2026-11-14">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -333,6 +333,8 @@
   .nhd{font-size:clamp(10px,3vh,12px);letter-spacing:2.5px;text-transform:uppercase;color:var(--dim);margin-bottom:1.4vh}
   .nlist{list-style:none;display:flex;flex-direction:column;gap:1.3vh;min-height:0;flex:1;overflow:hidden}
   .nlist li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:baseline}
+  .nlist .tk{display:inline-block;font-family:"JetBrains Mono",ui-monospace,monospace!important;font-weight:700;font-size:.7em;line-height:1.35;letter-spacing:0;border-radius:5px;padding:0 .45em;margin-right:.5em;vertical-align:.1em;white-space:nowrap;color:#fff!important;background:#64748b;text-shadow:none}
+  .nlist .tk.up{background:#15803d} .nlist .tk.dn{background:#dc2626}
   .nlist li.lk{cursor:pointer} .nlist li.lk:hover .tt{text-decoration:underline} .nlist li.tapped{opacity:.5}
   .nlist .no{font-family:"JetBrains Mono",monospace;color:var(--dim);font-size:clamp(10px,3vh,12px)}
   .nlist .tt{font-size:clamp(12px,3.9vh,16px);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -1095,6 +1097,10 @@
       <div class="card ncol solo-news"><div class="nhead"><span class="nflag">📊</span>Market News</div><ol class="nlist" id="newsMK"></ol></div>
       <div class="mnote news-note"></div>
     </section>
+    <section class="slide" data-title="Watchlist News" data-accent="#9aa3b2" data-needs="news" data-only="1" data-views="in">
+      <div class="card ncol solo-news"><div class="nhead"><span class="nflag">⭐</span>Watchlist News</div><ol class="nlist" id="newsWL"></ol></div>
+      <div class="mnote news-note"></div>
+    </section>
     <section class="slide" data-title="US Market News" data-accent="#9aa3b2" data-needs="news" data-only="1" data-views="us">
       <div class="card ncol solo-news"><div class="nhead"><span class="nflag">🇺🇸</span>US Market News</div><ol class="nlist" id="newsUS"></ol></div>
       <div class="mnote news-note"></div>
@@ -1105,6 +1111,11 @@
     </section>
     <section class="slide" data-title="Global News" data-accent="#9aa3b2" data-needs="news" data-views="in">
       <div class="card ncol solo-news"><div class="nhead"><span class="nflag">🌍</span>Global News</div><ol class="nlist" id="newsWD"></ol></div>
+      <div class="mnote news-note"></div>
+    </section>
+    <!-- local news for the city nearest the home location ("All" mode only); hidden when there is none -->
+    <section class="slide" data-title="Local News" data-accent="#9aa3b2" data-needs="news" id="localSlide">
+      <div class="card ncol solo-news"><div class="nhead"><span class="nflag">📍</span><span id="lcName">Local News</span></div><ol class="nlist" id="newsLC"></ol></div>
       <div class="mnote news-note"></div>
     </section>
 
@@ -2037,6 +2048,12 @@ function renderNews(news) {
       li.innerHTML = '<span class="no"></span><span><span class="tt"></span><span class="sr"></span></span>';
       li.querySelector('.no').textContent = String(i + 1).padStart(2, '0');
       li.querySelector('.tt').textContent = title; li.querySelector('.sr').textContent = src;
+      if (it.tick) {                                  // watchlist news: the stock and its move today
+        const q = FEED && FEED.quotes && FEED.quotes[it.sym], p0 = q && q.pct != null && isFinite(q.pct) ? Math.round(q.pct * 10) / 10 : null, pc = p0 === 0 ? null : p0, b = document.createElement('span');
+        b.className = 'tk' + (pc == null ? '' : pc >= 0 ? ' up' : ' dn');
+        b.textContent = it.tick + (p0 == null ? '' : ' ' + (p0 > 0 ? '+' : p0 < 0 ? '−' : '') + Math.abs(p0).toFixed(1) + '%');
+        li.querySelector('.tt').prepend(b);
+      }
       if (/^https?:\/\//i.test(it.u)) { li.dataset.url = it.u; li.classList.add('lk'); }
       ol.appendChild(li);
     });
@@ -2050,6 +2067,16 @@ function renderNews(news) {
     else { at = Date.now(); try { localStorage.setItem('deskTickerNewsAt', JSON.stringify({ sig, at })); } catch (e) {} }
   }
   const got = fill('newsIN', pickL(0)) + fill('newsWD', pickL(1)) + fill('newsMK', pickL(3)) + fill('newsUS', pickL(7));
+  {                                                   // local and watchlist news: shown only when there is some
+    const was = ['newsLC', 'newsWL'].map(id => document.getElementById(id).children.length > 0).join();
+    const extra = (id, sec) => { const items = ((sec || {}).items || []).map(x => ({ t: String(x.t || '').trim(), u: String(x.u || '').trim(), sym: x.sym, tick: x.tick })).filter(x => x.t).slice(0, 8);
+      if (!items.length) { const ol = document.getElementById(id); ol.innerHTML = ''; ol._all = []; } else fill(id, items); };
+    extra('newsLC', news.Local); extra('newsWL', news.Watch);
+    const city = (news.Local || {}).city, ls = document.getElementById('localSlide'), t = city ? city + ' News' : 'Local News';
+    document.getElementById('lcName').textContent = t;
+    if (ls.dataset.title !== t) { ls.dataset.title = t; if (typeof slides !== 'undefined' && slides[idx] === ls) document.getElementById('title').textContent = t; }
+    if (newsReady && was !== ['newsLC', 'newsWL'].map(id => document.getElementById(id).children.length > 0).join() && typeof applyMode === 'function' && mode) applyMode(true);
+  }
   if (got) {
     document.querySelectorAll('.news-note').forEach(n => n.textContent = label + (at ? (label === 'Live feeds' ? ' · updated ' : ' · new headlines at ') +
       new Date(at).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' }) : ''));
@@ -2371,7 +2398,8 @@ function applyMode(force, fresh) {
   slides = allSlides.filter(s => (V !== 'all' ? (s.dataset.views || '') === V                  // a stock mode: its own set, any time of day
                                               : !s.dataset.only && (!s.dataset.mode || s.dataset.mode === m))
     && !hiddenBySetting(s) && !(s.dataset.needs === 'news' && !newsReady) && !(s.querySelector('#newsMK') && !document.getElementById('newsMK').children.length)
-    && !(s.querySelector('#newsUS') && !document.getElementById('newsUS').children.length));
+    && !(s.querySelector('#newsUS') && !document.getElementById('newsUS').children.length)
+    && !['newsLC', 'newsWL'].some(id => s.querySelector('#' + id) && !document.getElementById(id).children.length));
   bars.innerHTML = '';
   slides.forEach(() => { const s = document.createElement('span'); s.appendChild(document.createElement('b')); bars.appendChild(s); });
   idx = (locked || sameDay) && slides.includes(keep) ? slides.indexOf(keep) : 0;
@@ -2557,7 +2585,7 @@ function renderSettings() {
   const group = (k, label) => '<div class="wgrp"><div class="wlbl">' + label + ' <small>(' + w[k].length + ')</small></div><div class="wlist">' +
     (w[k].length ? byName(w[k]).map(x => '<span class="wchip">' + esc(x.name) + ' <small>' + esc(x.tick) + '</small><button data-act="wdel" data-g="' + k + '" data-sym="' + esc(x.sym) + '" title="Remove">×</button></span>').join('') : '<small>None</small>') + '</div></div>';
   const runs = (FEED && FEED.health && FEED.health.runs) || {};
-  const RUN = [['prices', 'Prices'], ['metals', 'Gold & silver'], ['env', 'Weather reports & AQI'], ['news:India', 'News · India'], ['news:World', 'News · World'], ['news:Markets', 'News · Markets'], ['news:USMarkets', 'News · US markets']];
+  const RUN = [['prices', 'Prices'], ['metals', 'Gold & silver'], ['env', 'Weather reports & AQI'], ['news:India', 'News · India'], ['news:World', 'News · World'], ['news:Markets', 'News · Markets'], ['news:USMarkets', 'News · US markets'], ['news:Local', 'News · Local'], ['news:Watch', 'News · Watchlist']];
   const pinBox = pinWait ? '<div class="pinbox"><b>' + (pinWait.choose ? 'Choose a settings PIN' : 'Enter your settings PIN') + '</b>' +
       '<small>' + (pinWait.choose ? '4–8 digits. You’ll enter it once on each screen; it stops anyone else changing your settings.' : pinWait.wrong ? 'That PIN didn’t match. Try again.' : 'Needed once on this screen to save changes.') + '</small>' +
       '<div class="setrow"><input type="password" inputmode="numeric" maxlength="8" id="pinIn" autocomplete="off" placeholder="PIN"><button class="pri" data-act="pin">Save</button><button data-act="pincancel">Cancel</button></div></div>' : '';

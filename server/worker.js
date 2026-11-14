@@ -277,13 +277,14 @@ async function readFeed(url, src) {
 const STOP = new Set('a an the of to in on for at by with and or is are was were be as from after over into its his her their this that says said amid new news'.split(' '));
 const words = t => new Set(t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !STOP.has(w)));
 const sameStory = (a, b) => { let n = 0; a.forEach(w => { if (b.has(w)) n++; }); return n >= 3 && n / Math.min(a.size, b.size) >= 0.5; };
-function pickTop(items) {
-  const cutoff = Date.now() - MAX_AGE_H * 3600e3, seen = new Set(), per = {}, out = [], kept = [];
+function pickTop(items, o = {}) {
+  const KEEP_N = o.keep || KEEP, PER = o.per || MAX_PER_SOURCE;
+  const cutoff = Date.now() - (o.ageH || MAX_AGE_H) * 3600e3, seen = new Set(), per = {}, out = [], kept = [];
   items.filter(x => !x.t || x.t === 1 || x.t > cutoff).sort((a, b) => b.t - a.t).forEach(x => {
     const key = x.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 50), ws = words(x.title);
-    if (seen.has(key) || out.length >= KEEP || (per[x.source] || 0) >= MAX_PER_SOURCE || kept.some(k => sameStory(k, ws))) return;
+    if (seen.has(key) || out.length >= KEEP_N || (per[x.source] || 0) >= PER || (o.skip && o.skip(x)) || kept.some(k => sameStory(k, ws))) return;
     seen.add(key); kept.push(ws); per[x.source] = (per[x.source] || 0) + 1;
-    out.push({ text: x.source ? x.title + ' - ' + x.source : x.title, link: /^https?:\/\//.test(x.link) ? x.link : '' });
+    out.push({ text: x.source ? x.title + ' - ' + x.source : x.title, link: /^https?:\/\//.test(x.link) ? x.link : '', ...(x.sym ? { sym: x.sym, tick: x.tick } : {}) });
   });
   return out;
 }
@@ -295,6 +296,85 @@ async function jobNews(env, section) {
   if (!top.length) throw new Error('no headlines from any ' + section + ' feed (kept the last list)');
   await dbPut(env, 'news_' + section, top);
   return top.length + ' headlines (' + perFeed + ') · newest: ' + top[0].text.slice(0, 70);
+}
+
+/* ---------------- local news: the city nearest the home location ---------------- */
+const IE_CITY = c => ['https://indianexpress.com/section/cities/' + c + '/feed/', 'Indian Express'];
+const HT_CITY = c => ['https://www.hindustantimes.com/feeds/rss/cities/' + c + '-news/rssfeed.xml', 'Hindustan Times'];
+const CITIES = [
+  ['Bengaluru', 12.97, 77.59, [IE_CITY('bangalore'), HT_CITY('bengaluru'), ['https://www.news18.com/commonfeeds/v1/eng/rss/bengaluru-news.xml', 'News18']]],
+  ['Mumbai', 19.08, 72.88, [IE_CITY('mumbai'), HT_CITY('mumbai')]],
+  ['Delhi', 28.61, 77.21, [IE_CITY('delhi'), HT_CITY('delhi')]],
+  ['Gurugram', 28.46, 77.03, [HT_CITY('gurugram'), IE_CITY('delhi')]],
+  ['Noida', 28.54, 77.39, [HT_CITY('noida'), IE_CITY('delhi')]],
+  ['Pune', 18.52, 73.86, [IE_CITY('pune'), HT_CITY('pune')]],
+  ['Chennai', 13.08, 80.27, [IE_CITY('chennai'), HT_CITY('chennai')]],
+  ['Hyderabad', 17.39, 78.49, [IE_CITY('hyderabad'), HT_CITY('hyderabad')]],
+  ['Kolkata', 22.57, 88.36, [IE_CITY('kolkata'), HT_CITY('kolkata')]],
+  ['Ahmedabad', 23.02, 72.57, [IE_CITY('ahmedabad'), HT_CITY('ahmedabad')]],
+  ['Lucknow', 26.85, 80.95, [IE_CITY('lucknow'), HT_CITY('lucknow')]],
+  ['Chandigarh', 30.73, 76.78, [IE_CITY('chandigarh'), HT_CITY('chandigarh')]],
+  ['Jaipur', 26.91, 75.79, [IE_CITY('jaipur'), HT_CITY('jaipur')]],
+  ['Patna', 25.59, 85.14, [HT_CITY('patna')]], ['Bhopal', 23.26, 77.41, [HT_CITY('bhopal')]], ['Indore', 22.72, 75.86, [HT_CITY('indore')]],
+  ['Ranchi', 23.34, 85.31, [HT_CITY('ranchi')]], ['Dehradun', 30.32, 78.03, [HT_CITY('dehradun')]],
+];
+const kmFlat = (a, b, c, d) => { const R = Math.PI / 180, x = (d - b) * R * Math.cos((a + c) / 2 * R), y = (c - a) * R; return Math.sqrt(x * x + y * y) * 6371; };
+function cityFor(set) {
+  const lat = num(set['Home lat']) ?? HOME.lat, lon = num(set['Home lon']) ?? HOME.lon;
+  const best = CITIES.map(c => [kmFlat(lat, lon, c[1], c[2]), c]).sort((a, b) => a[0] - b[0])[0];
+  return best[0] <= 60 ? best[1] : null;
+}
+async function jobLocal(env) {
+  const city = cityFor((await getCfg(env)).settings || {});
+  if (!city) { await dbPut(env, 'news_Local', { city: '', items: [] }); return 'home is not near a city with a local feed'; }
+  const lists = await Promise.all(city[3].map(([u, s]) => readFeed(u, s)));
+  const perFeed = lists.map((l, i) => city[3][i][1] + ' ' + l.length).join(', ');
+  const top = pickTop(lists.flat(), { keep: 8, per: 4, ageH: 24 });
+  if (!top.length) throw new Error('no ' + city[0] + ' headlines (' + perFeed + ')');
+  await dbPut(env, 'news_Local', { city: city[0], items: top });
+  return city[0] + ': ' + top.length + ' headlines (' + perFeed + ') · newest: ' + top[0].text.slice(0, 70);
+}
+
+/* ---------------- watchlist news: business headlines that name a stock in the Indian watchlist ---------------- */
+const WATCH_FEEDS = [...FEEDS.Markets,
+  ['https://economictimes.indiatimes.com/markets/stocks/news/rssfeeds/2146842.cms', 'Economic Times'], ['https://economictimes.indiatimes.com/news/company/rssfeeds/2143429.cms', 'Economic Times'],
+  ['https://economictimes.indiatimes.com/industry/rssfeeds/13352306.cms', 'Economic Times'],
+  ['https://www.livemint.com/rss/companies', 'Mint'], ['https://www.business-standard.com/rss/companies-101.rss', 'Business Standard'],
+  ['https://www.moneycontrol.com/rss/business.xml', 'Moneycontrol'], ['https://www.moneycontrol.com/rss/buzzingstocks.xml', 'Moneycontrol'],
+  ['https://www.financialexpress.com/industry/feed/', 'Financial Express'], ['https://www.financialexpress.com/business/feed/', 'Financial Express'],
+  ['https://indianexpress.com/section/business/feed/', 'Indian Express'], ['https://www.cnbctv18.com/commonfeeds/v1/cne/rss/market.xml', 'CNBC-TV18'],
+  ['https://www.cnbctv18.com/commonfeeds/v1/cne/rss/business.xml', 'CNBC-TV18'], ['https://www.news18.com/commonfeeds/v1/eng/rss/business.xml', 'News18']];
+// other names the papers use (the stock's own name and ticker are always tried too)
+const ALIAS = { 'NSE:M&M': ['M&M', 'Mahindra'], 'NSE:LT': ['L&T', 'Larsen'], 'NSE:HINDUNILVR': ['HUL'], 'NSE:INDIGO': ['InterGlobe'], 'NSE:DRREDDY': ['Dr Reddy', 'Dr. Reddy'],
+  'NSE:SONACOMS': ['Sona Comstar', 'Sona BLW'], 'NSE:RECLTD': ['REC Ltd', 'REC Limited'], 'NSE:BHARTIARTL': ['Airtel'], 'NSE:VBL': ['Varun Beverages'], 'NSE:POLYMED': ['Polymed'],
+  'NSE:RELIANCE': ['RIL', 'Reliance Industries', 'Reliance Jio', 'Reliance Retail'], 'NSE:SUNPHARMA': ['Sun Pharmaceutical'], 'NSE:HDFCBANK': ['HDFC Bank'], 'NSE:ABREL': ['Birla Estates'],
+  'NSE:TMCV': ['Tata Motors'], 'NSE:TATACONSUM': ['Tata Consumer'], 'NSE:INOXINDIA': ['INOX India', 'Inox India'] };
+const reEsc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function stockMatcher(x) {
+  const names = new Set([x.name, ...(ALIAS[x.sym] || [])]);
+  const short = x.name.replace(/\s+(Ltd\.?|Limited|Company|Corporation|Corp\.?|Industries|Inc\.?)$/i, '').trim();
+  if (short.length >= 4) names.add(short);
+  const parts = [...names].filter(n => n && n.length >= 3).map(n => /^[A-Z&]{2,5}$/.test(n) ? null : reEsc(n)).filter(Boolean);
+  const caps = [...names, x.tick].filter(n => n && /^[A-Z&]{3,12}$/.test(n) || /^[A-Z]&[A-Z]$/.test(n || '')).map(reEsc);   // tickers and initials: exact capitals only
+  const B = '(?<![A-Za-z0-9&])', E = '(?![A-Za-z0-9&])';
+  const a = parts.length ? new RegExp(B + '(' + parts.join('|') + ')' + E, 'i') : null, b = caps.length ? new RegExp(B + '(' + caps.join('|') + ')' + E) : null;
+  const not = x.sym === 'NSE:RELIANCE' ? /Reliance (Power|Infra|Infrastructure|Capital|Home|Communications|Naval|General)/i : x.sym === 'NSE:M&M' ? /Mahindra (Finance|Lifespace|Holidays|Logistics)|Tech Mahindra|Kotak Mahindra/i : null;
+  return t => (!not || !not.test(t)) && ((a && a.test(t)) || (b && b.test(t)));
+}
+async function jobWatch(env) {
+  const list = ((await getCfg(env)).watch || {}).in || [];
+  const ms = list.map(x => [x, stockMatcher(x)]);
+  const lists = await Promise.all(WATCH_FEEDS.map(([u, s]) => readFeed(u, s)));
+  const perFeed = WATCH_FEEDS.map((f, i) => [f[1], lists[i].length]).reduce((o, [n, c]) => (o[n] = (o[n] || 0) + c, o), {});
+  const count = {}, hits = [];
+  lists.flat().sort((a, b) => b.t - a.t).forEach(it => {
+    const m = ms.find(([, f]) => f(it.title)); if (!m) return;
+    hits.push({ ...it, sym: m[0].sym, tick: m[0].tick });
+  });
+  const top = pickTop(hits, { keep: 8, per: 3, ageH: 48, skip: x => { if ((count[x.sym] || 0) >= 2) return true; count[x.sym] = (count[x.sym] || 0) + 1; return false; } });
+  await dbPut(env, 'news_Watch', top);      // an empty list is fine: the slide hides itself
+  return top.length + ' headlines for ' + new Set(top.map(x => x.tick)).size + ' stocks, from ' + hits.length + ' matches (' + Object.entries(perFeed).map(([n, c]) => n + ' ' + c).join(', ') + ')' +
+    (top[0] ? ' · newest: [' + top[0].tick + '] ' + top[0].text.slice(0, 60) : '');
 }
 
 /* ---------------- gold & silver: IBJA (India Bullion and Jewellers Association) ----------------
@@ -338,7 +418,7 @@ async function jobMetals(env) {
 
 /* ---------------- the timer ---------------- */
 async function runJob(env, job) {
-  try { const note = job.startsWith('news:') ? await jobNews(env, job.slice(5)) : job === 'env' ? await jobEnv(env) : job === 'metals' ? await jobMetals(env) : await jobPrices(env); await logRun(env, job, true, note); return note; }
+  try { const note = job === 'news:Local' ? await jobLocal(env) : job === 'news:Watch' ? await jobWatch(env) : job.startsWith('news:') ? await jobNews(env, job.slice(5)) : job === 'env' ? await jobEnv(env) : job === 'metals' ? await jobMetals(env) : await jobPrices(env); await logRun(env, job, true, note); return note; }
   catch (e) { await logRun(env, job, false, e.message || e); return 'failed: ' + (e.message || e); }
 }
 async function tick(env, t = Date.now()) {
@@ -346,7 +426,7 @@ async function tick(env, t = Date.now()) {
   if (marketWindow(t) || m % 20 === 0) jobs.push('prices');
   if (m % 10 === 0) jobs.push('env');
   if (m % 10 === 5 && (p.h >= 6 && p.h <= 19 || m === 5)) jobs.push('metals');   // every 10 min from 6 am to 7 pm, else hourly
-  const sec = { 2: 'India', 4: 'World', 6: 'Markets', 8: 'USMarkets' }[m % 10];   // one news section every 2 minutes
+  const sec = { 1: 'Local', 2: 'India', 3: 'Watch', 4: 'World', 6: 'Markets', 8: 'USMarkets' }[m % 10];   // one news section every 2 minutes
   if (sec) jobs.push('news:' + sec);
   for (const j of jobs) await runJob(env, j);
 }
@@ -458,7 +538,7 @@ const rateOf = v => { const m = String(v || '').match(/([\d,]+(?:\.\d+)?)\s*(?:\
 const isoDay = s => { const t = Date.parse(s); return t ? new Date(t + 6 * 3600e3).toISOString().slice(0, 10) : null; };
 async function feed(env) {
   const cfg = await getCfg(env);
-  const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'ibja', 'gr_silver', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets'];
+  const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'ibja', 'gr_silver', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets', 'news_Local', 'news_Watch'];
   const d = await dbGet(env, keys), E = d.env?.v || {}, rows = (d.sheet1?.v || []).slice(1);
   const quotes = {};
   rows.forEach(r => {
@@ -493,6 +573,9 @@ async function feed(env) {
       line: String(r[4] || '').split(';').map(x => x.split(':').map(Number)).filter(x => x.length === 2 && isFinite(x[0]) && isFinite(x[1])).map(([t, v]) => [t * 1000, v]) };
   });
   const news = {};
+  { const L = d.news_Local, W = d.news_Watch;
+    news.Local = { at: L?.at || null, city: L?.v?.city || '', items: (L?.v?.items || []).map(i => ({ t: i.text, u: i.link })) };
+    news.Watch = { at: W?.at || null, items: (W?.v || []).map(i => ({ t: i.text, u: i.link, sym: i.sym, tick: i.tick })) }; }
   ['India', 'World', 'Markets', 'USMarkets'].forEach(s => { const x = d['news_' + s]; news[s] = { at: x?.at || null, items: (x?.v || []).map(i => ({ t: i.text, u: i.link })) }; });
   const a = E.aqi;
   const ages = Object.fromEntries(Object.entries(d).filter(([k]) => !['log', 'metal_hist', 'ibja', 'gr_silver'].includes(k)).map(([k, x]) => [k, Math.round((Date.now() - x.at) / 1000)]));
@@ -529,7 +612,7 @@ export default {
       }
       if (u.pathname === '/v1/run') {                 // run one job now (used once after each deploy); at most once a minute per job
         const job = u.searchParams.get('job') || 'prices';
-        if (!/^(prices|env|metals|news:(India|World|Markets|USMarkets))$/.test(job)) return new Response('unknown job', { status: 400 });
+        if (!/^(prices|env|metals|news:(India|World|Markets|USMarkets|Local|Watch))$/.test(job)) return new Response('unknown job', { status: 400 });
         const last = (await dbGet(env, ['log'])).log?.v?.[job];
         if (last && last.at === istStamp().slice(0, 16) + last.at.slice(16)) return new Response(JSON.stringify({ job, note: 'ran this minute already', last }), { headers: CORS });
         return new Response(JSON.stringify({ job, note: await runJob(env, job) }), { headers: CORS });
