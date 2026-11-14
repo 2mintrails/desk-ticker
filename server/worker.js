@@ -339,7 +339,7 @@ async function localNews(plan) {
 }
 async function jobLocal(env) {
   const set = (await getCfg(env)).settings || {};
-  const plan = localPlan(num(set['Home lat']) ?? HOME.lat, num(set['Home lon']) ?? HOME.lon, set['Home city']);
+  const plan = localPlan(num(set['Home lat']) ?? HOME.lat, num(set['Home lon']) ?? HOME.lon, set['Home city'] || String(set['Home name'] || '').split(',')[0]);
   if (!plan) { await dbPut(env, 'news_Local', { city: '', items: [] }); return 'home is not near a city with a local feed, and no home city is saved'; }
   const { top, note } = await localNews(plan);
   if (!top.length && !plan.match) throw new Error('no ' + plan.city + ' headlines (' + note + ')');
