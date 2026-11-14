@@ -330,8 +330,23 @@ async function jobMetals(env) {
   if (now && weekday && p.h >= 12 && gold[gold.length - 1].date !== today && Math.abs(now - gold[gold.length - 1].p) > 0.5) gold.push({ date: today, p: now, live: true });
   const o = { gold, silver, at: Date.now() };
   await dbPut(env, 'ibja', o);
-  const g = gold[gold.length - 1], sv = silver[silver.length - 1];
-  return `gold 999 ₹${g.p}/g (${g.date}), silver ₹${sv.p}/kg (${sv.date}), ${gold.length} days of history`;
+  const g = gold[gold.length - 1];
+  // silver: Bangalore jewellers' rate from GoodReturns (its page lists the last 10 days; the server keeps every day it sees)
+  let sNote = '';
+  try {
+    const page = await get('https://www.goodreturns.in/silver-rates/bangalore.html');
+    const MON = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
+    const re = /<td>\s*([A-Z][a-z]{2}) (\d{1,2}), (\d{4})\s*<\/td>\s*<td>[^<]*<\/td>\s*<td>[^<]*<\/td>\s*<td>\s*(?:&#x20b9;|₹)\s*([\d,]+)/g;
+    const hist = (await dbGet(env, ['gr_silver'])).gr_silver?.v || {};
+    let m, n = 0;
+    while ((m = re.exec(page))) { if (!MON[m[1]]) continue; hist[`${m[3]}-${p2(MON[m[1]])}-${p2(+m[2])}`] = num(m[4]); n++; }
+    if (!n) throw new Error('GoodReturns silver table not found');
+    const keys = Object.keys(hist).sort(); keys.slice(0, Math.max(0, keys.length - 400)).forEach(k => delete hist[k]);
+    await dbPut(env, 'gr_silver', hist);
+    const last = keys[keys.length - 1];
+    sNote = `silver (GoodReturns) ₹${hist[last]}/kg (${last}), ${keys.length} days kept`;
+  } catch (e) { sNote = 'silver (GoodReturns): ' + (e.message || e); }
+  return `gold 999 ₹${g.p}/g (${g.date}), ${gold.length} days of history · ${sNote}`;
 }
 
 /* ---------------- the timer ---------------- */
@@ -343,7 +358,7 @@ async function tick(env, t = Date.now()) {
   const p = istParts(t), m = p.mi, jobs = [];
   if (marketWindow(t) || m % 20 === 0) jobs.push('prices');
   if (m % 10 === 0) jobs.push('env');
-  if (m % 10 === 5 && (p.wd >= 1 && p.wd <= 5 && p.h >= 11 && p.h <= 19 || m === 5)) jobs.push('metals');   // every 10 min on working afternoons, else hourly
+  if (m % 10 === 5 && (p.h >= 6 && p.h <= 19 || m === 5)) jobs.push('metals');   // every 10 min from 6 am to 7 pm, else hourly
   const sec = { 2: 'India', 4: 'World', 6: 'Markets', 8: 'USMarkets' }[m % 10];   // one news section every 2 minutes
   if (sec) jobs.push('news:' + sec);
   for (const j of jobs) await runJob(env, j);
@@ -392,7 +407,7 @@ const rateOf = v => { const m = String(v || '').match(/([\d,]+(?:\.\d+)?)\s*(?:\
   const p = parseFloat(m[1].replace(/,/g, '')), c = m[2] != null ? parseFloat(m[2].replace(/,/g, '').replace('−', '-')) : null; return p > 0 ? { p, c } : null; };
 const isoDay = s => { const t = Date.parse(s); return t ? new Date(t + 6 * 3600e3).toISOString().slice(0, 10) : null; };
 async function feed(env) {
-  const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'ibja', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets'];
+  const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'ibja', 'gr_silver', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets'];
   const d = await dbGet(env, keys), E = d.env?.v || {}, rows = (d.sheet1?.v || []).slice(1);
   const quotes = {};
   rows.forEach(r => {
@@ -413,6 +428,13 @@ async function feed(env) {
   if (I && I.gold?.length && I.silver?.length) {           // IBJA (official, before GST), with ~4 months of history: newest first
     const withChg = list => list.map((x, i) => ({ date: x.date, p: x.p, c: i ? +(x.p - list[i - 1].p).toFixed(2) : null })).reverse();
     metals.gold = withChg(I.gold); metals.silver = withChg(I.silver); metals.source = 'IBJA'; metals.at = d.ibja.at;
+    metals.goldSource = 'IBJA'; metals.silverSource = 'IBJA';
+  }
+  const GS = d.gr_silver?.v;                               // silver: GoodReturns Bangalore (jewellers' rate), as many days as kept
+  if (GS && Object.keys(GS).length >= 2) {
+    const list = Object.keys(GS).sort().map(k => ({ date: k, p: GS[k] }));
+    metals.silver = list.map((x, i) => ({ date: x.date, p: x.p, c: i ? x.p - list[i - 1].p : null })).reverse();
+    metals.silverSource = 'GoodReturns Bangalore';
   }
   const charts = {};
   (d.idx?.v || []).slice(1).forEach(r => {
@@ -422,7 +444,7 @@ async function feed(env) {
   const news = {};
   ['India', 'World', 'Markets', 'USMarkets'].forEach(s => { const x = d['news_' + s]; news[s] = { at: x?.at || null, items: (x?.v || []).map(i => ({ t: i.text, u: i.link })) }; });
   const a = E.aqi;
-  const ages = Object.fromEntries(Object.entries(d).filter(([k]) => k !== 'log' && k !== 'metal_hist' && k !== 'ibja').map(([k, x]) => [k, Math.round((Date.now() - x.at) / 1000)]));
+  const ages = Object.fromEntries(Object.entries(d).filter(([k]) => !['log', 'metal_hist', 'ibja', 'gr_silver'].includes(k)).map(([k, x]) => [k, Math.round((Date.now() - x.at) / 1000)]));
   return {
     v: 2, at: Date.now(),
     quotes, charts, metals, news,

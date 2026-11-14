@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v16.4-2026-11-14">
+<meta name="ticker-version" content="v16.5-2026-11-14">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1682,7 +1682,8 @@ function readMetals(m) {             // the server's GoodReturns rates: newest f
   if (!m || !m.gold || !m.gold.length || !m.silver || !m.silver.length) return;
   const g = m.gold[0], sv = m.silver[0];
   const hist = list => list.slice(0, 200).reverse().map(x => ({ iso: x.date, d: dayLbl(x.date), v: x.p }));
-  GR = { gold: g.p, goldChg: g.c, silver: sv.p, silverChg: sv.c, date: dayLbl(g.date), src: m.source || '',
+  GR = { gold: g.p, goldChg: g.c, silver: sv.p, silverChg: sv.c, date: dayLbl(g.date), sdate: dayLbl(sv.date), src: m.source || '',
+         gsrc: m.goldSource || m.source || '', ssrc: m.silverSource || m.source || '',
          goldHist: hist(m.gold), silverHist: hist(m.silver) };
   try { localStorage.setItem('deskTickerGR', JSON.stringify({ at: Date.now(), GR })); } catch (e) {}
   renderGR();
@@ -1699,10 +1700,13 @@ function renderGR() {
     return MRANGE === 30 ? h.filter(x => Date.parse(x.iso) > end - 30 * 864e5) : h.slice(-MRANGE); };   // the last 7 / 15 published rates, or the last month
                                                                                   // (IBJA publishes on working days only)
   weekLine('goldW', span(GR.goldHist || GR.goldWk), 10); weekLine('silverW', span(GR.silverHist || GR.silverWk), 1);
-  const ibja = /IBJA/.test(GR.src || '');
-  document.getElementById('mNote').textContent = (ibja ? 'IBJA · official rate, before GST' : 'GoodReturns Bangalore') + ' · rates for ' + (GR.date || 'today');
+  const ibja = /IBJA/.test(GR.src || ''), gs = GR.gsrc || GR.src || '', ss = GR.ssrc || GR.src || '';
+  const name = x => /IBJA/.test(x) ? 'IBJA (official, before GST)' : 'GoodReturns Bangalore';
+  document.getElementById('mNote').textContent = gs && ss && gs !== ss
+    ? 'Gold: ' + (/IBJA/.test(gs) ? 'IBJA, before GST' : 'GoodReturns') + ' · Silver: ' + (/IBJA/.test(ss) ? 'IBJA, before GST' : 'GoodReturns Bengaluru')
+    : (ibja ? 'IBJA · official rate, before GST' : 'GoodReturns Bangalore') + ' · rates for ' + (GR.date || 'today');
   const sec = document.getElementById('mNote').closest('section');
-  if (sec) { const t = ibja ? 'Bullion · IBJA India' : 'Bullion · Bengaluru'; if (sec.dataset.title !== t) { sec.dataset.title = t; if (slides[idx] === sec) document.getElementById('title').textContent = t; } }
+  if (sec) { const t = gs !== ss ? 'Bullion · India' : ibja ? 'Bullion · IBJA India' : 'Bullion · Bengaluru'; if (sec.dataset.title !== t) { sec.dataset.title = t; if (slides[idx] === sec) document.getElementById('title').textContent = t; } }
   const longest = GR.goldHist && GR.goldHist.length ? (Date.parse(GR.goldHist[GR.goldHist.length - 1].iso) - Date.parse(GR.goldHist[0].iso)) / 864e5 : 0;
   document.querySelectorAll('#mRange button').forEach(b => { b.classList.toggle('on', +b.dataset.r === MRANGE); b.disabled = +b.dataset.r > 7 && longest < +b.dataset.r - 3; });
   document.getElementById('mRange').classList.toggle('ready', longest >= 12);
@@ -1730,7 +1734,10 @@ function weekLine(id, wk, mult) {
   const line = v.map((x, i) => (i ? 'L' : 'M') + X(i).toFixed(2) + ' ' + Y(x).toFixed(2)).join(' ');
   const gid = id + 'G', hiAt = wk[v.lastIndexOf(hi)].d;
   const streak = fall >= 2 ? `falling ${fall} days in a row` : rise >= 2 ? `rising ${rise} days in a row` : '';
-  const per = MRANGE === 30 ? '1-month' : MRANGE + '-day', when = MRANGE === 30 ? 'this month' : 'over ' + MRANGE + ' days';
+  const spanDays = wk[n - 1].iso && wk[0].iso ? (Date.parse(wk[n - 1].iso) - Date.parse(wk[0].iso)) / 864e5 : n;
+  const short = MRANGE === 30 ? spanDays < 26 : n < MRANGE;          // fewer days kept than the button asks for
+  const per = short ? 'recent' : MRANGE === 30 ? '1-month' : MRANGE + '-day';
+  const when = short ? 'since ' + wk[0].d : MRANGE === 30 ? 'this month' : 'over ' + MRANGE + ' days';
   const tag = n >= 4 && last === lo && hi > lo ? `<span class="tag">${per} low</span>` : n >= 4 && last === hi && hi > lo ? `<span class="tag">${per} high</span>` : '';
   box.className = 'wk ' + (up ? 'up' : 'down');
   box.innerHTML =
