@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v16.3-2026-11-14">
+<meta name="ticker-version" content="v16.4-2026-11-14">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1696,7 +1696,8 @@ function renderGR() {
   showDelta('goldD', GR.gold * 10, GR.goldChg != null ? (GR.gold - GR.goldChg) * 10 : null);
   showDelta('silverD', GR.silver, GR.silverChg != null ? GR.silver - GR.silverChg : null);
   const span = h => { if (!h || !h.length) return h; const end = Date.parse(h[h.length - 1].iso || ''); if (!end) return h.slice(-MRANGE);
-    return h.filter(x => Date.parse(x.iso) > end - MRANGE * 864e5); };            // the last 7 / 15 / 30 calendar days
+    return MRANGE === 30 ? h.filter(x => Date.parse(x.iso) > end - 30 * 864e5) : h.slice(-MRANGE); };   // the last 7 / 15 published rates, or the last month
+                                                                                  // (IBJA publishes on working days only)
   weekLine('goldW', span(GR.goldHist || GR.goldWk), 10); weekLine('silverW', span(GR.silverHist || GR.silverWk), 1);
   const ibja = /IBJA/.test(GR.src || '');
   document.getElementById('mNote').textContent = (ibja ? 'IBJA · official rate, before GST' : 'GoodReturns Bangalore') + ' · rates for ' + (GR.date || 'today');
@@ -1729,7 +1730,7 @@ function weekLine(id, wk, mult) {
   const line = v.map((x, i) => (i ? 'L' : 'M') + X(i).toFixed(2) + ' ' + Y(x).toFixed(2)).join(' ');
   const gid = id + 'G', hiAt = wk[v.lastIndexOf(hi)].d;
   const streak = fall >= 2 ? `falling ${fall} days in a row` : rise >= 2 ? `rising ${rise} days in a row` : '';
-  const per = MRANGE === 30 ? '1-month' : MRANGE + '-day', when = MRANGE === 7 ? 'this week' : MRANGE === 30 ? 'this month' : 'in 15 days';
+  const per = MRANGE === 30 ? '1-month' : MRANGE + '-day', when = MRANGE === 30 ? 'this month' : 'over ' + MRANGE + ' days';
   const tag = n >= 4 && last === lo && hi > lo ? `<span class="tag">${per} low</span>` : n >= 4 && last === hi && hi > lo ? `<span class="tag">${per} high</span>` : '';
   box.className = 'wk ' + (up ? 'up' : 'down');
   box.innerHTML =
