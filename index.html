@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v15.4-2026-11-14">
+<meta name="ticker-version" content="v16.0-2026-11-14">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -395,6 +395,9 @@
   @media (max-height:520px){ .viewmenu button{padding:6px 12px} .viewmenu .sep{margin:2px 0} }
   .viewmenu .diag{font-size:10px;opacity:.55;padding:6px 12px 4px;max-width:290px;line-height:1.35}
   .viewmenu .diag:empty{display:none}
+  .viewmenu .dataline{font-size:11px;opacity:.7;padding:8px 12px 2px;max-width:290px;line-height:1.35}
+  .viewmenu .dataline.bad{color:#ffb347;opacity:.95}
+  .viewmenu .dataline:empty{display:none}
   .viewmenu{max-height:calc(100vh - 64px);max-height:calc(100dvh - 64px);overflow-y:auto;overscroll-behavior:contain}
   @media (max-height:520px){ .viewmenu button{padding:7px 12px;font-size:13px} .viewmenu .mh{padding:4px 12px 1px} }
   .viewmenu .mh{font-size:10px;letter-spacing:2px;text-transform:uppercase;opacity:.55;padding:6px 12px 2px}
@@ -1065,7 +1068,7 @@
       <div class="mkt" id="mkt"></div>
       <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
       <div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
-        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Theme</div><div class="looks"><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button><button data-look="anime">🌸 Anime 90s</button><button data-look="bull">🐂 Bull Run</button></div><div class="diag" id="diag"></div></div></div>
+        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Theme</div><div class="looks"><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button><button data-look="anime">🌸 Anime 90s</button><button data-look="bull">🐂 Bull Run</button></div><div class="dataline" id="dataLine"></div><div class="diag" id="diag"></div></div></div>
     </div>
   </header>
 
@@ -1260,16 +1263,12 @@ function applyEff(init) {
   const off = k => /^(false|no|0|off)$/i.test(String(map[k] == null ? '' : map[k]).trim());
   HIDE = { cur: off('Show Currencies slide'), wx: off('Show Weather slide'), gold: off('Show Gold & silver slide'),
            ni: off('Show India News slide'), nw: off('Show Global News slide') };
-  if (!init) { try { applyMode(true); start(); loadPrices(); } catch (e) { console.warn('settings', e); } }
+  if (!init) { try { applyMode(true); start(); if (FEED) setTimeout(() => applyFeed(FEED), 0); } catch (e) { console.warn('settings', e); } }
 }
 function hiddenBySetting(s) {
   const t = s.dataset.title || '';
   return (HIDE.cur && t.startsWith('Currencies')) || (HIDE.wx && s.hasAttribute('data-wx')) || (HIDE.gold && t.startsWith('Bullion')) ||
          (HIDE.ni && !!s.querySelector('#newsIN') && !s.querySelector('#newsMK')) || (HIDE.nw && !!s.querySelector('#newsWD'));
-}
-function readSettings(rows) {            // AQI tab, columns L–M: name, value (copied there from the Settings tab by the sheet script)
-  const map = {}; rows.forEach(r => { const k = String(r[11] || '').trim(); if (k && k !== 'Setting') map[k] = String(r[12] == null ? '' : r[12]).trim(); });
-  if (Object.keys(map).length) applySettings(map);
 }
 try { applySettings(JSON.parse(localStorage.getItem('deskTickerSettings') || 'null') || {}, true); } catch (e) {}
 document.body.classList.toggle('nofx', !DEV.fx);
@@ -1284,17 +1283,9 @@ try {                  // still travelling? start in the last place we saw (re-c
 // The FORECAST (high/low, rain, next 6 hours) comes from WEATHER_SOURCE: 'metno' (MET Norway) or 'openmeteo'.
 // The two are never mixed into one number. If HAL's report is older than HAL_MAX_AGE minutes, "now" says so.
 const WEATHER_SOURCE = 'metno';
-const HAL_MAX_AGE = 75;    // HAL reports every 30 min and the sheet script fetches every 10 min; older than this = stale
+const HAL_MAX_AGE = 75;    // HAL reports every 30 min and the server fetches every 10 min; older than this = stale
 
-// LIVE PRICES: paste the "Publish to web" CSV link of your Google Sheet between the quotes.
-// Leave it empty to use TradingView instead (Sensex chart + BSE end-of-day quotes).
-const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQvtAtoM3GTJ--tbsHV5cWMPhFrtaofoAyvqSbRt2H2-n2_pUiQ5YYnaVsXRgRTe1ieAnODMXPw1joB/pub?gid=1087668592&single=true&output=csv';
-const NEWS_GID = '202194850';   // the News tab, read through the same "Publish to web" link
-// The sheet's ID (from its normal editing link). Used when the page runs somewhere that
-// can't read the published link directly (online editors, files opened from the phone).
-// Needs the sheet shared as "Anyone with the link — Viewer".
-const SHEET_ID = '1B6h8FjOD4prRnpne8n7_UlDhlEEg68yE3HcvUDrD4us';
-const MAIN_TAB = 'Sheet1';
+// Everything live comes from the Desk Ticker server (see DATA below); the sheet is only read by the server.
 const PRICE_REFRESH_SECONDS = 60;
 
 // Your watchlist (prices only, no quantities). sym = the exact symbol in column A of the sheet; tv = TradingView fallback symbol;
@@ -1351,7 +1342,7 @@ const CAL = { date:'2026-11-02', gold24kPerGram:13937, silverPerKg:200000 };
 const DEFAULT_GOLD_FACTOR = 1.17, DEFAULT_SILVER_FACTOR = 1.32;
 
 /* ---------- BUILD STOCK SLIDES ---------- */
-const LIVE = !!SHEET_URL.trim();
+const LIVE = true;
 function tvWidget(file, cfg) {
   const box = document.createElement('div'); box.className = 'tradingview-widget-container';
   box.innerHTML = '<div class="tradingview-widget-container__widget"></div>';
@@ -1520,19 +1511,6 @@ if (!LIVE) {   // no sheet yet: Sensex 1-month chart from TradingView
 }
 
 /* ---------- LIVE PRICES from the published Google Sheet ---------- */
-function parseCSV(text) {
-  const rows = []; let row = [], cell = '', q = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
-    else if (ch === '"') q = true;
-    else if (ch === ',') { row.push(cell); cell = ''; }
-    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
-    else cell += ch;
-  }
-  if (cell || row.length) { row.push(cell); rows.push(row); }
-  return rows;
-}
 const num = v => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g, '')); return isFinite(n) ? n : null; };
 function money(sym, n) {
   const us = /^(NYSE|NASDAQ)/.test(sym), idx = /^INDEX/.test(sym);
@@ -1686,14 +1664,12 @@ function grDate(v) {
   const d = m ? new Date(+m[1], +m[2], +m[3]) : new Date(String(v));
   return isNaN(d) ? '' : d.toLocaleDateString('en-IN', { day:'numeric', month:'short' });
 }
-function readGoodReturns(rows) {
-  const r = rows.find(x => parseRate(x[9]) && parseRate(x[15]));
-  if (!r) return;
-  const g = parseRate(r[9]), sv = parseRate(r[15]);
-  // the GoodReturns tables hold the last several days, newest first: keep up to 7, oldest → newest
-  const hist = (dc, vc) => rows.map(x => ({ d: grDate(x[dc]), v: (parseRate(x[vc]) || {}).price })).filter(x => x.d && x.v).slice(0, 7).reverse();
-  GR = { gold: g.price, goldChg: g.chg, silver: sv.price, silverChg: sv.chg, date: grDate(r[8] || r[12]),
-         goldWk: hist(8, 9), silverWk: hist(12, 15) };
+const dayLbl = iso => { const d = new Date(iso + 'T12:00:00+05:30'); return isNaN(d) ? '' : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }); };
+function readMetals(m) {             // the server's GoodReturns rates: newest first, last several days
+  if (!m || !m.gold || !m.gold.length || !m.silver || !m.silver.length) return;
+  const g = m.gold[0], sv = m.silver[0];
+  const wk = list => list.slice(0, 7).reverse().map(x => ({ d: dayLbl(x.date), v: x.p }));
+  GR = { gold: g.p, goldChg: g.c, silver: sv.p, silverChg: sv.c, date: dayLbl(g.date), goldWk: wk(m.gold), silverWk: wk(m.silver) };
   try { localStorage.setItem('deskTickerGR', JSON.stringify({ at: Date.now(), GR })); } catch (e) {}
   renderGR();
 }
@@ -1736,200 +1712,80 @@ function weekLine(id, wk, mult) {
     `<div class="t"><b>${up ? '▲' : '▼'} ${Math.abs(pct).toFixed(1)}% ${n === 7 ? 'this week' : 'in ' + n + ' days'}</b>${streak ? `<span>${streak}</span>` : ''}${tag}</div>`;
   card.classList.add('has-wk');
 }
-// Way 0: the Desk Ticker server (Cloudflare) — it does the fetching and hands over all three tabs in one go,
-// laid out exactly like the sheet. A tab the server hasn't refreshed for a while is read from the sheet instead.
+// ---------- DATA: one clean feed from the Desk Ticker server (Cloudflare) ----------
+// The server fetches prices, news, gold & silver, air quality and airport weather, and keeps the day's index lines.
+// The app reads it once a minute. If the server can't be reached, the last feed (saved on this screen) stays up with a note.
 const SERVER_URL = 'https://desk-ticker.twominutetrails.workers.dev';
-const SERVER_AGE = { [GID_MAIN_ID()]: ['sheet1', 45], [NEWS_GID]: ['news', 60], ['1500091563']: ['env', 40] };   // tab → [its part, max minutes old]
-function GID_MAIN_ID() { return (SHEET_URL.match(/gid=(\d+)/) || [])[1]; }
-let serverP = null, serverAt = 0, dataFrom = '';
-function serverAll() {
-  if (!serverP || Date.now() - serverAt > 25e3) {
-    serverAt = Date.now();
-    serverP = fetch(SERVER_URL + '/v1/all?_=' + Date.now(), { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error('server ' + r.status); return r.json(); });
-    serverP.catch(() => { serverAt = 0; });
+const FEED_KEY = 'deskTickerFeed';
+let FEED = null, feedSavedAt = 0, feedErr = '', dataFrom = '';
+var savedRowsAt = 0;          // > 0 while a saved feed is shown (the day chart doesn't record from it)
+const tm2 = t => new Date(t).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+async function loadFeed() {
+  if (!LIVE) return;
+  try {
+    const r = await fetch(SERVER_URL + '/v2/feed?_=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('server ' + r.status);
+    const f = await r.json();
+    if (!f || f.v !== 2 || !f.quotes || !Object.keys(f.quotes).length) throw new Error('empty feed');
+    FEED = f; feedSavedAt = 0; feedErr = ''; dataFrom = 'server'; lastSheetOk = Date.now();
+    try { localStorage.setItem(FEED_KEY, JSON.stringify(f)); } catch (e) {}
+  } catch (e) {
+    feedErr = e.message || String(e);
+    if (!FEED) { try { const sv = JSON.parse(localStorage.getItem(FEED_KEY)); if (sv && sv.v === 2) FEED = sv; } catch (e2) {} }
+    if (FEED) { feedSavedAt = FEED.at; dataFrom = 'saved'; }
+    else { feedFailed(); return; }
   }
-  return serverP;
+  savedRowsAt = feedSavedAt;
+  applyFeed(FEED);
 }
-async function serverRows(gid) {
-  const d = await serverAll(), t = d.tabs && d.tabs[gid], [part, maxMin] = SERVER_AGE[gid] || ['', 60];
-  const age = part === 'news' ? Math.min(...['India', 'World', 'Markets', 'USMarkets'].map(s => (d.ages || {})['news_' + s] ?? 1e9))
-                              : (d.ages || {})[part];
-  if (!t || t.length < 2 || age == null || age > maxMin * 60) throw new Error('server copy of ' + gid + ' is missing or old');
-  const rows = t.slice(1); rows.header = t[0]; rows.fromServer = true;
-  return rows;
+const loadPrices = loadFeed, loadNews = loadFeed;     // older names used around the app
+function applyFeed(f) {
+  const step = (name, fn) => { try { fn(); } catch (e) { console.warn(name, e); } };
+  step('settings', () => { if (f.settings && Object.keys(f.settings).length) applySettings(f.settings); });
+  step('gold/silver', () => readMetals(f.metals));
+  step('airports', () => readAirports(f.airports || []));
+  step('HAL', () => { halLines.col = (f.metar || []).slice(); readMetar(null); });
+  step('AQI', () => readStationAqi(f.aqi));
+  step('news', () => renderNews(f.news));
+  step('charts', () => { seedChart(CHARTS.nifty, f.charts && f.charts['INDEXNSE:NIFTY_50']); seedChart(CHARTS.spx, f.charts && f.charts['INDEXSP:.INX']); });
+  step('prices', () => renderPrices(f));
+  step('status', () => feedStatus(f));
 }
-// Way 1: the published CSV link (works when the page is served from a normal website).
-async function fetchCSVRows(gid) {
-  if (SERVER_URL) {
-    try { const rows = await serverRows(gid || GID_MAIN_ID()); dataFrom = 'server'; return rows; }
-    catch (e) { console.warn('server', e.message || e); dataFrom = 'sheet'; }
-  }
-  const url = gid ? SHEET_URL.replace(/gid=\d+/, 'gid=' + gid) : SHEET_URL;
-  const res = await fetch(url + (url.includes('?') ? '&' : '?') + '_=' + Date.now(), { cache: 'no-store' });
-  if (!res.ok) throw new Error('csv ' + res.status);
-  const all = parseCSV(await res.text()), rows = all.slice(1);
-  rows.header = all[0] || [];
-  return rows;
+function feedFailed() {
+  const note = document.getElementById('srcNote');
+  if (note) note.textContent = 'Live prices unavailable (' + feedErr + ') · retrying';
+  feedStatus(null);
 }
-// Way 2: Google's chart-data feed loaded as a script (works inside sandboxes too).
-let gvizN = 0;
-function fetchGvizRows(tab) {
-  return new Promise((resolve, reject) => {
-    const cb = '__deskSheet' + (++gvizN), sc = document.createElement('script');
-    const done = () => { delete window[cb]; sc.remove(); clearTimeout(t); };
-    const t = setTimeout(() => { done(); reject(new Error('gviz timeout')); }, 15000);
-    window[cb] = d => {
-      done();
-      if (!d || d.status === 'error' || !d.table) return reject(new Error('gviz ' + (d && d.errors ? d.errors[0].reason : 'error')));
-      const rows = d.table.rows.map(r => (r.c || []).map(c => c == null ? '' : (c.v == null ? '' : c.v)));
-      rows.header = d.table.cols.map(c => c.label || '');
-      resolve(rows);
-    };
-    sc.onerror = () => { done(); reject(new Error('gviz blocked')); };
-    sc.src = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?' + 'sheet=' + encodeURIComponent(tab || MAIN_TAB) +
-      '&headers=1&tqx=responseHandler:' + cb + '&_=' + Date.now();
-    document.head.appendChild(sc);
-  });
+// the menu's data line: where the data comes from and how fresh it is
+function feedStatus(f) {
+  const el = document.getElementById('dataLine'); if (!el) return;
+  if (!f) { el.textContent = 'Data: server unreachable (' + feedErr + ') · retrying'; el.className = 'dataline bad'; return; }
+  const runs = (f.health && f.health.runs) || {}, bad = Object.entries(runs).filter(([, r]) => r && r.ok === false).map(([k]) => k.replace('news:', ''));
+  el.textContent = (feedSavedAt ? 'Data: saved copy from ' + tm2(feedSavedAt) + ' · server unreachable' : 'Data: server · updated ' + tm2(f.at)) +
+    (bad.length ? ' · problem with ' + bad.join(', ') : '');
+  el.className = 'dataline' + (feedSavedAt || bad.length ? ' bad' : '');
 }
-let priceWay = 0;   // remembers which way worked
-// The published sheet is sometimes caught mid-recalculation and every cell says "Loading...".
-// Such a copy is retried a few seconds later; the last good copy is kept on the phone for a quick start.
-const LAST_ROWS_KEY = 'deskTickerLastRows';
-const rowsLookGood = rows => rows.filter(r => num(r[1]) != null).length >= 3;
-// Google sometimes hands out an old copy of the published sheet (seen: a copy from the previous evening,
-// alternating with the current one). Each copy is dated by the newest airport weather report in column R;
-// a copy older than the newest one already seen is thrown away and fetched again.
-function rowsStamp(rows) {
-  const lines = rows.map(r => r[17] || '').concat([(rows.header || [])[17] || '']);
-  let best = 0;
-  lines.forEach(l => { const o = parseMetar(l); if (o && o.at > best) best = +o.at; });
-  // the sheet script also writes a heartbeat time in W2 every 10 minutes ("2026-11-05 16:20:00", India time)
-  const hb = String((rows[0] || [])[22] || '').match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(:\d{2})?)/);
-  if (hb) { const t = Date.parse(hb[1] + 'T' + (hb[2].length === 5 ? hb[2] + ':00' : hb[2]) + '+05:30'); if (t > best) best = t; }
-  return best;
-}
-let bestStamp = 0;
-try { bestStamp = +localStorage.getItem('deskTickerBestStamp') || 0; } catch (e) {}
-async function getRowsOnce() {
-  const ways = [() => fetchCSVRows(), () => fetchGvizRows()];
-  let lastErr;
-  for (let k = 0; k < ways.length; k++) {
-    const i = (priceWay + k) % ways.length;
-    try { const rows = await ways[i](); priceWay = i; return rows; } catch (e) { lastErr = e; }
-  }
-  throw lastErr;
-}
-async function getRows() {
-  for (let tryNo = 0; tryNo < 6; tryNo++) {
-    const rows = await getRowsOnce();
-    const stamp = rowsStamp(rows);
-    const tooOld = stamp && Date.now() - stamp > 3 * 3600e3 && tryNo < 5;   // heartbeat/HAL refresh every 10–30 min, so 3 h old = an old copy
-    if (tooOld || (stamp && stamp < bestStamp - (rows.fromServer ? 60 : 20 * 60) * 1000)) {   // the sheet may lag the server by a few minutes      // an old copy: ignore it and ask again
-      console.warn('old copy of the sheet (' + new Date(stamp).toLocaleString() + '), retrying');
-      await new Promise(r => setTimeout(r, 1500)); continue;
-    }
-    if (rowsLookGood(rows)) {
-      if (stamp > bestStamp) { bestStamp = stamp; try { localStorage.setItem('deskTickerBestStamp', bestStamp); } catch (e) {} }
-      try { localStorage.setItem(LAST_ROWS_KEY, JSON.stringify({ at: Date.now(), header: rows.header, rows })); } catch (e) {}
-      return rows;
-    }
-    console.warn('sheet busy (Loading...), retrying');
-    await new Promise(r => setTimeout(r, 5000));
-  }
-  throw new Error('sheet still loading');
-}
-let savedRowsAt = 0, niftyHold = null, niftyDay = '';
-// Second source for the three indices: the sheet script also reads Yahoo Finance every 10 minutes (AQI tab, columns O–S:
-// symbol, price, previous close, quote time, the day's 5-minute line). Google Finance in Sheets can freeze for a while,
-// often right after the close (seen 12 Nov: Nifty stuck at 25,216.75 while it closed near 25,299).
-let IDX2 = {};
-const IDX2_CHART = { 'INDEXNSE:NIFTY_50': 'nifty', 'INDEXSP:.INX': 'spx' };
-function readIdx2(rows) {
-  const out = {};
-  rows.concat([rows.header || []]).forEach(r => {
-    const sym = String(r[14] || '').trim(), price = num(r[15]), prev = num(r[16]), at = (num(r[17]) || 0) * 1000;
-    if (!/^INDEX/.test(sym) || price == null || !at) return;
-    out[sym] = { price, prev, at, line: String(r[18] || '') };
-  });
-  const changed = JSON.stringify(Object.keys(out).map(k => [k, out[k].price, out[k].at])) !==
-                  JSON.stringify(Object.keys(IDX2).map(k => [k, IDX2[k].price, IDX2[k].at]));
-  IDX2 = out;
-  Object.keys(out).forEach(sym => { const c = CHARTS[IDX2_CHART[sym]]; if (c) seedLine(c, out[sym].line); });
-  if (changed && lastLive != null && LIVE) loadPrices();
-}
-function idx2Fresh(sym, c) {          // the Yahoo quote belongs to the latest session and is recent enough to trust
-  const y = IDX2[sym]; if (!y) return null;
-  c = c || (sym === 'INDEXSP:.INX' ? CHARTS.spx : CHARTS.nifty);
-  if (ymd(new Date(y.at), c.tz) !== lastSession(c)) return null;
-  if (mktOpenNow(c) && Date.now() - y.at > 25 * 60e3) return null;    // during trading, only a quote under 25 min old
-  return y;
-}
-function useIdx2(data) {
-  ['INDEXNSE:NIFTY_50', 'INDEXBOM:SENSEX', 'INDEXSP:.INX'].forEach(sym => {
-    const y = idx2Fresh(sym), g = data[sym]; if (!y || y.prev == null) return;
-    const open = mktOpenNow(sym === 'INDEXSP:.INX' ? CHARTS.spx : CHARTS.nifty);
-    // after the close Yahoo's closing price wins; while trading, Google is kept unless it is clearly off (> 0.3% away)
-    if (open && g && g.price != null && Math.abs(g.price - y.price) / y.price < 0.003) return;
-    data[sym] = Object.assign({}, g || {}, { price: y.price, change: y.price - y.prev, pct: (y.price - y.prev) / y.prev * 100, src: 'yahoo' });
-  });
-}
-function seedLine(c, line) {          // fill the day chart with the whole session's line, even if this screen was off
-  const pts = String(line || '').split(';').map(x => x.split(':')).map(([t, v]) => {
-    const d = new Date(+t * 1000), loc = new Date(d.toLocaleString('en-US', { timeZone: c.tz }));
-    return [loc.getHours() * 60 + loc.getMinutes() - c.start, +v, ymd(d, c.tz)];
+// the day's line for an index chart, as the server kept it (5-minute points), plus anything this screen recorded since
+function seedChart(c, x) {
+  if (!x || !x.line || x.line.length < 2) return;
+  const pts = x.line.map(([t, v]) => {
+    const loc = new Date(new Date(t).toLocaleString('en-US', { timeZone: c.tz }));
+    return [loc.getHours() * 60 + loc.getMinutes() - c.start, v, ymd(new Date(t), c.tz)];
   }).filter(p => isFinite(p[0]) && isFinite(p[1]) && p[0] >= 0 && p[0] <= c.len);
   if (pts.length < 2) return;
   const date = pts[pts.length - 1][2]; if (date !== lastSession(c)) return;
   let st = c.mem; try { st = st || JSON.parse(localStorage.getItem(c.key)); } catch (e) {}
-  const own = st && st.date === date ? st.pts : [];
-  const lastY = pts[pts.length - 1][0];
-  const merged = pts.map(p => [p[0], p[1]]).concat(own.filter(p => p[0] > lastY));
-  c.mem = { date, pts: merged };
+  const own = st && st.date === date ? st.pts : [], lastS = pts[pts.length - 1][0];
+  c.mem = { date, pts: pts.map(p => [p[0], p[1]]).concat(own.filter(p => p[0] > lastS)) };
   try { localStorage.setItem(c.key, JSON.stringify(c.mem)); } catch (e) {}
-  try { drawChart(c); } catch (e) {}
 }
-function savedRows() {
-  try {
-    const s = JSON.parse(localStorage.getItem(LAST_ROWS_KEY));
-    if (!s || Date.now() - s.at > 30 * 60e3) return null;      // only a recent copy; an old one would show stale prices
-    savedRowsAt = s.at;
-    const rows = s.rows; rows.header = s.header || []; return rows;
-  } catch (e) { return null; }
-}
-async function loadPrices() {
-  if (!LIVE) return;
+function renderPrices(f) {
   const note = document.getElementById('srcNote');
-  try {
-    let rows;
-    savedRowsAt = 0;
-    try { rows = await getRows(); }
-    catch (e) { rows = document.querySelector('.ix-p[data-sym]').textContent === '--' && savedRows(); if (!rows) throw e; }
-    // a copy whose Nifty jumps far from what is on screen (or whose price and change disagree with today's previous close)
-    // is held back until the next read confirms it — a briefly wrong copy then never shows
-    {
-      const r = rows.find(x => String(x[0] || '').trim() === 'INDEXNSE:NIFTY_50'), p = r && num(r[1]), c = r && num(r[2]);
-      if (p != null && lastLive != null && !savedRowsAt && !idx2Fresh('INDEXNSE:NIFTY_50')) {
-        const prevNow = c != null ? p - c : null;
-        const jump = Math.abs(p - lastLive) / lastLive > 0.012;
-        const prevOff = prevNow != null && lastPrev != null && Math.abs(prevNow - lastPrev) / lastPrev > 0.004 && niftyDay === todayIST();
-        if ((jump || prevOff) && !(niftyHold && Math.abs(niftyHold - p) / p < 0.003)) {
-          niftyHold = p; console.warn('Nifty value looks off (' + p + '), checking again before showing it');
-          setTimeout(loadPrices, 40 * 1000); return;
-        }
-      }
-      niftyHold = null; if (p != null) niftyDay = todayIST();
-    }
+  {
     const data = {};
-    try { readGoodReturns(rows); } catch (e) { console.warn('gold/silver', e); }
-    try { readMetar(rows, 'col'); } catch (e) { console.warn('HAL', e); }
-    rows.forEach(r => {
-      const sym = String(r[0] || '').trim(); if (!sym || sym === 'Symbol') return;
-      const price = num(r[1]), change = num(r[2]);
-      // work out % from price and change so the two always agree (Google updates its fields at slightly different times)
-      const pct = price != null && change != null && price !== change ? change / (price - change) * 100 : num(r[3]);
-      data[sym] = { price, change, pct, hi52: num(r[4]), lo52: num(r[5]) };   // E/F: 52-week high/low (optional)
+    Object.entries(f.quotes || {}).forEach(([sym, q]) => {
+      data[sym] = { price: q.p, change: q.c, pct: q.pct, hi52: q.hi52, lo52: q.lo52, src: q.src, at: q.at };
     });
-    useIdx2(data);
     { const y = data['CURRENCY:JPYINR']; if (y && y.price != null) { y.price *= 100; if (y.change != null) y.change *= 100; } }   // yen is quoted per 100
     BASKETS.forEach(b => {      // e.g. Defence = average % move of its stocks
       const ps = b.basket.map(x => data[x] && data[x].pct).filter(v => v != null && isFinite(v));
@@ -1997,29 +1853,17 @@ async function loadPrices() {
           (d.change != null && !el.closest('.tile') ? '  (' + (up ? '+' : '−') + Math.abs(d.change).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ')' : '');
       }
     });
-    if (note) note.textContent = savedRowsAt ? 'Saved prices from ' + new Date(savedRowsAt).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) + ' · refreshing…'
-      : 'Google Finance · updated ' + new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
-    const at = new Date().toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' });
-    document.querySelectorAll('.stock-note').forEach(n => n.textContent = 'Google Finance · last refreshed ' + at +
-      ' · prices about 15–20 min behind ' + (n.dataset.mkt === 'us' ? 'the US market' : 'NSE'));
-    const fxN = document.getElementById('fxNote');
-    const fxS = FX_LIST.map(c => 'CURRENCY:' + c + 'INR');
-    if (fxN && data[fxS[0]]) {
-      // "checked" = when the app last read the sheet; "rate moved" = when Google's USD rate last actually changed
-      const t = d => new Date(d).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' });
-      const v = fxS.map(k => String((data[k] || {}).price)).join('|');
-      let mv = null; try { mv = JSON.parse(localStorage.getItem('deskTickerFxMoved')); } catch (e) {}
-      if (!mv || mv.v !== v) { mv = { v, at: Date.now(), first: !mv }; try { localStorage.setItem('deskTickerFxMoved', JSON.stringify(mv)); } catch (e) {} }
-      fxN.textContent = 'Google Finance · checked ' + t(Date.now()) + (mv.first ? '' : ' · rates last moved ' + t(mv.at)) + ' · change vs previous day';
-    }
-  } catch (e) {
-    if (note) note.textContent = 'Live prices unavailable (' + e.message + ') · retrying';
+    const asOf = sym => { const d = data[sym]; return d && d.at ? tm2(d.at) : null; };
+    const srcName = sym => ((data[sym] || {}).src === 'google' ? 'Google Finance' : 'Yahoo Finance');
+    const saved = feedSavedAt ? ' · saved copy from ' + tm2(feedSavedAt) + ', server unreachable' : '';
+    if (note) note.textContent = srcName('INDEXNSE:NIFTY_50') + (asOf('INDEXNSE:NIFTY_50') ? ' · price as of ' + asOf('INDEXNSE:NIFTY_50') : ' · updated ' + tm2(f.at)) + saved;
     document.querySelectorAll('.stock-note').forEach(n => {
-      if (!/couldn’t refresh/.test(n.textContent)) n.textContent += ' · couldn’t refresh just now';
+      const us = n.dataset.mkt === 'us', ref = us ? 'INDEXSP:.INX' : 'INDEXNSE:NIFTY_50';
+      n.textContent = srcName(ref) + ' · ' + (asOf(ref) ? 'prices as of ' + asOf(ref) : 'updated ' + tm2(f.at)) + ' · checked ' + tm2(f.at) + saved;
     });
     const fxN = document.getElementById('fxNote');
-    if (fxN && !/refreshed/.test(fxN.textContent)) fxN.textContent = 'Rates unavailable right now · retrying';
-    else if (fxN && !/couldn’t update/.test(fxN.textContent)) fxN.textContent += ' · couldn’t update just now';
+    const fxS = FX_LIST.map(c => 'CURRENCY:' + c + 'INR');
+    if (fxN && data[fxS[0]]) fxN.textContent = srcName(fxS[0]) + ' · ' + (asOf(fxS[0]) ? 'rates as of ' + asOf(fxS[0]) : 'checked ' + tm2(f.at)) + ' · change vs previous day' + saved;
   }
 }
 let tapeData = {}, tapeKey = '';
@@ -2048,11 +1892,11 @@ function buildTape() {
   box.style.animationDuration = Math.max(25, parts.length * 6) + 's';
 }
 let lastSheetOk = Date.now();
-loadPrices(); setInterval(loadPrices, PRICE_REFRESH_SECONDS * 1000);
+loadFeed(); setInterval(loadFeed, PRICE_REFRESH_SECONDS * 1000);
 // Phones (iPhone especially) can pause or starve a page that has been open for hours. Two safety nets:
 // coming back to the screen refreshes everything at once, and if no good sheet read has landed for
 // 12 minutes the app reloads itself (at most once every 15 minutes).
-function refreshAll() { loadPrices(); loadNews(); loadWeather(); loadAQI(); }
+function refreshAll() { loadFeed(); loadWeather(); loadAQI(); }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshAll(); });
 addEventListener('pageshow', e => { if (e.persisted) refreshAll(); });
 setInterval(() => {
@@ -2060,7 +1904,7 @@ setInterval(() => {
   let last = 0; try { last = +sessionStorage.getItem('deskTickerReloadAt') || 0; } catch (e) {}
   if (Date.now() - last < 15 * 60 * 1000) { refreshAll(); return; }
   try { sessionStorage.setItem('deskTickerReloadAt', Date.now()); } catch (e) {}
-  noteRestart('no fresh sheet data for 12 min');
+  noteRestart('no fresh data from the server for 12 min');
   location.reload();
 }, 60 * 1000);
 
@@ -2151,32 +1995,12 @@ function fitNews(ol, page = 0) {   // split headlines into pages of whole headli
 }
 let newsPageTimer;
 window.addEventListener('resize', () => ['newsIN', 'newsWD'].forEach(id => fitNews(document.getElementById(id))));
-let newsRetry = 0;
-async function loadNews() {
-  if (!LIVE) return;
-  for (const way of [() => fetchCSVRows(NEWS_GID), () => fetchGvizRows('News')]) {
-    try {
-      const rows = await way();
-      if (!rows.some(r => r.some(c => String(c).length > 25))) {              // the feed is still "Loading..."
-        console.warn('news busy, retrying');
-        if (!newsReady) { try { const sv = JSON.parse(localStorage.getItem('deskTickerLastNews')); if (sv) readNews(sv, 0, 'Google News'); } catch (e) {} }
-        if (newsRetry++ < 6) setTimeout(loadNews, 20000);
-        return;
-      }
-      try { localStorage.setItem('deskTickerLastNews', JSON.stringify(rows)); } catch (e) {}
-      newsRetry = 0;
-      // if the sheet script fills the tab, it writes its update time in C2 ("2026-11-05 15:50", India time)
-      const st = String((rows[0] || [])[2] || '').match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/);
-      const at = st ? Date.parse(st[1] + 'T' + st[2] + ':00+05:30') : 0;
-      return readNews(rows, at, at ? 'Live feeds' : 'Google News');
-    } catch (e) { console.warn('news', e); }
-  }
-}
-function readNews(rows, at, label) {
-  const LINK = { 0: 4, 1: 5, 3: 6, 7: 8 };       // the article link for each headline column (written by the sheet script)
-  const pickL = col => rows.map(r => ({ t: String(r[col] || '').trim(), u: String(r[LINK[col]] || '').trim() }))
-    .filter(x => x.t && !/^(India|World)$/i.test(x.t) && !/^(#N\/A|#ERROR|Loading)/i.test(x.t)).slice(0, 7);
+function renderNews(news) {
+  if (!news) return;
+  const COL = { 0: 'India', 1: 'World', 3: 'Markets', 7: 'USMarkets' };
+  const pickL = col => ((news[COL[col]] || {}).items || []).map(x => ({ t: String(x.t || '').trim(), u: String(x.u || '').trim() })).filter(x => x.t).slice(0, 7);
   const pick = col => pickL(col).map(x => x.t);
+  let at = Math.max(0, ...Object.values(news).map(x => x.at || 0)), label = 'Live feeds';
   const fill = (id, items) => {
     const ol = document.getElementById(id); if (!ol || !items.length) return 0;
     ol.innerHTML = '';
@@ -3337,17 +3161,12 @@ function subIndex(c, bp) {   // bp: concentration breakpoints matching AQI 0,50,
   return 500;
 }
 // Official station reading (the sheet script writes it into its own "AQI" tab) beats the model when it is fresh.
-const AQI_GID = '1500091563';  // the AQI tab's id
 let stationAqi = null;
-async function loadStationAqi() {
-  if (!AQI_GID) return;
-  try { readStationAqi(await fetchCSVRows(AQI_GID)); } catch (e) { console.warn('AQI tab', e); }
-}
 var airports = [];                       // latest report from every airport in India (AQI tab, columns F–J), for travel
-function readAirports(rows) {
-  const list = rows.map(r => {
-    const o = parseMetar(r[9] || ''); if (!o) return null;
-    o.lat = num(r[6]); o.lon = num(r[7]); o.name = String(r[8] || r[5] || '').replace(/\s+(International|Intl|Airport|Air Force Station|Aerodrome|AFS)\b.*$/i, '');
+function readAirports(list0) {
+  const list = list0.map(a => {
+    const o = parseMetar(a.raw || ''); if (!o) return null;
+    o.lat = a.lat; o.lon = a.lon; o.name = String(a.name || a.code || '').replace(/\s+(International|Intl|Airport|Air Force Station|Aerodrome|AFS)\b.*$/i, '');
     return o.lat == null || o.lon == null ? null : o;
   }).filter(Boolean);
   if (list.length) { airports = list; readMetar(null); }
@@ -3360,16 +3179,10 @@ function nearestAirport() {               // a measured "now" while travelling: 
   }
   return best;
 }
-function readStationAqi(rows) {
-  try { readSettings(rows); } catch (e) { console.warn('settings', e); }
-  try { readAirports(rows); } catch (e) { console.warn('airports', e); }
-  try { readIdx2(rows); } catch (e) { console.warn('second index source', e); }
-  const r = rows[0] || [], v = num(r[0]);
-  if (v == null) return;
-  if (/,/.test(r[1] || '') && !/beng|bangalore/i.test(r[1])) return;     // a far-away station (e.g. an old Delhi reading): ignore
-  const m = String(r[2] || '').match(/(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})/);       // "06-11-2026 17:00:00"
-  const at = m ? Date.parse(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:00+05:30`) : 0;
-  stationAqi = { aqi: Math.round(v), name: String(r[1] || ''), at, main: String(r[3] || '') };
+function readStationAqi(a) {
+  if (!a || a.aqi == null) return;
+  if (/,/.test(a.name || '') && !/beng|bangalore/i.test(a.name)) return;     // a far-away station: ignore
+  stationAqi = { aqi: Math.round(a.aqi), name: String(a.name || ''), at: a.at || 0, main: String(a.main || '') };
   showStationAqi();
 }
 function stationAqiFresh() { return stationAqi && !away && homeHAL() && stationAqi.at && Date.now() - stationAqi.at < 4 * 3600e3; }
@@ -3401,7 +3214,6 @@ async function loadAQI() {
     const cat = document.getElementById('wAqiCat'); cat.textContent = band[1]; cat.style.color = band[2];
   } catch (e) { document.getElementById('wAqi').textContent = '--'; }
 }
-loadStationAqi(); setInterval(loadStationAqi, 10 * 60 * 1000);
 loadAQI(); setInterval(loadAQI, 30 * 60 * 1000);
 
 /* ---------- WEATHER WHERE THE PHONE IS (only when you're away from home) ---------- */
@@ -3521,7 +3333,6 @@ async function loadMetals() {
 }
 loadMetals(); setInterval(loadMetals, 5 * 60 * 1000);
 
-loadNews(); setInterval(loadNews, 5 * 60 * 1000);
 
 /* ---------- KEEP SCREEN ON (where supported) ---------- */
 async function keepAwake() { try { await navigator.wakeLock.request('screen'); } catch (e) {} }
