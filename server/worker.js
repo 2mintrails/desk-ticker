@@ -319,20 +319,44 @@ const CITIES = [
   ['Ranchi', 23.34, 85.31, [HT_CITY('ranchi')]], ['Dehradun', 30.32, 78.03, [HT_CITY('dehradun')]],
 ];
 const kmFlat = (a, b, c, d) => { const R = Math.PI / 180, x = (d - b) * R * Math.cos((a + c) / 2 * R), y = (c - a) * R; return Math.sqrt(x * x + y * y) * 6371; };
-function cityFor(set) {
-  const lat = num(set['Home lat']) ?? HOME.lat, lon = num(set['Home lon']) ?? HOME.lon;
-  const best = CITIES.map(c => [kmFlat(lat, lon, c[1], c[2]), c]).sort((a, b) => a[0] - b[0])[0];
-  return best[0] <= 60 ? best[1] : null;
+const reEsc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// which local news fits a spot: a city with its own feeds within 60 km, else headlines that name the given city
+const CITY_WIDE = [['https://indianexpress.com/section/cities/feed/', 'Indian Express'], ['https://www.hindustantimes.com/feeds/rss/cities/rssfeed.xml', 'Hindustan Times'],
+  ['https://www.hindustantimes.com/feeds/rss/cities/others/rssfeed.xml', 'Hindustan Times'], ['https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms', 'Times of India']];
+function localPlan(lat, lon, cityName) {
+  const byDist = CITIES.map(c => [kmFlat(lat, lon, c[1], c[2]), c]).sort((a, b) => a[0] - b[0]);
+  if (byDist[0][0] <= 60) return { city: byDist[0][1][0], feeds: byDist[0][1][3], match: null };
+  const name = String(cityName || '').trim();
+  if (!/^[A-Za-z][A-Za-z .'-]{2,39}$/.test(name)) return null;
+  const feeds = [...byDist.slice(0, 3).flatMap(x => x[1][3]), ...CITY_WIDE, ...FEEDS.India].filter((f, i, a) => a.findIndex(g => g[0] === f[0]) === i);
+  return { city: name, feeds, match: new RegExp('(?<![A-Za-z])' + reEsc(name) + '(?![A-Za-z])', 'i') };
+}
+async function localNews(plan) {
+  const lists = await Promise.all(plan.feeds.map(([u, s]) => readFeed(u, s)));
+  const items = plan.match ? lists.flat().filter(x => plan.match.test(x.title)) : lists.flat();
+  const read = lists.reduce((n, l) => n + l.length, 0);
+  return { top: pickTop(items, { keep: 8, per: 7, ageH: plan.match ? 48 : 24 }), note: plan.feeds.length + ' feeds, ' + read + ' read' + (plan.match ? ', ' + items.length + ' name ' + plan.city : '') };
 }
 async function jobLocal(env) {
-  const city = cityFor((await getCfg(env)).settings || {});
-  if (!city) { await dbPut(env, 'news_Local', { city: '', items: [] }); return 'home is not near a city with a local feed'; }
-  const lists = await Promise.all(city[3].map(([u, s]) => readFeed(u, s)));
-  const perFeed = lists.map((l, i) => city[3][i][1] + ' ' + l.length).join(', ');
-  const top = pickTop(lists.flat(), { keep: 8, per: 7, ageH: 24 });
-  if (!top.length) throw new Error('no ' + city[0] + ' headlines (' + perFeed + ')');
-  await dbPut(env, 'news_Local', { city: city[0], items: top });
-  return city[0] + ': ' + top.length + ' headlines (' + perFeed + ') · newest: ' + top[0].text.slice(0, 70);
+  const set = (await getCfg(env)).settings || {};
+  const plan = localPlan(num(set['Home lat']) ?? HOME.lat, num(set['Home lon']) ?? HOME.lon, set['Home city']);
+  if (!plan) { await dbPut(env, 'news_Local', { city: '', items: [] }); return 'home is not near a city with a local feed, and no home city is saved'; }
+  const { top, note } = await localNews(plan);
+  if (!top.length && !plan.match) throw new Error('no ' + plan.city + ' headlines (' + note + ')');
+  await dbPut(env, 'news_Local', { city: plan.city, items: top });       // nothing naming a smaller city: the slide hides itself
+  return plan.city + ': ' + top.length + ' headlines (' + note + ')' + (top[0] ? ' · newest: ' + top[0].text.slice(0, 70) : '');
+}
+// local news for where a device is right now (when it is away from home); kept for 15 minutes per city
+async function localHere(env, lat, lon, cityName) {
+  if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return { city: '', items: [] };
+  const plan = localPlan(lat, lon, cityName); if (!plan) return { city: '', items: [] };
+  const key = 'local_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
+  if (c && Date.now() - c.at < 15 * 60e3) return { ...c.v, at: c.at };
+  const { top } = await localNews(plan);
+  if (!top.length && c && c.v.items.length && Date.now() - c.at < 6 * 3600e3) return { ...c.v, at: c.at };   // feeds failed: keep the last list for a while
+  const v = { city: plan.city, items: top.map(i => ({ t: i.text, u: i.link })) };
+  await dbPut(env, key, v);
+  return { ...v, at: Date.now() };
 }
 
 /* ---------------- watchlist news: business headlines that name a stock in the Indian watchlist ---------------- */
@@ -349,7 +373,6 @@ const ALIAS = { 'NSE:M&M': ['M&M', 'Mahindra'], 'NSE:LT': ['L&T', 'Larsen'], 'NS
   'NSE:SONACOMS': ['Sona Comstar', 'Sona BLW'], 'NSE:RECLTD': ['REC Ltd', 'REC Limited'], 'NSE:BHARTIARTL': ['Airtel'], 'NSE:VBL': ['Varun Beverages'], 'NSE:POLYMED': ['Polymed'],
   'NSE:RELIANCE': ['RIL', 'Reliance Industries', 'Reliance Jio', 'Reliance Retail'], 'NSE:SUNPHARMA': ['Sun Pharmaceutical'], 'NSE:HDFCBANK': ['HDFC Bank'], 'NSE:ABREL': ['Birla Estates'],
   'NSE:TMCV': ['Tata Motors'], 'NSE:TATACONSUM': ['Tata Consumer'], 'NSE:INOXINDIA': ['INOX India', 'Inox India'] };
-const reEsc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function stockMatcher(x) {
   const names = new Set([x.name, ...(ALIAS[x.sym] || [])]);
   const short = x.name.replace(/\s+(Ltd\.?|Limited|Company|Corporation|Corp\.?|Industries|Inc\.?)$/i, '').trim();
@@ -485,7 +508,7 @@ async function getCfg(env) {
   await dbPut(env, 'cfg', cfg);
   return cfg;
 }
-const SETTING_KEYS = /^(Seconds per slide|Show .+ slide|Currency [123]|Night clock (starts|ends)|Home (lat|lon|name))$/;
+const SETTING_KEYS = /^(Seconds per slide|Show .+ slide|Currency [123]|Night clock (starts|ends)|Home (lat|lon|name|city))$/;
 function cleanWatch(w) {
   const one = x => x && typeof x.sym === 'string' && /^[A-Z]+:[A-Z0-9&._\-]{1,20}$/.test(x.sym) ? {
     sym: x.sym, name: String(x.name || x.sym.split(':')[1]).slice(0, 40), tick: String(x.tick || x.sym.split(':')[1]).slice(0, 20),
@@ -603,6 +626,7 @@ export default {
         return new Response(JSON.stringify(out), { status: code, headers: CORS });
       }
       if (u.pathname === '/v2/lookup') return new Response(JSON.stringify(await lookup(u.searchParams.get('q'), u.searchParams.get('mkt'))), { headers: CORS });
+      if (u.pathname === '/v2/local') return new Response(JSON.stringify(await localHere(env, +u.searchParams.get('lat'), +u.searchParams.get('lon'), u.searchParams.get('city'))), { headers: CORS });
       if (u.pathname === '/v2/feed') return new Response(JSON.stringify(await feed(env)), { headers: CORS });
       if (u.pathname === '/v1/all') return new Response(JSON.stringify(await allTabs(env)), { headers: CORS });
       if (u.pathname === '/v1/status') {

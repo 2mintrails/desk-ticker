@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v17.6-2026-11-14">
+<meta name="ticker-version" content="v17.7-2026-11-14">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1267,12 +1267,12 @@ function hiddenBySetting(s) {
 }
 try { applySettings(JSON.parse(localStorage.getItem('deskTickerSettings') || 'null') || {}, true); } catch (e) {}
 document.body.classList.toggle('nofx', !DEV.fx);
-let LAT = HOME.lat, LON = HOME.lon, away = false, awayName = '';
+let LAT = HOME.lat, LON = HOME.lon, away = false, awayName = '', awayCity = '', LOCAL_HERE = null;
 if (HOME.name !== HOME0.name) { const sec = document.querySelector('section[data-wx]'); if (sec) sec.dataset.title = HOME.name; }
 var locNote = '';      // why the phone's location isn't being used, shown under the weather
 try {                  // still travelling? start in the last place we saw (re-checked shortly after start)
   const sv = JSON.parse(localStorage.getItem('deskTickerAway') || 'null');
-  if (DEV.loc && sv && Date.now() - sv.at < 24 * 3600e3) { LAT = sv.lat; LON = sv.lon; away = true; awayName = sv.name; }
+  if (DEV.loc && sv && Date.now() - sv.at < 24 * 3600e3) { LAT = sv.lat; LON = sv.lon; away = true; awayName = sv.name; awayCity = sv.city || ''; }
 } catch (e) {}
 // Weather: "NOW" (big temperature, humidity, wind, conditions) is MEASURED at HAL Airport, ~2–3 km away.
 // The FORECAST (high/low, rain, next 6 hours) comes from WEATHER_SOURCE: 'metno' (MET Norway) or 'openmeteo'.
@@ -2071,8 +2071,9 @@ function renderNews(news) {
     const was = ['newsLC', 'newsWL'].map(id => document.getElementById(id).children.length > 0).join();
     const extra = (id, sec) => { const items = ((sec || {}).items || []).map(x => ({ t: String(x.t || '').trim(), u: String(x.u || '').trim(), sym: x.sym, tick: x.tick })).filter(x => x.t).slice(0, 8);
       if (!items.length) { const ol = document.getElementById(id); ol.innerHTML = ''; ol._all = []; } else fill(id, items); };
-    extra('newsLC', news.Local); extra('newsWL', news.Watch);
-    const city = (news.Local || {}).city, ls = document.getElementById('localSlide'), t = city ? city + ' News' : 'Local News';
+    const loc = away ? (LOCAL_HERE || { city: '', items: [] }) : news.Local;
+    extra('newsLC', loc); extra('newsWL', news.Watch);
+    const city = (loc || {}).city, ls = document.getElementById('localSlide'), t = city ? city + ' News' : 'Local News';
     document.getElementById('lcName').textContent = t;
     if (ls.dataset.title !== t) { ls.dataset.title = t; if (typeof slides !== 'undefined' && slides[idx] === ls) document.getElementById('title').textContent = t; }
     if (newsReady && was !== ['newsLC', 'newsWL'].map(id => document.getElementById(id).children.length > 0).join() && typeof applyMode === 'function' && mode) applyMode(true);
@@ -2604,7 +2605,8 @@ function renderSettings() {
       '<label class="setrow"><span>Ends</span><input type="time" data-set="Night clock ends" value="' + MODES.day + '"></label>') +
     sec_('home', 'Home location', esc(HOME.name), '',
       '<div class="setrow"><span>' + esc(HOME.name) + '<small>' + HOME.lat.toFixed(3) + ', ' + HOME.lon.toFixed(3) + '</small></span></div>' +
-      '<div class="setrow"><button data-act="home">Set to where I am now</button><button data-act="homereset">Back to Koramangala</button></div>') +
+      '<div class="setrow"><button data-act="home">Set home to where I am now</button></div>' +
+      '<small style="opacity:.55;font-size:11px">Used when a screen can’t tell where it is. Screens that know their location show weather and local news for where they are.</small>') +
     sec_('stocks', 'Stocks', w.in.length + ' India · ' + w.us.length + ' US', ' wide',
       group('in', 'Watchlist · India') + group('us', 'Watchlist · US') +
       '<div class="setrow wadd"><input type="text" id="wAdd" placeholder="Ticker, e.g. ZOMATO or NVDA" autocomplete="off" autocapitalize="characters">' +
@@ -2612,7 +2614,7 @@ function renderSettings() {
       '<button data-act="wadd">Add</button></div><small id="wMsg" class="setmsg"></small>') +
     sec_('dev', 'This screen only', [DEV.auto && 'Auto mode', DEV.loc && 'Follows location', DEV.fx && 'Effects'].filter(Boolean).join(' · ') || 'All off', '',
       chk('data-dev', 'auto', 'Auto stock mode', DEV.auto, 'Switch to Indian / US stock slides when that market opens') +
-      chk('data-dev', 'loc', 'Weather follows my location', DEV.loc, 'When travelling, show weather for where this device is') +
+      chk('data-dev', 'loc', 'Follow my location', DEV.loc, 'Weather and local news for where this device is') +
       chk('data-dev', 'fx', 'Anime effects', DEV.fx, 'Rain, petals and scanlines in the Anime 90s theme')) +
     sec_('data', 'Data', (() => { const xs = RUN.map(([k]) => runs[k]).filter(Boolean), bad = xs.filter(x => !x.ok).length;
         return !FEED ? 'No data yet' : feedSavedAt ? '<span class="bad">Server unreachable</span>' : bad ? '<span class="bad">' + bad + ' failing</span>' : '<span class="ok">All updating</span>'; })(), ' wide',
@@ -2664,19 +2666,18 @@ function renderSettings() {
       if (pinWait.choose) body.newPin = v; else { PIN = v; body.pin = v; }
       saveShared(body);
     }
-    else if (act === 'homereset') saveShared({ set: { 'Home lat': null, 'Home lon': null, 'Home name': null } });
     else if (act === 'home') {
       if (!('geolocation' in navigator) || location.protocol !== 'https:') return setMsg('Location isn’t available in this browser.', true);
       setMsg('Finding where you are…');
       navigator.geolocation.getCurrentPosition(async p => {
         const lat = +p.coords.latitude.toFixed(3), lon = +p.coords.longitude.toFixed(3);
-        let name = 'Home';
+        let name = 'Home', city = null;
         try {
           const g = await (await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`)).json();
           const a = g.locality || g.city, c = g.city && g.city !== a ? g.city : g.principalSubdivision;
-          name = [a, c].filter(Boolean).join(', ') || name;
+          name = [a, c].filter(Boolean).join(', ') || name; city = g.city || g.locality || null;
         } catch (x) {}
-        saveShared({ set: { 'Home lat': String(lat), 'Home lon': String(lon), 'Home name': name } });
+        saveShared({ set: { 'Home lat': String(lat), 'Home lon': String(lon), 'Home name': name, 'Home city': city } });
       }, err => setMsg(err.code === 1 ? 'Location is blocked for this site. Allow it in the browser, then try again.' : 'Couldn’t get a location just now. Try again.', true),
       { enableHighAccuracy: true, maximumAge: 60000, timeout: 20000 });
     }
@@ -3199,8 +3200,19 @@ function setPlace(lat, lon, name, isAway) {
   LAT = lat; LON = lon; away = isAway; wxAlt = null;
   const sec = document.querySelector('section[data-wx]'); sec.dataset.title = name;
   if (slides[idx] === sec) document.getElementById('title').textContent = name;
-  renderSky(); loadWeather(); loadAQI();
+  renderSky(); loadWeather(); loadAQI(); loadLocalNews();
 }
+// local news for where this screen is: away from home it asks the server for that place; at home the feed already has it
+async function loadLocalNews() {
+  if (!away) { if (LOCAL_HERE) { LOCAL_HERE = null; if (FEED) renderNews(FEED.news); } return; }
+  try {
+    const j = await (await fetch(SERVER_URL + '/v2/local?lat=' + LAT + '&lon=' + LON + '&city=' + encodeURIComponent(awayCity || ''))).json();
+    if (j && Array.isArray(j.items)) LOCAL_HERE = j;
+  } catch (e) {}
+  if (!LOCAL_HERE) LOCAL_HERE = { city: '', items: [] };          // away, nothing known yet: don't show home's news
+  if (FEED) renderNews(FEED.news);
+}
+setInterval(loadLocalNews, 10 * 60 * 1000);
 let awayVotes = 0, locRetry;
 function locSay(t) { if (locNote === t) return; locNote = t; if (typeof renderWeather === 'function' && wxModel) renderWeather(); }
 function checkLocation() {
@@ -3220,15 +3232,15 @@ function checkLocation() {
     }
     // just outside the city: wait for a second reading; clearly another city: switch now
     if (!away && d < 60 && ++awayVotes < 2) { locRetry = setTimeout(checkLocation, 3 * 60 * 1000); return; }
-    if (away && kmBetween(lat, lon, LAT, LON) < 3 && awayName) return;                // still in the same place
+    if (away && kmBetween(lat, lon, LAT, LON) < 3 && awayName && awayCity) return;                // still in the same place
     let name = 'Your location';
     try {
       const g = await (await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`)).json();
       const a = g.locality || g.city, b = g.city && g.city !== a ? g.city : g.principalSubdivision;
-      name = [a, b].filter(Boolean).join(', ') || name;
+      name = [a, b].filter(Boolean).join(', ') || name; awayCity = g.city || g.locality || '';
     } catch (e) {}
     awayName = name;
-    try { localStorage.setItem('deskTickerAway', JSON.stringify({ lat, lon, name, at: Date.now() })); } catch (e) {}
+    try { localStorage.setItem('deskTickerAway', JSON.stringify({ lat, lon, name, city: awayCity, at: Date.now() })); } catch (e) {}
     setPlace(lat, lon, name, true);
   }, err => {
     locSay(err.code === 1 ? 'not allowed for this site' : 'not available yet, retrying');
@@ -3236,6 +3248,7 @@ function checkLocation() {
   }, { enableHighAccuracy: false, maximumAge: 5 * 60 * 1000, timeout: 30000 });
 }
 if (away && awayName) { const sec = document.querySelector('section[data-wx]'); if (sec) sec.dataset.title = awayName; }
+if (away) loadLocalNews();
 checkLocation(); setInterval(checkLocation, 30 * 60 * 1000);
 
 /* ---------- GOLD & SILVER (gold-api.com + open.er-api.com, no key) ---------- */
