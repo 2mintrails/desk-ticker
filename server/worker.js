@@ -239,10 +239,11 @@ const BLOCK = ['The Hindu', 'BBC', 'Al Jazeera', 'NDTV Sports'];
 const KEEP = 10, MAX_PER_SOURCE = 2, MAX_AGE_H = 12;
 const MARKET_WORDS = /\b(sensex|nifty|nse|bse|stock|stocks|shares?|stock markets?|share market|equity|equities|ipo|rupee|rbi|sebi|fii|fiis|dii|q[1-4]|quarterly|profit|revenue|earnings|dividend|bonus|buyback|bond|bonds|yield|gold|silver|crude|inflation|gdp|mutual funds?|sip|smallcap|midcap|largecap|brokerage|target price|f&o|futures|nasdaq|dow|s&p|wall street|dalal street|investors?|valuation|market cap|promoters?)\b/i;
 // US market news must be about the US: a clearly American term always passes; a headline about another country's market is dropped
-const US_STRONG = /\b(wall street|s&p ?500|s&p|nasdaq|dow jones|the dow|dow|nyse|federal reserve|the fed|fed|fomc|powell|treasury|treasuries|white house|nvidia|apple|microsoft|amazon|alphabet|google|meta|tesla|broadcom|berkshire|jpmorgan|goldman|walmart|magnificent seven)\b/i;
+const US_STRONG = /\b(wall street|s&p ?500|s&p|nasdaq|dow jones|the dow|dow|nyse|federal reserve|the fed|fed|fomc|powell|treasury|treasuries)\b/i;        // the US market itself
+const US_JUNK = /earnings call transcript|james bond|\bquiz\b|\bhoroscope\b/i;
 const US_ABBR = /\b(U\.S\.|US|USA|American?)\b/;
 const FOREIGN = /\b(asia|asian|asia-pacific|europe|european|japan|japanese|nikkei|topix|china|chinese|hong kong|hang seng|shanghai|shenzhen|india|indian|sensex|nifty|ftse|dax|cac ?40|stoxx|kospi|korea|korean|asx|australia|australian|tsx|canada|canadian|toronto|britain|british|uk|london|germany|german|france|french|italy|italian|spain|spanish|ibex|brazil|bovespa|mexico|argentina|chile|colombia|peru|taiwan|taiex|singapore|saudi|tadawul|dubai|abu dhabi|uae|qatar|kuwait|bahrain|oman|egypt|israel|tel aviv|turkey|bist|russia|moex|south africa|nigeria|morocco|indonesia|jakarta|idx|philippines|psei|thailand|vietnam|malaysia|pakistan|karachi|sri lanka|colombo|bangladesh|poland|wig\w*|sweden|omx\w*|norway|oslo|denmark|finland|netherlands|aex|belgium|bel ?20|portugal|psi|greece|athens|swiss|switzerland|smi|austria|new zealand|nzx\w*|emerging markets?|euro ?zone|ecb|boj|pboc|rbi|boe|yen|yuan|rupee|sterling|at close of trade)\b/i;
-const US_WORDS = /\b(wall street|s&p|nasdaq|dow|nyse|stocks?|shares?|equities|earnings|fed|federal reserve|powell|treasury|treasuries|yields?|bond|bonds|ipo|rally|selloff|sell-off|futures|dollar|inflation|cpi|jobs report|payrolls|recession|tariffs?|nvidia|apple|microsoft|amazon|alphabet|google|meta|tesla|broadcom|berkshire|jpmorgan|investors?|market cap|valuation|guidance|outlook|chipmakers?|tech stocks)\b/i;
+const US_WORDS = /\b(wall street|s&p|nasdaq|dow|nyse|stocks?|shares?|equities|earnings|fed|federal reserve|powell|treasury|treasuries|yields?|bonds|bond (?:yields?|market|prices)|ipo|rally|selloff|sell-off|futures|dollar|inflation|cpi|jobs report|payrolls|recession|tariffs?|nvidia|apple|microsoft|amazon|alphabet|google|meta|tesla|broadcom|berkshire|jpmorgan|investors?|market cap|valuation|guidance|outlook|chipmakers?|tech stocks)\b/i;
 const decode = s => String(s || '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;|&apos;|&#x27;|&#8217;/g, "'")
   .replace(/&quot;|&#8220;|&#8221;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#8211;|&#8212;/g, '-').replace(/&nbsp;/g, ' ')
   .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(+d)).replace(/\s+/g, ' ').trim();
@@ -299,7 +300,10 @@ async function jobNews(env, section) {
   let filt = section === 'Markets' ? items.filter(x => MARKET_WORDS.test(x.title)) : items;
   if (section === 'USMarkets') {
     const mine = (((await getCfg(env)).watch || {}).us || []).filter(x => !/^INDEX/.test(x.sym)).map(x => stockMatcher(x));   // a headline naming one of your US stocks always counts
-    filt = items.filter(x => { const t = x.title; return US_STRONG.test(t) || US_ABBR.test(t) || mine.some(f => f(t)) || (!FOREIGN.test(t) && US_WORDS.test(t)); });
+    filt = items.filter(x => { const t = x.title; if (US_JUNK.test(t)) return false;
+      if (US_STRONG.test(t) || US_ABBR.test(t)) return true;          // about the US market: keep, even if another country is mentioned
+      if (FOREIGN.test(t)) return false;                                // another country's market: drop, even if a US company is named
+      return mine.some(f => f(t)) || US_WORDS.test(t); });
   }
   const top = pickTop(filt);
   if (!top.length) throw new Error('no headlines from any ' + section + ' feed (kept the last list)');
