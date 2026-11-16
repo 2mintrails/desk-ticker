@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v18.0-2026-11-16">
+<meta name="ticker-version" content="v17.9-2026-11-15">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -234,74 +234,6 @@
   .n-time{font-family:"JetBrains Mono",monospace;font-weight:500;font-size:clamp(56px,34vh,180px);letter-spacing:-4px;line-height:1}
   .n-date{font-size:clamp(13px,5vh,22px);margin-top:1.5vh;letter-spacing:1px}
   .n-info{font-size:clamp(11px,4vh,17px);margin-top:1.2vh;opacity:.8}
-  /* ---------- Market TV: a business-channel screen for the two stock modes (theme "tv") ---------- */
-  #tvx{position:fixed;inset:0;z-index:30;background:#050b1c;color:#fff;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto auto auto;overflow:hidden;
-    font-family:Inter,"Space Grotesk",-apple-system,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums;
-    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-  #tvx[hidden]{display:none}
-  body.tv-on .navbtn{display:none}
-  #tvx .up{color:#19e58a} #tvx .dn{color:#ff4d57} #tvx .fl{color:#aab4cf}
-  .tv-top{min-width:0;display:flex;align-items:center;gap:14px;padding:max(6px,1.4vh) 16px;background:linear-gradient(180deg,#0d1c44,#081230);border-bottom:2px solid #f5c400}
-  .tv-clock{font-weight:800;font-size:clamp(20px,6.2vh,30px);white-space:nowrap;line-height:1}
-  .tv-clock small{font-size:.5em;font-weight:600;opacity:.8;margin-left:3px}
-  .tv-date{font-size:clamp(11px,3vh,14px);opacity:.88;line-height:1.25;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .tv-live{margin-left:auto;display:flex;align-items:center;gap:7px;font-weight:800;font-size:clamp(11px,3vh,13px);letter-spacing:.08em;background:#d6001c;padding:5px 11px;border-radius:3px;white-space:nowrap}
-  .tv-live::before{content:'';width:8px;height:8px;border-radius:50%;background:#fff;animation:tvblink 1.6s ease-in-out infinite}
-  .tv-live.off{background:#27345c;color:#c9d2ea} .tv-live.off::before{animation:none;background:#8b97b8}
-  @keyframes tvblink{50%{opacity:.25}}
-  .tv-menu .viewsel{position:relative} .tv-menu .viewbtn{background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:3px;font-weight:700;white-space:nowrap}
-  .tv-gear{background:none;border:0;color:#c9d2ea;font-size:20px;line-height:1;padding:4px;cursor:pointer}
-  .tv-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:10px;padding:10px 16px;min-height:0}
-  .tv-panel{background:#0a1533;border:1px solid #1d2f63;border-radius:4px;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
-  .tv-ph{display:flex;align-items:center;gap:10px;padding:4px 12px;background:#f5c400;color:#0a1230;font-weight:800;font-size:clamp(11px,3.1vh,14px);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;flex:none}
-  .tv-ph .r{margin-left:auto;font-weight:700;letter-spacing:0;text-transform:none} .tv-ph .u{color:#04692f} .tv-ph .d{color:#b0000f;margin-left:.7em}
-  .tv-lbody{flex:1;min-height:0;display:flex;flex-direction:column}
-  .tv-idx{padding:1.6vh 14px 0;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
-  .tv-val{font-size:clamp(28px,11vh,50px);font-weight:800;line-height:1.02}
-  .tv-chip{font-weight:800;font-size:clamp(14px,4.4vh,20px);padding:2px 9px;border-radius:3px;color:#04130b;background:#19e58a;white-space:nowrap}
-  #tvx .tv-chip{color:#04130b} #tvx .tv-chip.dn{background:#ff4d57;color:#fff} #tvx .tv-chip.fl{background:#3a4770;color:#fff}
-  .tv-sub{display:flex;gap:16px;padding:.6vh 14px 0;font-size:clamp(11px,3.3vh,15px);font-weight:600;white-space:nowrap;overflow:hidden}
-  .tv-sub b{opacity:.7;font-weight:600;margin-right:6px}
-  .tv-chart{flex:1;min-height:0;padding-top:.6vh} .tv-chart svg{width:100%;height:100%;display:block}
-  .tv-board{flex:1;min-height:0;display:grid;grid-auto-rows:minmax(0,1fr);padding:.6vh 14px}
-  .tv-brow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;border-bottom:1px solid rgba(255,255,255,.07);min-height:0}
-  .tv-brow .n{font-weight:700;font-size:clamp(12px,3.8vh,17px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .tv-brow .p{font-weight:800;font-size:clamp(13px,4.4vh,20px);text-align:right}
-  .tv-brow .c{font-weight:800;font-size:clamp(12px,3.6vh,16px);text-align:right;min-width:4.2em}
-  .tv-cols{flex:1;min-height:0;display:grid;gap:0 18px;padding:.8vh 12px}
-  .tv-col{display:grid;grid-auto-rows:minmax(0,1fr);min-height:0;min-width:0}
-  .tv-cols h5{font-size:clamp(9px,2.4vh,11px);letter-spacing:.14em;opacity:.7;padding:.6vh 0 .2vh;text-transform:uppercase;font-weight:700;margin:0}
-  .tv-r{display:grid;grid-template-columns:minmax(0,42%) minmax(0,1fr) 4em;align-items:center;gap:8px;min-height:0;border-bottom:1px solid rgba(255,255,255,.06);overflow:hidden}
-  .tv-r .n{font-weight:600;font-size:clamp(10px,3.2vh,15px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .tv-r .t{height:58%;min-height:4px;max-height:13px;background:rgba(255,255,255,.07);position:relative}
-  .tv-r .t i{position:absolute;left:0;top:0;bottom:0;background:currentColor}
-  .tv-r .v{font-weight:800;font-size:clamp(10px,3.2vh,15px);text-align:right;white-space:nowrap}
-  .tv-lower{display:flex;align-items:stretch;margin:0 16px 8px;border-radius:3px;overflow:hidden;min-height:clamp(30px,8.5vh,42px)}
-  .tv-lower[hidden]{display:none}
-  .tv-tag{background:#d6001c;font-weight:800;font-size:clamp(10px,2.9vh,13px);letter-spacing:.08em;padding:0 12px;display:flex;align-items:center;white-space:nowrap}
-  .tv-hl{background:#fff;color:#0a1230;font-weight:700;font-size:clamp(13px,4vh,18px);padding:4px 14px;flex:1;display:flex;align-items:center;gap:10px;min-width:0;cursor:pointer}
-  .tv-ht{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-  .tv-tk{flex:none;background:#3a4770;color:#fff;font-size:.72em;font-weight:800;padding:2px 7px;border-radius:3px;white-space:nowrap}
-  .tv-tk.up{background:#04692f;color:#fff!important} .tv-tk.dn{background:#b0000f;color:#fff!important} .tv-tk:empty{display:none}
-  .tv-tape{display:flex;align-items:center;font-size:clamp(12px,3.5vh,16px);font-weight:600;padding:max(3px,1vh) 0;overflow:hidden}
-  .tv-tape.a{background:#0d1c44;border-top:1px solid #1d2f63} .tv-tape.b{background:#f5c400;color:#0a1230}
-  #tvx .tv-tape.b .up{color:#04692f} #tvx .tv-tape.b .dn{color:#b0000f} #tvx .tv-tape.b .fl{color:#3a4770}
-  .tv-lab{flex:none;font-weight:800;font-size:.78em;letter-spacing:.08em;padding:2px 10px;margin-right:8px;background:#fff;color:#0a1230;position:relative;z-index:1}
-  .tv-tape.b .tv-lab{background:#0a1230;color:#fff}
-  .tv-run{flex:1;min-width:0;overflow:hidden} .tv-strip{display:inline-block;white-space:nowrap;animation:tvrun 60s linear infinite;will-change:transform}
-  @keyframes tvrun{to{transform:translateX(-50%)}}
-  .tv-ti{margin-right:26px} .tv-ti b{font-weight:800;margin-right:5px} .tv-ti em{font-style:normal;font-weight:800;margin-left:4px}
-  @media (orientation:portrait) and (max-aspect-ratio: 4/5){
-    .tv-top{padding:8px 10px;gap:9px} .tv-clock{font-size:clamp(19px,6vw,24px)} .tv-date{font-size:clamp(10px,2.9vw,12px)} .tv-live{font-size:11px;padding:4px 8px}
-    .tv-main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,.6fr) minmax(0,1.4fr);padding:8px 10px;gap:8px}
-    .tv-ph{font-size:clamp(11px,3.2vw,13px)} .tv-val{font-size:clamp(28px,10vw,42px)} .tv-chip{font-size:clamp(14px,4.4vw,18px)} .tv-sub{font-size:clamp(11px,3.4vw,14px)}
-    .tv-brow .n{font-size:clamp(13px,3.9vw,16px)} .tv-brow .p{font-size:clamp(14px,4.3vw,18px)} .tv-brow .c{font-size:clamp(12px,3.6vw,15px)}
-    .tv-r .n, .tv-r .v{font-size:clamp(12px,3.7vw,15px)} .tv-cols h5{font-size:clamp(9px,2.6vw,11px)} .tv-r .t{max-height:16px}
-    .tv-lower{flex-direction:column;margin:0 10px 6px} .tv-tag{padding:3px 12px;font-size:10px} .tv-hl{flex-direction:column;align-items:flex-start;gap:4px;padding:6px 12px;font-size:clamp(13px,3.9vw,16px)}
-    .tv-ht{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-    .tv-tape{font-size:clamp(12px,3.5vw,15px);padding:5px 0}
-  }
-  @media (max-width:400px){ .tv-date{display:none} }
   /* ---------- watchlist summary: every stock ranked by today's move ---------- */
   .ws{height:calc(100% - max(3.4vh, 22px));display:flex;flex-direction:column;gap:1.3vh;padding:2vh 2.2vw 1.6vh;min-height:0;box-sizing:border-box}
   .ws-h{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;font-weight:700;font-size:clamp(14px,4.2vh,21px);flex:none}
@@ -1152,7 +1084,7 @@
       <div class="mkt" id="mkt"></div>
       <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
       <div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
-        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Theme</div><div class="looks"><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button><button data-look="anime">🌸 Anime 90s</button><button data-look="tv">📺 Market TV</button></div><div class="dataline" id="dataLine"></div><div class="diag" id="diag"></div></div></div>
+        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Theme</div><div class="looks"><button data-look="ambient">✨ Ambient</button><button data-look="paper">📰 Newspaper</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button><button data-look="anime">🌸 Anime 90s</button></div><div class="dataline" id="dataLine"></div><div class="diag" id="diag"></div></div></div>
     </div>
   </header>
 
@@ -1304,7 +1236,7 @@ let SLIDE_SECONDS = 15;
 // Look: 'calm' (minimal, quiet) or 'vivid' (glows, tints, animated background).
 // Look (each phone remembers its choice): 'pixel' LED-matrix panel like a Tidbyt/Radar, 'ambient' smart-display,
 // 'retro' green CRT terminal, 'calm' minimal dark.
-const LOOKS = { ambient: 'ambient', paper: 'paper', swiss: 'swiss', retro: 'retro', calm: 'calm', anime: 'anime', tv: 'tv' };   // 'pixel' (led) is parked for now
+const LOOKS = { ambient: 'ambient', paper: 'paper', swiss: 'swiss', retro: 'retro', calm: 'calm', anime: 'anime' };   // 'pixel' (led) is parked for now
 let LOOK = 'ambient';
 try { const l = localStorage.getItem('deskTickerLook'); if (LOOKS[l]) LOOK = l; } catch (e) {}
 const THEME = LOOKS[LOOK];
@@ -1599,134 +1531,7 @@ function renderWatchSummary(data) {
   const now = (A.dataset.empty || '') + '|' + (B.dataset.empty || '');
   if (renderWatchSummary.sig !== now) { renderWatchSummary.sig = now; if (typeof applyMode === 'function' && typeof mode !== 'undefined' && mode) applyMode(true); }
 }
-addEventListener('resize', () => { const p = wsPortrait(); if (p !== wsWasPortrait) { wsWasPortrait = p; renderWatchSummary(); } try { tvRender(); } catch (e) {} });
-/* ---------- MARKET TV (theme "tv"): one fixed business-channel screen in the Indian and US stock modes ----------
-   Always on screen: the watchlist ranked by today's move, a news strip and two running lines. Only the left panel rotates. */
-var TV = { el: null, on: false, home: null, next: null, view: 0, news: 0, tick: 0, key: '', tapeKey: ['', ''] };
-function tvMode() { try { return mode; } catch (e) { return ''; } }
-function tvWanted() { return LOOK === 'tv' && (VIEW === 'in' || VIEW === 'us') && tvMode() !== 'night'; }
-function tvBuild() {
-  const el = document.createElement('div'); el.id = 'tvx'; el.hidden = true;
-  el.innerHTML = '<div class="tv-top"><div class="tv-clock"></div><div class="tv-date"></div><div class="tv-live"></div><div class="tv-menu"></div><button class="tv-gear" aria-label="Settings">⚙</button></div>' +
-    '<div class="tv-main"><div class="tv-panel"><div class="tv-ph"><span class="tv-lt"></span><span class="r tv-pg"></span></div><div class="tv-lbody"></div></div>' +
-    '<div class="tv-panel"><div class="tv-ph"><span>My watchlist today</span><span class="r tv-cnt"></span></div><div class="tv-cols"></div></div></div>' +
-    '<div class="tv-lower" hidden><div class="tv-tag"></div><div class="tv-hl"><span class="tv-tk"></span><span class="tv-ht"></span></div></div>' +
-    '<div class="tv-tape a"><span class="tv-lab">MARKETS</span><div class="tv-run"><div class="tv-strip"></div></div></div>' +
-    '<div class="tv-tape b"><span class="tv-lab">MY STOCKS</span><div class="tv-run"><div class="tv-strip"></div></div></div>';
-  document.body.appendChild(el); TV.el = el;
-  el.querySelector('.tv-gear').addEventListener('click', e => { e.stopPropagation(); document.getElementById('gearBtn').click(); });
-  el.querySelector('.tv-hl').addEventListener('click', () => { const u = el.querySelector('.tv-hl').dataset.url; if (u) window.open(u, '_blank', 'noopener'); });
-  el.addEventListener('click', () => document.getElementById('viewMenu').classList.remove('open'));
-}
-function tvSync() {
-  const want = tvWanted();
-  if (want && !TV.el) tvBuild();
-  if (TV.el && TV.on && want && TV.seen !== VIEW) { TV.seen = VIEW; tvRender(); tvClock(); }
-  if (!TV.el || want === TV.on) return;
-  TV.on = want; TV.el.hidden = !want; document.body.classList.toggle('tv-on', want);
-  const vs = document.querySelector('.viewsel');
-  if (vs) {                                   // the Slides / Theme menu travels with whichever header is showing
-    if (want) { TV.home = vs.parentNode; TV.next = vs.nextSibling; TV.el.querySelector('.tv-menu').appendChild(vs); }
-    else if (TV.home) TV.home.insertBefore(vs, TV.next);
-  }
-  if (want) { TV.view = 0; TV.news = 0; TV.key = ''; TV.seen = VIEW; tvRender(); tvClock(); }
-}
-function tvClock() {
-  if (!TV.on) return;
-  const us = VIEW === 'us', now = new Date(), c = us ? CHARTS.spx : CHARTS.nifty;
-  const t = now.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase().split(' ');
-  TV.el.querySelector('.tv-clock').innerHTML = t[0] + '<small>' + (t[1] || '') + '</small>';
-  let open = false; try { open = mktOpenNow(c); } catch (e) {}
-  TV.el.querySelector('.tv-date').innerHTML = now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) + '<br>' + (us ? 'US market ' : 'NSE ') + (open ? 'open' : 'closed');
-  const lv = TV.el.querySelector('.tv-live'); lv.textContent = open ? 'LIVE' : 'CLOSED'; lv.classList.toggle('off', !open);
-}
-function tvRender() {
-  if (!TV.on || !TV.el) return;
-  const el = TV.el, us = VIEW === 'us', d = wsData || {}, port = wsPortrait(), key = VIEW + '|' + port;
-  if (key !== TV.key) { TV.key = key; TV.view = 0; TV.news = 0; TV.tapeKey = ['', '']; }
-  const num = (v, dp) => v == null || !isFinite(v) ? '--' : Number(v).toLocaleString(us ? 'en-US' : 'en-IN', { minimumFractionDigits: dp, maximumFractionDigits: dp });
-  const pc = v => v == null || !isFinite(v) ? null : Math.round(v * 100) / 100;
-  const cls = p => p == null || p === 0 ? 'fl' : p > 0 ? 'up' : 'dn';
-  const sign = (p, dp) => p == null ? '' : (p > 0 ? '+' : p < 0 ? '−' : '') + Math.abs(p).toFixed(dp) + '%';
-  const arrow = p => p == null || p === 0 ? '' : p > 0 ? '▲ ' : '▼ ';
-  const q = s => d[s] || {};
-  // ---- right panel: the watchlist ranked by today's move ----
-  const list = (us ? W_US.filter(x => !/^INDEX/.test(x.sym)) : W_IN).map(x => ({ name: x.name, tick: x.tick, sym: x.sym, price: q(x.sym).price, p: q(x.sym).pct != null && isFinite(q(x.sym).pct) ? Math.round(q(x.sym).pct * 10) / 10 : null }));
-  const have = list.filter(x => x.p != null).sort((a, b) => b.p - a.p || a.name.localeCompare(b.name));
-  const up = have.filter(x => x.p > 0).length, dn = have.filter(x => x.p < 0).length;
-  el.querySelector('.tv-cnt').innerHTML = have.length ? '<span class="u">▲ ' + up + ' up</span><span class="d">▼ ' + dn + ' down</span>' : '';
-  const bars = (rows, max) => rows.map(x => '<div class="tv-r ' + cls(x.p) + '"><span class="n" style="color:#fff">' + esc(x.name) + '</span><span class="t"><i style="width:' + Math.max(2, Math.abs(x.p) / max * 100).toFixed(1) + '%"></i></span><span class="v">' + sign(x.p, 1) + '</span></div>').join('');
-  const cols = el.querySelector('.tv-cols'), max = Math.max(1, ...have.map(x => Math.abs(x.p)));
-  if (!have.length) { cols.style.gridTemplateColumns = '1fr'; cols.style.gridTemplateRows = ''; cols.innerHTML = '<div style="opacity:.6;padding:10px 2px">Waiting for prices…</div>'; }
-  else if (port && have.length > 16) {
-    cols.style.gridTemplateColumns = 'minmax(0,1fr)'; cols.style.gridTemplateRows = 'auto minmax(0,1fr) auto minmax(0,1fr)';
-    cols.innerHTML = '<h5>Leaders</h5><div class="tv-col">' + bars(have.slice(0, 7), max) + '</div><h5>Laggards</h5><div class="tv-col">' + bars(have.slice(-7).reverse(), max) + '</div>';
-  } else {
-    const two = !port && have.length > 9, h = two ? Math.ceil(have.length / 2) : have.length;
-    cols.style.gridTemplateRows = 'minmax(0,1fr)'; cols.style.gridTemplateColumns = two ? 'minmax(0,1fr) minmax(0,1fr)' : 'minmax(0,1fr)';
-    cols.innerHTML = '<div class="tv-col">' + bars(have.slice(0, h), max) + '</div>' + (two ? '<div class="tv-col">' + bars(have.slice(h), max) + '</div>' : '');
-  }
-  // ---- left panel: one of a few views, changed by the timer ----
-  const chip = s => { const x = q(s), p = pc(x.pct); return '<span class="tv-chip ' + cls(p) + '">' + arrow(p) + (x.change != null && isFinite(x.change) ? num(Math.abs(x.change), 2) + ' &nbsp;' : '') + sign(p, 2) + '</span>'; };
-  const sub = (lbl, s) => { const p = pc(q(s).pct); return '<div><b>' + lbl + '</b>' + num(q(s).price, 2) + ' <span class="' + cls(p) + '">' + sign(p, 2) + '</span></div>'; };
-  const chart = (c, s) => {
-    const pts = c && c.mem && c.mem.pts; if (!pts || pts.length < 2) return '';
-    const x = q(s), prev = x.price != null && x.change != null ? x.price - x.change : null, vs = pts.map(p => p[1]).concat(prev != null ? [prev] : []);
-    const lo = Math.min(...vs), hi = Math.max(...vs), Y = v => (112 - (v - lo) / ((hi - lo) || 1) * 104).toFixed(1), X = m => (m / c.len * 600).toFixed(1);
-    const col = (x.change || 0) >= 0 ? '#19e58a' : '#ff4d57', line = pts.map(p => X(p[0]) + ',' + Y(p[1])).join(' ');
-    return '<svg viewBox="0 0 600 120" preserveAspectRatio="none"><defs><linearGradient id="tvg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + col + '" stop-opacity=".42"/><stop offset="1" stop-color="' + col + '" stop-opacity="0"/></linearGradient></defs>' +
-      (prev != null ? '<line x1="0" x2="600" y1="' + Y(prev) + '" y2="' + Y(prev) + '" stroke="#6b7fa8" stroke-dasharray="4 5" stroke-width="1" vector-effect="non-scaling-stroke"/>' : '') +
-      '<polygon points="' + X(pts[0][0]) + ',120 ' + line + ' ' + X(pts[pts.length - 1][0]) + ',120" fill="url(#tvg)"/><polyline points="' + line + '" fill="none" stroke="' + col + '" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>';
-  };
-  const index = (title, s, c, subs) => ({ title, html: '<div class="tv-idx"><div class="tv-val">' + num(q(s).price, 2) + '</div>' + chip(s) + '</div><div class="tv-sub">' + subs.map(x => sub(x[0], x[1])).join('') + '</div><div class="tv-chart">' + chart(c, s) + '</div>' });
-  const board = (title, rows) => ({ title, html: '<div class="tv-board">' + rows.filter(r => r[1] !== '--').map(r => '<div class="tv-brow"><span class="n">' + r[0] + '</span><span class="p">' + r[1] + '</span><span class="c ' + cls(r[2]) + '">' + (r[2] == null ? '' : arrow(r[2]) + Math.abs(r[2]).toFixed(2) + '%') + '</span></div>').join('') + '</div>' });
-  const brow = (lbl, s, dp) => [lbl, num(q(s).price, dp == null ? 2 : dp), pc(q(s).pct)];
-  const views = [];
-  if (us) {
-    views.push(index('S&P 500', 'INDEXSP:.INX', CHARTS.spx, [['NASDAQ', 'INDEXNASDAQ:.IXIC'], ['DOW', 'INDEXDJX:.DJI']]));
-    views.push(board('US indices', [brow('S&P 500', 'INDEXSP:.INX'), brow('Nasdaq', 'INDEXNASDAQ:.IXIC'), brow('Dow Jones', 'INDEXDJX:.DJI'), brow('USD / INR', 'CURRENCY:USDINR'), brow('Nifty 50', 'INDEXNSE:NIFTY_50')]));
-  } else {
-    views.push(index('Nifty 50', 'INDEXNSE:NIFTY_50', CHARTS.nifty, [['SENSEX', 'INDEXBOM:SENSEX'], ['BANK', 'INDEXNSE:NIFTY_BANK']]));
-    views.push(board('Indices', [brow('Sensex', 'INDEXBOM:SENSEX'), brow('Bank Nifty', 'INDEXNSE:NIFTY_BANK'), brow('Nifty Next 50', 'INDEXNSE:NIFTY_NEXT_50'), brow('India VIX', 'INDEXNSE:INDIA_VIX'), brow('USD / INR', 'CURRENCY:USDINR')]));
-    const sec = SECTORS.map(x => ({ name: x.name, p: q(x.sym).pct != null && isFinite(q(x.sym).pct) ? Math.round(q(x.sym).pct * 10) / 10 : null })).filter(x => x.p != null).sort((a, b) => b.p - a.p);
-    if (sec.length) { const m = Math.max(1, ...sec.map(x => Math.abs(x.p))), h = Math.ceil(sec.length / 2);
-      views.push({ title: 'Sectors', html: '<div class="tv-cols" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr)"><div class="tv-col">' + bars(sec.slice(0, h), m) + '</div><div class="tv-col">' + bars(sec.slice(h), m) + '</div></div>' }); }
-    if (GR && GR.gold) { const gp = GR.goldChg != null && GR.gold - GR.goldChg ? GR.goldChg / (GR.gold - GR.goldChg) * 100 : null, sp = GR.silverChg != null && GR.silver - GR.silverChg ? GR.silverChg / (GR.silver - GR.silverChg) * 100 : null;
-      views.push(board('Gold & silver', [['Gold · 10 g', inr(GR.gold * 10), pc(gp)], ['Gold · 1 g', inr(GR.gold), pc(gp)], ['Silver · 1 kg', inr(GR.silver), pc(sp)]])); }
-  }
-  const v = views[TV.view % views.length];
-  el.querySelector('.tv-lt').textContent = v.title; el.querySelector('.tv-pg').textContent = (TV.view % views.length + 1) + ' / ' + views.length;
-  el.querySelector('.tv-lbody').innerHTML = v.html;
-  // ---- news strip ----
-  const nw = (FEED && FEED.news) || {}, items = us ? ((nw.USMarkets || {}).items || []) : (((nw.Watch || {}).items || []).length ? nw.Watch.items : ((nw.Markets || {}).items || []));
-  const low = el.querySelector('.tv-lower'); low.hidden = !items.length;
-  if (items.length) {
-    const it = items[TV.news % items.length], cut = String(it.t || '').lastIndexOf(' - '), title = cut > 20 ? it.t.slice(0, cut) : it.t, p = it.sym ? pc(q(it.sym).pct) : null;
-    el.querySelector('.tv-tag').textContent = it.tick ? 'WATCHLIST NEWS' : 'MARKET NEWS';
-    const tk = el.querySelector('.tv-tk'); tk.textContent = it.tick ? it.tick + (p == null ? '' : ' ' + sign(Math.round(p * 10) / 10, 1)) : ''; tk.className = 'tv-tk ' + (it.tick ? cls(p) : '');
-    el.querySelector('.tv-ht').textContent = title; el.querySelector('.tv-hl').dataset.url = it.u || '';
-  }
-  // ---- running lines: rebuilt only when the set of items changes, so the scroll never jumps ----
-  const tape = (i, rows) => {
-    const strip = el.querySelectorAll('.tv-strip')[i], k = rows.map(r => r[0]).join('|');
-    if (TV.tapeKey[i] !== k) { TV.tapeKey[i] = k;
-      const one = rows.map((r, j) => '<span class="tv-ti" data-j="' + j + '"></span>').join('');
-      strip.innerHTML = one + one; strip.style.animationDuration = Math.max(30, rows.length * 4.5) + 's'; }
-    strip.querySelectorAll('.tv-ti').forEach(s => { const r = rows[+s.dataset.j]; s.innerHTML = '<b>' + esc(r[0]) + '</b> ' + r[1] + ' <em class="' + cls(r[2]) + '">' + arrow(r[2]) + (r[2] == null ? '' : Math.abs(r[2]).toFixed(2) + '%') + '</em>'; });
-  };
-  const mk = (us ? [['S&P 500', 'INDEXSP:.INX'], ['NASDAQ', 'INDEXNASDAQ:.IXIC'], ['DOW', 'INDEXDJX:.DJI'], ['USD/INR', 'CURRENCY:USDINR'], ['NIFTY 50', 'INDEXNSE:NIFTY_50'], ['SENSEX', 'INDEXBOM:SENSEX']]
-    : [['NIFTY 50', 'INDEXNSE:NIFTY_50'], ['SENSEX', 'INDEXBOM:SENSEX'], ['NIFTY BANK', 'INDEXNSE:NIFTY_BANK'], ['NIFTY IT', 'INDEXNSE:NIFTY_IT'], ['INDIA VIX', 'INDEXNSE:INDIA_VIX']]
-        .concat(FX_LIST.map(c => [c + '/INR', 'CURRENCY:' + c + 'INR'])).concat([['S&P 500', 'INDEXSP:.INX'], ['NASDAQ', 'INDEXNASDAQ:.IXIC']]))
-    .filter(r => q(r[1]).price != null).map(r => [r[0], num(q(r[1]).price, 2), pc(q(r[1]).pct)]);
-  if (!us && GR && GR.gold) mk.push(['GOLD 10g', inr(GR.gold * 10), GR.goldChg != null && GR.gold - GR.goldChg ? pc(GR.goldChg / (GR.gold - GR.goldChg) * 100) : null]);
-  tape(0, mk);
-  tape(1, list.filter(x => x.price != null).sort((a, b) => a.tick.localeCompare(b.tick)).map(x => [x.tick, num(x.price, 2), pc(q(x.sym).pct)]));
-}
-setInterval(() => {                         // once a second: follow the mode, keep the clock, and turn the left panel and the news
-  try { tvSync(); if (!TV.on) return; TV.tick++; tvClock();
-    if (TV.tick % 12 === 0) { TV.view++; tvRender(); } else if (TV.tick % 9 === 0) { TV.news++; tvRender(); } } catch (e) {}
-}, 1000);
-
+addEventListener('resize', () => { const p = wsPortrait(); if (p !== wsWasPortrait) { wsWasPortrait = p; renderWatchSummary(); } });
 function buildGridSlides(list, title, accent, mode, per, view) {
   const slot = document.getElementById('stockSlot');
   const n = Math.ceil(list.length / per);                    // balanced slides: sizes differ by at most one (13 → 4, 3, 3, 3)
@@ -2099,7 +1904,6 @@ function renderPrices(f) {
     if (data['INDEXNSE:INDIA_VIX']) setVixGauge(data['INDEXNSE:INDIA_VIX'].price);
     tapeData = data; try { buildTape(); } catch (e) {}
     try { renderWatchSummary(data); } catch (e) {}
-    try { tvRender(); } catch (e) {}
     // 52-week markers on stock tiles: at (within 1%) or near (within 3%) the 52-week high or low
     document.querySelectorAll('.w52[data-w52]').forEach(el => {
       const d = data[el.dataset.w52]; let txt = '', cls = '';
