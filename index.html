@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v18.1-2026-11-16">
+<meta name="ticker-version" content="v18.2-2026-11-16">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -124,7 +124,9 @@
   /* metals: the last 7 days — a small line, the week's high, the weekly change and a low/high tag */
   .wk{display:none;margin-top:1.4vh;--wkc:var(--up,#3ddc84);--wkbg:rgba(61,220,132,.14)}
   .wk.down{--wkc:var(--down,#ff5a5f);--wkbg:rgba(255,90,95,.14)}
-  .metal.has-wk .wk{display:block} .metal.has-wk .dchg{display:none}
+  .metal.has-wk .wk{display:block;margin-top:.8vh} .metal.has-wk .dchg{margin-top:.5vh;font-size:clamp(11px,3.5vh,16px)}   /* day change stays, above the line */
+  .metal.has-wk .wk .plot{height:clamp(22px,9.5vh,64px)}
+  @media (orientation:portrait) and (max-height:700px){ .metal.has-wk .wk .plot{height:clamp(16px,5vh,34px)} .metal.has-wk .wk .ax, .metal.has-wk .wk .tag{display:none} .metal.has-wk .wk .t{margin-top:.4vh} }
   .wk .plot{position:relative;height:clamp(26px,12vh,72px)}
   .wk svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
   .wk .dot{position:absolute;right:-5px;width:10px;height:10px;margin-top:-5px;border-radius:50%;background:var(--wkc);box-shadow:0 0 0 3px rgba(0,0,0,.35)}
