@@ -228,7 +228,8 @@ const FEEDS = {
     ['https://www.financialexpress.com/market/feed/', 'Financial Express'], ['https://www.hindustantimes.com/feeds/rss/business/rssfeed.xml', 'Hindustan Times']],
   USMarkets: [['https://www.cnbc.com/id/20910258/device/rss/rss.html', 'CNBC'], ['https://feeds.content.dowjones.io/public/rss/mw_topstories', 'MarketWatch'],
     ['https://feeds.content.dowjones.io/public/rss/mw_marketpulse', 'MarketWatch'], ['https://finance.yahoo.com/news/rssindex', 'Yahoo Finance'],
-    ['https://www.nasdaq.com/feed/rssoutbound?category=Markets', 'Nasdaq'], ['https://www.investing.com/rss/news_25.rss', 'Investing.com']],
+    ['https://www.nasdaq.com/feed/rssoutbound?category=Markets', 'Nasdaq'], ['https://www.investing.com/rss/news_25.rss', 'Investing.com'],
+    ['https://www.cnbc.com/id/15839069/device/rss/rss.html', 'CNBC'], ['https://www.cnbc.com/id/10001147/device/rss/rss.html', 'CNBC'], ['https://seekingalpha.com/market_currents.xml', 'Seeking Alpha']],
   World: [['https://www.theguardian.com/world/rss', 'The Guardian'], ['https://www.cnbc.com/id/100727362/device/rss/rss.html', 'CNBC'],
     ['https://rss.dw.com/rdf/rss-en-world', 'DW'], ['https://feeds.npr.org/1004/rss.xml', 'NPR'], ['https://feeds.skynews.com/feeds/rss/world.xml', 'Sky News'],
     ['https://www.france24.com/en/rss', 'France 24'], ['https://www.hindustantimes.com/feeds/rss/world-news/rssfeed.xml', 'Hindustan Times'],
@@ -237,6 +238,10 @@ const FEEDS = {
 const BLOCK = ['The Hindu', 'BBC', 'Al Jazeera', 'NDTV Sports'];
 const KEEP = 10, MAX_PER_SOURCE = 2, MAX_AGE_H = 12;
 const MARKET_WORDS = /\b(sensex|nifty|nse|bse|stock|stocks|shares?|stock markets?|share market|equity|equities|ipo|rupee|rbi|sebi|fii|fiis|dii|q[1-4]|quarterly|profit|revenue|earnings|dividend|bonus|buyback|bond|bonds|yield|gold|silver|crude|inflation|gdp|mutual funds?|sip|smallcap|midcap|largecap|brokerage|target price|f&o|futures|nasdaq|dow|s&p|wall street|dalal street|investors?|valuation|market cap|promoters?)\b/i;
+// US market news must be about the US: a clearly American term always passes; a headline about another country's market is dropped
+const US_STRONG = /\b(wall street|s&p ?500|s&p|nasdaq|dow jones|the dow|dow|nyse|federal reserve|the fed|fed|fomc|powell|treasury|treasuries|white house|nvidia|apple|microsoft|amazon|alphabet|google|meta|tesla|broadcom|berkshire|jpmorgan|goldman|walmart|magnificent seven)\b/i;
+const US_ABBR = /\b(U\.S\.|US|USA|American?)\b/;
+const FOREIGN = /\b(asia|asian|asia-pacific|europe|european|japan|japanese|nikkei|topix|china|chinese|hong kong|hang seng|shanghai|shenzhen|india|indian|sensex|nifty|ftse|dax|cac ?40|stoxx|kospi|korea|korean|asx|australia|australian|tsx|canada|canadian|toronto|britain|british|uk|london|germany|german|france|french|italy|italian|spain|spanish|ibex|brazil|bovespa|mexico|argentina|chile|colombia|peru|taiwan|taiex|singapore|saudi|tadawul|dubai|abu dhabi|uae|qatar|kuwait|bahrain|oman|egypt|israel|tel aviv|turkey|bist|russia|moex|south africa|nigeria|morocco|indonesia|jakarta|idx|philippines|psei|thailand|vietnam|malaysia|pakistan|karachi|sri lanka|colombo|bangladesh|poland|wig\w*|sweden|omx\w*|norway|oslo|denmark|finland|netherlands|aex|belgium|bel ?20|portugal|psi|greece|athens|swiss|switzerland|smi|austria|new zealand|nzx\w*|emerging markets?|euro ?zone|ecb|boj|pboc|rbi|boe|yen|yuan|rupee|sterling|at close of trade)\b/i;
 const US_WORDS = /\b(wall street|s&p|nasdaq|dow|nyse|stocks?|shares?|equities|earnings|fed|federal reserve|powell|treasury|treasuries|yields?|bond|bonds|ipo|rally|selloff|sell-off|futures|dollar|inflation|cpi|jobs report|payrolls|recession|tariffs?|nvidia|apple|microsoft|amazon|alphabet|google|meta|tesla|broadcom|berkshire|jpmorgan|investors?|market cap|valuation|guidance|outlook|chipmakers?|tech stocks)\b/i;
 const decode = s => String(s || '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;|&apos;|&#x27;|&#8217;/g, "'")
   .replace(/&quot;|&#8220;|&#8221;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#8211;|&#8212;/g, '-').replace(/&nbsp;/g, ' ')
@@ -291,7 +296,11 @@ function pickTop(items, o = {}) {
 async function jobNews(env, section) {
   const lists = await Promise.all(FEEDS[section].map(([u, s]) => readFeed(u, s))), items = lists.flat();
   const perFeed = lists.map((l, i) => FEEDS[section][i][1] + ' ' + l.length).join(', ');
-  const filt = section === 'Markets' ? items.filter(x => MARKET_WORDS.test(x.title)) : section === 'USMarkets' ? items.filter(x => US_WORDS.test(x.title)) : items;
+  let filt = section === 'Markets' ? items.filter(x => MARKET_WORDS.test(x.title)) : items;
+  if (section === 'USMarkets') {
+    const mine = (((await getCfg(env)).watch || {}).us || []).filter(x => !/^INDEX/.test(x.sym)).map(x => stockMatcher(x));   // a headline naming one of your US stocks always counts
+    filt = items.filter(x => { const t = x.title; return US_STRONG.test(t) || US_ABBR.test(t) || mine.some(f => f(t)) || (!FOREIGN.test(t) && US_WORDS.test(t)); });
+  }
   const top = pickTop(filt);
   if (!top.length) throw new Error('no headlines from any ' + section + ' feed (kept the last list)');
   await dbPut(env, 'news_' + section, top);
