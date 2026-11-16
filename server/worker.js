@@ -301,6 +301,7 @@ async function jobNews(env, section) {
   if (section === 'USMarkets') {
     const mine = (((await getCfg(env)).watch || {}).us || []).filter(x => !/^INDEX/.test(x.sym)).map(x => stockMatcher(x));   // a headline naming one of your US stocks always counts
     filt = items.filter(x => { const t = x.title; if (US_JUNK.test(t)) return false;
+      if (/\bGAAP EPS\b|\bbeats? by \$|\bmisses by \$/i.test(t) && !mine.some(f => f(t))) return false;   // one-line results of companies you don't follow
       if (US_STRONG.test(t) || US_ABBR.test(t)) return true;          // about the US market: keep, even if another country is mentioned
       if (FOREIGN.test(t)) return false;                                // another country's market: drop, even if a US company is named
       return mine.some(f => f(t)) || US_WORDS.test(t); });
