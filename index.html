@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v18.4-2026-11-17">
+<meta name="ticker-version" content="v18.5-2026-11-18">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -937,6 +937,11 @@
   .ani-s svg{position:absolute;display:block}
   .ani-s .skyl{left:0;bottom:0;width:100%;height:30vh}
   .ani-s .wires{left:0;top:3vh;width:100%;height:14vh}
+  /* storm: the bolts and the sky light up for a moment every few seconds */
+  .ani-s .bolt{opacity:0;animation:aniBolt 7s linear infinite} .ani-s .bolt.bl2{animation-delay:-3.4s;animation-duration:9s}
+  .ani-s .flash{position:absolute;inset:0;background:radial-gradient(ellipse at 25% 8%,rgba(225,232,255,.55),transparent 60%);opacity:0;animation:aniBolt 7s linear infinite}
+  @keyframes aniBolt{0%,86%{opacity:0} 87%{opacity:1} 89%{opacity:.15} 91%{opacity:.9} 95%,100%{opacity:0}}
+  .ani-s .fogb{position:absolute;left:-10%;right:-10%;filter:blur(6px)}
   /* scanlines, like an old tape */
   body.anime::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:7;background:repeating-linear-gradient(0deg,rgba(0,0,0,.07) 0 1px,transparent 1px 3px)}
   body.anime.night::after{display:none}
@@ -2257,10 +2262,16 @@ var ANI_SKY = {
   cloud:   'linear-gradient(180deg,#7f93b8 0%,#a9b8d4 50%,#dfe6f2 100%)',
   rain:    'linear-gradient(180deg,#4d5f80 0%,#6e7f9e 55%,#a3b0c6 100%)',
   dusk:    'linear-gradient(180deg,#1d1647 0%,#4a2a7a 30%,#b6489a 62%,#ff8a6a 86%,#ffc27a 100%)',
+  storm:   'linear-gradient(180deg,#141a2e 0%,#262c48 45%,#3d3f5e 80%,#4f4a66 100%)',
+  fog:     'linear-gradient(180deg,#c9ccd6 0%,#d9dbe2 45%,#e8e8ec 100%)',
+  hot:     'linear-gradient(180deg,#ff9a3c 0%,#ffc35a 40%,#ffe39a 75%,#fff4d6 100%)',
+  japan:   'linear-gradient(180deg,#7cc0ff 0%,#b9dcff 55%,#ffe2ee 100%)',
+  japanN:  'linear-gradient(180deg,#0b0b2b 0%,#22104f 50%,#6a1d6e 82%,#c24a7a 100%)',
   night:   'linear-gradient(180deg,#0b0b2b 0%,#22104f 50%,#6a1d6e 82%,#c24a7a 100%)',
   rainN:   'linear-gradient(180deg,#0e1a33 0%,#1e2f55 55%,#3a3566 100%)',
 };
-var ANI_DARK = { dusk: 1, night: 1, rainN: 1 };
+var ANI_DARK = { dusk: 1, night: 1, rainN: 1, storm: 1, japanN: 1 };
+var aniFog = false, aniTemp = null;
 var aniNow = '';
 function aniSkyline(win, body, seed) {           // a city row with lit windows, drawn once
   let s = seed, x = -10, out = '';
@@ -2295,7 +2306,27 @@ function aniBuild() {
   const branch = `<svg style="right:0;top:0;width:34vw;max-width:340px" viewBox="0 0 320 140"><g transform="scale(-1,1) translate(-320,0)">` +
     `<path d="M-10,30 C60,40 120,20 180,50 S260,100 300,110" stroke="#5a3a3a" stroke-width="8" fill="none" stroke-linecap="round"/>` +
     `<path d="M110,30 C130,10 150,4 180,4" stroke="#5a3a3a" stroke-width="4" fill="none" stroke-linecap="round"/>${fl}</g></svg>`;
+  // new scenes: storm, fog, hot day, and Japan by day and by night (mixed in with the city on clear hours)
+  const bolt = (x, h, cls) => `<svg class="bolt ${cls}" style="left:${x};top:0;width:${h / 3}vh;height:${h}vh" viewBox="0 0 100 300"><path d="M60,0 L34,120 L58,120 L28,300 L80,96 L54,96 L74,0 Z" fill="#fffbe0" stroke="#ffe36e" stroke-width="3" style="filter:drop-shadow(0 0 12px #fff6a8) drop-shadow(0 0 30px #b9c8ff)"/></svg>`;
+  const fogBand = (top, op, h) => `<div class="fogb" style="top:${top};height:${h};background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,${op}) 45%,rgba(255,255,255,0))"></div>`;
+  let rays = ''; for (let i = 0; i < 16; i++) rays += `<line x1="100" y1="100" x2="${(100 + 95 * Math.cos(i * Math.PI / 8)).toFixed(1)}" y2="${(100 + 95 * Math.sin(i * Math.PI / 8)).toFixed(1)}" stroke="#fff3b0" stroke-width="${i % 2 ? 3 : 6}" stroke-linecap="round" opacity=".8"/>`;
+  const sun = `<svg style="left:62%;top:-4vh;width:34vh;height:34vh" viewBox="0 0 200 200">${rays}<circle cx="100" cy="100" r="44" fill="#fff6c8" stroke="#ff8a1e" stroke-width="5" style="filter:drop-shadow(0 0 18px #ffd36b)"/></svg>`;
+  const wave = 'q25,-8 50,0' + ' t50,0'.repeat(19);
+  const shimmer = `<svg style="left:0;bottom:24vh;width:100%;height:10vh" viewBox="0 0 1000 60" preserveAspectRatio="none"><g fill="none" stroke="#fff" stroke-width="2" opacity=".35"><path d="M0,15 ${wave}"/><path d="M0,40 ${wave}"/></g></svg>`;
+  const fuji = (ink, snow, op) => `<svg style="left:4%;bottom:14vh;width:62vw;height:40vh" viewBox="0 0 600 240" preserveAspectRatio="none"><path d="M0,240 L250,30 L350,30 L600,240 Z" fill="${ink}" opacity="${op}"/><path d="M250,30 L350,30 L398,70 L372,62 L352,84 L330,64 L306,90 L284,66 L262,82 L246,64 L202,70 Z" fill="${snow}"/></svg>`;
+  const torii = ink => `<svg style="right:6%;bottom:9vh;width:22vh;height:24vh" viewBox="0 0 120 130"><g fill="${ink}"><path d="M2,14 Q60,2 118,14 L118,22 Q60,12 2,22 Z"/><rect x="10" y="30" width="100" height="8"/><rect x="22" y="18" width="9" height="112"/><rect x="89" y="18" width="9" height="112"/><rect x="56" y="22" width="8" height="12"/></g></svg>`;
+  const pagoda = (ink, lit) => { let t = ''; [0, 1, 2, 3, 4].forEach(i => { const w = 70 - i * 11, y = 110 - i * 20;
+      t += `<path d="M${50 - w / 2 - 8},${y} Q50,${y - 7} ${50 + w / 2 + 8},${y} L${50 + w / 2},${y - 4} L${50 - w / 2},${y - 4} Z" fill="${ink}"/><rect x="${50 - w / 2 + 4}" y="${y - 16}" width="${w - 8}" height="12" fill="${ink}"/>` + (lit ? `<rect x="47" y="${y - 13}" width="6" height="6" fill="${lit}"/>` : ''); });
+    return `<svg style="left:3%;bottom:16vh;width:12vh;height:30vh" viewBox="0 0 100 140">${t}<rect x="48" y="2" width="4" height="22" fill="${ink}"/></svg>`; };
+  const lanterns = `<svg style="left:0;top:13vh;width:100%;height:14vh" viewBox="0 0 1000 100" preserveAspectRatio="none"><path d="M0,10 Q500,70 1000,10" stroke="#2a1a3a" stroke-width="2" fill="none" vector-effect="non-scaling-stroke"/></svg>` +
+    [8, 20, 32, 44, 56, 68, 80, 92].map((x, i) => `<svg style="left:${x}vw;top:${15 + Math.sin(i / 7 * Math.PI) * 5.5}vh;width:3vh;height:4.6vh" viewBox="0 0 20 30"><rect x="8" y="0" width="4" height="4" fill="#2a1a3a"/><ellipse cx="10" cy="17" rx="9" ry="12" fill="#ff5a4e" style="filter:drop-shadow(0 0 6px #ff8a5e)"/><path d="M2,17 h16" stroke="#7a1a1a" stroke-width="1"/></svg>`).join('');
+  const hills = `<svg style="left:0;bottom:0;width:100%;height:12vh" viewBox="0 0 1000 60" preserveAspectRatio="none"><path d="M0,30 Q250,10 500,28 T1000,22 L1000,60 L0,60 Z" fill="#7aa86a"/></svg>`;
   const S = {
+    storm:   '<div class="flash"></div>' + bolt('18vw', 72, 'bl1') + bolt('72vw', 48, 'bl2') + aniSkyline(['#ffe9a8'], '#1c2238', 5),
+    fog:     aniSkyline(null, 'rgba(120,124,140,.55)', 9) + fogBand('30vh', .55, '20vh') + fogBand('48vh', .9, '22vh') + fogBand('62vh', .95, '30vh'),
+    hot:     sun + shimmer + aniSkyline(null, 'rgba(150,70,20,.42)', 13),
+    japan:   fuji('#4a5f9a', '#ffffff', .55) + torii('#d23b2e') + pagoda('#2b3a66', null) + hills,
+    japanN:  lanterns + fuji('#1d1240', '#d8d0ff', .9) + torii('#1a0f3e') + pagoda('#1a0f3e', '#ffd36b') + aniSkyline(['#ffe9a8', '#ffb3dd'], '#120a30', 7),
     morning: branch + aniSkyline(null, 'rgba(122,106,154,.35)', 11),
     day:     wires('#173a7a') + aniCloud('2vw', '58vh', '30vw', '#173a7a', '#c9d4f5') + aniCloud('68vw', '62vh', '24vw', '#173a7a', '#c9d4f5'),
     cloud:  
@@ -2315,14 +2346,18 @@ function aniBuild() {
 }
 function aniPick() {
   const today = new Date().toLocaleDateString('en-CA', { timeZone:'Asia/Kolkata' }), t = sunTimes(today), now = new Date();
-  const wet = wxKind === 'rain' || wxKind === 'storm';
   const dark = now < t.rise || now >= new Date(+t.set + 40 * 60e3);
   const dusk = now >= new Date(+t.set - 40 * 60e3) && !dark;
-  if (wet) return dark || dusk ? 'rainN' : 'rain';
-  if (dark) return 'night';
-  if (dusk) return 'dusk';
-  if (wxKind === 'cloud') return 'cloud';
   const h = +now.toLocaleString('en-US', { timeZone:'Asia/Kolkata', hour:'numeric', hour12:false });
+  const japan = h % 2 === 1;                       // on clear hours the city and Japan take turns, an hour each
+  if (wxKind === 'storm') return 'storm';
+  if (wxKind === 'rain') return dark || dusk ? 'rainN' : 'rain';
+  if (dark) return japan ? 'japanN' : 'night';
+  if (dusk) return 'dusk';
+  if (aniFog) return 'fog';
+  if (wxKind === 'cloud') return 'cloud';
+  if (aniTemp != null && aniTemp >= 33) return 'hot';
+  if (japan) return 'japan';
   return h < 11 ? 'morning' : 'day';
 }
 function aniUpdate() {
@@ -2332,8 +2367,8 @@ function aniUpdate() {
   aniNow = s;
   document.querySelectorAll('#ani .ani-s').forEach(d => d.classList.toggle('on', d.dataset.s === s));
   document.body.classList.toggle('anidark', !!ANI_DARK[s]);
-  document.getElementById('fxRain').classList.toggle('on', s === 'rain' || s === 'rainN');
-  document.getElementById('aniFx').classList.toggle('petals', s === 'morning');
+  document.getElementById('fxRain').classList.toggle('on', s === 'rain' || s === 'rainN' || s === 'storm');
+  document.getElementById('aniFx').classList.toggle('petals', s === 'morning' || s === 'japan');
   if (typeof drawSpark === 'function') drawSpark();
 }
 if (THEME === 'anime') setInterval(aniUpdate, 60 * 1000);
@@ -3024,7 +3059,7 @@ function renderWeather() {
   document.getElementById('wHum').textContent = rh + '%';
   const kind = /Thunder/.test(desc) ? 'storm' : /rain|drizzle|shower/i.test(desc) ? 'rain' : /cloud|overcast|fog|mist|haze/i.test(desc) ? 'cloud' : isDay ? 'clear' : 'night';
   document.getElementById('wxCard').style.setProperty('--wxglow', WX_GLOW[kind]);
-  wxKind = kind;
+  wxKind = kind; aniFog = /fog|mist|haze|smoke/i.test(desc); aniTemp = isFinite(t) ? t : null;
   aniUpdate();
   const hw = document.getElementById('hWx'); if (hw) hw.textContent = icon + ' ' + Math.round(t) + '°';
   if (THEME === 'ambient' && slides[idx] && slides[idx].dataset.wx) setScene(sceneFor(slides[idx]));
