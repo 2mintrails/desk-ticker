@@ -419,6 +419,38 @@ async function jobWatch(env) {
    Their home page carries about four months of daily rates in two hidden fields: gold 999 per 10 g, silver 999 per kg. */
 const unesc = t => String(t).replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 async function jobMetals(env) {
+  const notes = [];
+  // gold: Bangalore jewellers' 24K rate per gram from GoodReturns (its page lists the last 10 days; the server keeps every day it sees)
+  try {
+    const page = await get('https://www.goodreturns.in/gold-rates/bangalore.html');
+    const MON = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
+    const cell = h => h.replace(/<[^>]+>/g, ' ').replace(/&#x20b9;|&#8377;|&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    const rupees = t => { const m = t.match(/₹?\s*([\d,]{4,})/); return m ? num(m[1]) : null; };
+    const seen = {};
+    (page.match(/<tr[\s\S]*?<\/tr>/g) || []).forEach(tr => {
+      const td = (tr.match(/<td[\s\S]*?<\/td>/g) || []).map(cell); if (td.length < 2) return;
+      const d = td[0].match(/^([A-Z][a-z]{2}) (\d{1,2}), (\d{4})$/); if (!d || !MON[d[1]]) return;
+      const k24 = rupees(td[1]), k22 = td[2] ? rupees(td[2]) : null;
+      if (!k24 || k24 < 3000 || k24 > 60000 || (k22 && k22 > k24)) return;          // 24K per gram, never below the 22K beside it
+      const k = `${d[3]}-${p2(MON[d[1]])}-${p2(+d[2])}`; if (!seen[k]) seen[k] = k24;   // first table wins (the 10-day one)
+    });
+    const n = Object.keys(seen).length; if (n < 3) throw new Error('GoodReturns gold table not found');
+    const hist = (await dbGet(env, ['gr_gold'])).gr_gold?.v || {};
+    Object.assign(hist, seen);
+    // first time only: add older days the server saved from the sheet (also GoodReturns), if they agree on the days both have
+    if (!hist._seeded) {
+      const old = (await dbGet(env, ['metal_hist'])).metal_hist?.v || {}, both = Object.keys(seen).filter(k => old[k] && old[k].gold);
+      const agree = both.length >= 2 && both.every(k => Math.abs(old[k].gold - seen[k]) / seen[k] < 0.005);
+      if (agree) Object.keys(old).forEach(k => { if (!hist[k] && old[k].gold) hist[k] = old[k].gold; });
+      hist._seeded = agree ? 'sheet' : 'none';
+    }
+    const keys = Object.keys(hist).filter(k => /^\d{4}-/.test(k)).sort(); keys.slice(0, Math.max(0, keys.length - 400)).forEach(k => delete hist[k]);
+    await dbPut(env, 'gr_gold', hist);
+    const last = keys[keys.length - 1];
+    notes.push(`gold (GoodReturns) ₹${hist[last]}/g (${last}), ${n} on page, ${keys.length} days kept, older days from sheet: ${hist._seeded}`);
+  } catch (e) { notes.push('gold (GoodReturns): ' + (e.message || e)); }
+  // IBJA: kept only as the backup for gold and silver
+  try {
   const html = await get('https://www.ibjarates.com/');
   const field = id => { const m = html.match(new RegExp('id="' + id + '"\\s+value="([^"]*)"')) || html.match(new RegExp('value="([^"]*)"\\s+id="' + id + '"')); return m ? JSON.parse(unesc(m[1])) : null; };
   const G = field('HdnGold'), S = field('HdnSilver');
@@ -435,6 +467,8 @@ async function jobMetals(env) {
   const o = { gold, silver, at: Date.now() };
   await dbPut(env, 'ibja', o);
   const g = gold[gold.length - 1];
+  notes.push(`backup IBJA ₹${g.p}/g (${g.date})`);
+  } catch (e) { notes.push('backup IBJA: ' + (e.message || e)); }
   // silver: Bangalore jewellers' rate from GoodReturns (its page lists the last 10 days; the server keeps every day it sees)
   let sNote = '';
   try {
@@ -450,7 +484,9 @@ async function jobMetals(env) {
     const last = keys[keys.length - 1];
     sNote = `silver (GoodReturns) ₹${hist[last]}/kg (${last}), ${keys.length} days kept`;
   } catch (e) { sNote = 'silver (GoodReturns): ' + (e.message || e); }
-  return `gold 999 ₹${g.p}/g (${g.date}), ${gold.length} days of history · ${sNote}`;
+  notes.push(sNote);
+  if (/^(gold|silver) \(GoodReturns\):/.test(notes[0]) && /^silver \(GoodReturns\):/.test(sNote) && /^backup IBJA:/.test(notes[1] || '')) throw new Error(notes.join(' · '));
+  return notes.join(' · ');
 }
 
 /* ---------------- the timer ---------------- */
@@ -575,7 +611,7 @@ const rateOf = v => { const m = String(v || '').match(/([\d,]+(?:\.\d+)?)\s*(?:\
 const isoDay = s => { const t = Date.parse(s); return t ? new Date(t + 6 * 3600e3).toISOString().slice(0, 10) : null; };
 async function feed(env) {
   const cfg = await getCfg(env);
-  const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'ibja', 'gr_silver', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets', 'news_Local', 'news_Watch'];
+  const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'ibja', 'gr_silver', 'gr_gold', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets', 'news_Local', 'news_Watch'];
   const d = await dbGet(env, keys), E = d.env?.v || {}, rows = (d.sheet1?.v || []).slice(1);
   const quotes = {};
   rows.forEach(r => {
@@ -598,12 +634,18 @@ async function feed(env) {
     metals.gold = withChg(I.gold); metals.silver = withChg(I.silver); metals.source = 'IBJA'; metals.at = d.ibja.at;
     metals.goldSource = 'IBJA'; metals.silverSource = 'IBJA';
   }
+  const GG = d.gr_gold?.v;                                 // gold: GoodReturns Bangalore 24K per gram, as many days as kept
+  if (GG) {
+    const list = Object.keys(GG).filter(k => /^\d{4}-/.test(k)).sort().map(k => ({ date: k, p: GG[k] }));
+    if (list.length >= 2) { metals.gold = list.map((x, i) => ({ date: x.date, p: x.p, c: i ? x.p - list[i - 1].p : null })).reverse(); metals.goldSource = 'GoodReturns Bangalore'; }
+  }
   const GS = d.gr_silver?.v;                               // silver: GoodReturns Bangalore (jewellers' rate), as many days as kept
   if (GS && Object.keys(GS).length >= 2) {
     const list = Object.keys(GS).sort().map(k => ({ date: k, p: GS[k] }));
     metals.silver = list.map((x, i) => ({ date: x.date, p: x.p, c: i ? x.p - list[i - 1].p : null })).reverse();
     metals.silverSource = 'GoodReturns Bangalore';
   }
+  if (metals.goldSource === 'GoodReturns Bangalore' && metals.silverSource === 'GoodReturns Bangalore') { metals.source = 'GoodReturns Bangalore'; metals.at = Math.max(d.gr_gold?.at || 0, d.gr_silver?.at || 0) || metals.at; }
   const charts = {};
   (d.idx?.v || []).slice(1).forEach(r => {
     charts[r[0]] = { p: num(r[1]), prev: num(r[2]), at: num(r[3]) ? num(r[3]) * 1000 : null,
@@ -615,7 +657,7 @@ async function feed(env) {
     news.Watch = { at: W?.at || null, items: (W?.v || []).map(i => ({ t: i.text, u: i.link, sym: i.sym, tick: i.tick })) }; }
   ['India', 'World', 'Markets', 'USMarkets'].forEach(s => { const x = d['news_' + s]; news[s] = { at: x?.at || null, items: (x?.v || []).map(i => ({ t: i.text, u: i.link })) }; });
   const a = E.aqi;
-  const ages = Object.fromEntries(Object.entries(d).filter(([k]) => !['log', 'metal_hist', 'ibja', 'gr_silver'].includes(k)).map(([k, x]) => [k, Math.round((Date.now() - x.at) / 1000)]));
+  const ages = Object.fromEntries(Object.entries(d).filter(([k]) => !['log', 'metal_hist', 'ibja', 'gr_silver', 'gr_gold'].includes(k)).map(([k, x]) => [k, Math.round((Date.now() - x.at) / 1000)]));
   return {
     v: 2, at: Date.now(),
     quotes, charts, metals, news,
