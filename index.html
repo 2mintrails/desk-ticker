@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v18.5-2026-11-18">
+<meta name="ticker-version" content="v18.6-2026-11-18">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -239,6 +239,50 @@
   .n-time{font-family:"JetBrains Mono",monospace;font-weight:500;font-size:clamp(56px,34vh,180px);letter-spacing:-4px;line-height:1}
   .n-date{font-size:clamp(13px,5vh,22px);margin-top:1.5vh;letter-spacing:1px}
   .n-info{font-size:clamp(11px,4vh,17px);margin-top:1.2vh;opacity:.8}
+  /* ---------- tap to go deeper: one detail card over the slide (a stock, an index, or the weather) ---------- */
+  #dsheet{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(5,8,18,.55);
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .25s;font-family:Inter,"Space Grotesk",-apple-system,sans-serif;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  #dsheet.open{opacity:1;pointer-events:auto}
+  #dsheet .box{width:min(92vw,900px);max-height:90vh;overflow:auto;background:rgba(20,24,36,.97);border:1px solid rgba(255,255,255,.14);border-radius:18px;
+    padding:2.4vh 2.4vw;color:#eef1f7;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:1.6vh 2.6vw;box-shadow:0 20px 60px rgba(0,0,0,.5);
+    transform:translateY(14px) scale(.98);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+  #dsheet.open .box{transform:none}
+  #dsheet .hd{grid-column:1/-1;display:flex;align-items:center;gap:14px;min-width:0}
+  #dsheet .lg{width:42px;height:42px;border-radius:10px;background:#2b3245;display:grid;place-items:center;font-weight:800;color:#fff;font-size:18px;flex:none;overflow:hidden}
+  #dsheet .lg img{width:100%;height:100%;object-fit:contain;background:#fff}
+  #dsheet .nm{font-size:22px;font-weight:700;line-height:1.15;min-width:0} #dsheet .nm small{display:block;font-size:12px;opacity:.6;font-weight:500;letter-spacing:1px}
+  #dsheet .px{margin-left:auto;text-align:right;white-space:nowrap} #dsheet .px b{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;display:block;line-height:1.05}
+  #dsheet .px span{font-weight:700;font-size:15px}
+  #dsheet .up{color:#3ddc84} #dsheet .dn{color:#ff6b6b} #dsheet .fl{color:#aab4cf}
+  #dsheet .x{width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.25);display:grid;place-items:center;font-size:16px;color:#fff;background:none;margin-left:10px;flex:none;cursor:pointer}
+  #dsheet .dtabs{display:flex;gap:6px;margin-bottom:6px}
+  #dsheet .dtabs button{font:inherit;font-size:12px;font-weight:700;padding:3px 11px;border-radius:99px;border:1px solid rgba(255,255,255,.25);background:none;color:#eef1f7;opacity:.75;cursor:pointer}
+  #dsheet .dtabs button.on{background:#fff;color:#111;opacity:1}
+  #dsheet .dch{position:relative;height:22vh;min-height:110px} #dsheet .dch svg{width:100%;height:100%;display:block}
+  #dsheet .dch .wait{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;opacity:.6}
+  #dsheet h4{font-size:11px;letter-spacing:2px;text-transform:uppercase;opacity:.6;margin:0 0 8px;font-weight:700}
+  #dsheet .drl{display:flex;justify-content:space-between;font-size:12px;opacity:.75;margin-top:4px}
+  #dsheet .drng{position:relative;height:8px;border-radius:99px;background:linear-gradient(90deg,#ef4444,#f59e0b,#3ddc84);margin:14px 0 4px}
+  #dsheet .drng b{position:absolute;top:-6px;width:4px;height:20px;margin-left:-2px;border-radius:2px;background:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.2)}
+  #dsheet .dst{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-top:12px;font-size:14px}
+  #dsheet .dst div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:4px} #dsheet .dst span{opacity:.6}
+  #dsheet .devt{background:rgba(255,200,80,.12);border:1px solid rgba(255,200,80,.35);border-radius:10px;padding:7px 12px;font-size:13px;margin-top:10px}
+  #dsheet .dnw a{display:block;color:inherit;text-decoration:none;font-size:14px;line-height:1.35;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08)}
+  #dsheet .dnw small{display:block;opacity:.55;font-size:11px;margin-top:2px}
+  #dsheet .foot{grid-column:1/-1;font-size:11px;opacity:.5;text-align:center}
+  #dsheet .hrs{grid-column:1/-1;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));text-align:center}
+  #dsheet .hc{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:13px} #dsheet .hc small{opacity:.6;font-size:11px;white-space:nowrap}
+  #dsheet .hc span{font-size:19px} #dsheet .hc b{font-size:15px} #dsheet .hc i{display:block;width:55%;background:#4fa8ff;border-radius:3px 3px 0 0;margin-top:auto}
+  #dsheet .hc em{font-style:normal;font-size:11px;color:#8cc8ff;min-height:1.2em}
+  #dsheet .wtl{grid-column:1/-1} #dsheet .wtl svg{width:100%;height:9vh;display:block}
+  #dsheet .nudge{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap} #dsheet .nudge div{background:rgba(255,255,255,.07);border-radius:10px;padding:7px 12px;font-size:13px}
+  .grid6 .tile, .ws-r, #wxCard, .slide .card:has(#sparkSvg), .slide .card:has(#spxSvg){cursor:pointer}
+  @media (orientation:portrait) and (max-aspect-ratio: 4/5){
+    #dsheet .box{grid-template-columns:minmax(0,1fr);width:94vw;padding:2vh 4.5vw;gap:1.4vh}
+    #dsheet .hd{flex-wrap:wrap} #dsheet .nm{font-size:18px;flex:1} #dsheet .px{order:3;width:100%;text-align:left;margin-left:0} #dsheet .px b{font-size:26px}
+    #dsheet .dch{height:17vh} #dsheet .hrs{grid-template-columns:repeat(6,minmax(0,1fr));row-gap:12px} #dsheet .dnw a:nth-child(n+3){display:none}
+  }
   /* ---------- watchlist summary: every stock ranked by today's move ---------- */
   .ws{height:calc(100% - max(3.4vh, 22px));display:flex;flex-direction:column;gap:1.3vh;padding:2vh 2.2vw 1.6vh;min-height:0;box-sizing:border-box}
   .ws-h{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;font-weight:700;font-size:clamp(14px,4.2vh,21px);flex:none}
@@ -1489,13 +1533,13 @@ function buildWatchSummary() {
 function renderWatchSummary(data) {
   if (data) wsData = data; data = wsData;
   const A = document.getElementById('wsA'), B = document.getElementById('wsB'); if (!A || !data) return;
-  const all = W_IN.map(x => { const d = data[x.sym], p = d && d.pct != null && isFinite(d.pct) ? Math.round(d.pct * 10) / 10 : null; return { name: x.name, p }; });
+  const all = W_IN.map(x => { const d = data[x.sym], p = d && d.pct != null && isFinite(d.pct) ? Math.round(d.pct * 10) / 10 : null; return { name: x.name, p, sym: x.sym }; });
   const have = all.filter(x => x.p != null).sort((a, b) => b.p - a.p || a.name.localeCompare(b.name));
   const was = A.dataset.empty || '', port = wsPortrait();
   A.dataset.empty = have.length ? '' : '1';
   if (have.length) {
     const up = have.filter(x => x.p > 0).length, dn = have.filter(x => x.p < 0).length, fl = have.length - up - dn, max = Math.max(1, ...have.map(x => Math.abs(x.p)));
-    const row = x => '<div class="ws-r ' + (x.p > 0 ? 'up' : x.p < 0 ? 'dn' : '') + '"><span class="n">' + esc(x.name) + '</span><span class="t"><i style="width:' + Math.max(2, Math.abs(x.p) / max * 100).toFixed(1) + '%"></i></span>' +
+    const row = x => '<div class="ws-r ' + (x.p > 0 ? 'up' : x.p < 0 ? 'dn' : '') + '" data-sym="' + esc(x.sym) + '"><span class="n">' + esc(x.name) + '</span><span class="t"><i style="width:' + Math.max(2, Math.abs(x.p) / max * 100).toFixed(1) + '%"></i></span>' +
       '<span class="v">' + (x.p > 0 ? '+' : x.p < 0 ? '−' : '') + Math.abs(x.p).toFixed(1) + '%</span></div>';
     const fill = (sec, rows, cols, title, pg) => {
       sec.querySelector('.ws-t').textContent = title; sec.querySelector('.ws-pg').textContent = pg; sec.dataset.title = title;
@@ -1511,6 +1555,144 @@ function renderWatchSummary(data) {
   const now = (A.dataset.empty || '') + '|' + (B.dataset.empty || '');
   if (renderWatchSummary.sig !== now) { renderWatchSummary.sig = now; if (typeof applyMode === 'function' && typeof mode !== 'undefined' && mode) applyMode(true); }
 }
+/* ---------- TAP TO GO DEEPER: a detail card for a stock, an index or the weather; it pauses the slides and closes itself ---------- */
+var DS = { el: null, close: null, sym: null, hist: {} };
+const DS_INDEX = { 'INDEXNSE:NIFTY_50': ['Nifty 50', 'NSE · Index'], 'INDEXSP:.INX': ['S&P 500', 'US · Index'], 'INDEXBOM:SENSEX': ['Sensex', 'BSE · Index'] };
+function dsShell(html) {
+  if (!DS.el) {
+    DS.el = document.createElement('div'); DS.el.id = 'dsheet'; document.body.appendChild(DS.el);
+    DS.el.addEventListener('click', e => {
+      e.stopPropagation();
+      if (e.target === DS.el || e.target.closest('.x')) return dsHide();
+      const a = e.target.closest('a[data-url]'); if (a) { e.preventDefault(); window.open(a.dataset.url, '_blank', 'noopener'); }
+      dsArm();
+      const r = e.target.closest('.dtabs button'); if (r && DS.sym) dsRange(r.dataset.r);
+    });
+    DS.el.addEventListener('touchend', e => e.stopPropagation());
+  }
+  DS.el.innerHTML = '<div class="box">' + html + '<div class="foot">Tap outside to close · closes on its own after 20 seconds</div></div>';
+  clearInterval(timer); clearTimeout(resumeTimer); document.body.classList.add('paused');      // hold the slide while the card is open
+  requestAnimationFrame(() => DS.el.classList.add('open'));
+  dsArm();
+}
+function dsArm() { clearTimeout(DS.close); DS.close = setTimeout(dsHide, 20000); }
+function dsHide() {
+  if (!DS.el || !DS.el.classList.contains('open')) return;
+  clearTimeout(DS.close); DS.el.classList.remove('open'); DS.sym = null;
+  if (!locked) { clearTimeout(resumeTimer); resumeTimer = setTimeout(() => { document.body.classList.remove('paused'); next(); start(); }, 15000); }   // a moment to read the slide, then carry on
+}
+const dsNum = (v, dp) => v == null || !isFinite(v) ? '--' : Number(v).toLocaleString('en-IN', { minimumFractionDigits: dp, maximumFractionDigits: dp });
+const dsCls = p => p == null || !isFinite(p) || Math.abs(p) < 0.005 ? 'fl' : p > 0 ? 'up' : 'dn';
+const dsPct = p => p == null || !isFinite(p) ? '--' : (p > 0 ? '+' : p < 0 ? '−' : '') + Math.abs(p).toFixed(2) + '%';
+function dsStock(sym) {
+  const info = [...(typeof W_IN !== 'undefined' ? W_IN : []), ...(typeof W_US !== 'undefined' ? W_US : [])].find(x => x.sym === sym) || {};
+  const idx = DS_INDEX[sym], us = /^(NASDAQ|NYSE|NYSEARCA|BATS)|INDEXSP|INDEXNASDAQ|INDEXDJX/.test(sym), cur = idx ? '' : us ? '$' : '₹';
+  const q = (wsData || {})[sym] || {}, name = idx ? idx[0] : info.name || sym.split(':')[1], tick = info.tick || sym.split(':')[1];
+  const sub = idx ? idx[1] : (us ? 'US' : 'NSE') + ' · ' + tick;
+  const logo = info.dom && !info.icon ? '<img src="https://www.google.com/s2/favicons?domain=' + esc(info.dom) + '&sz=128" alt="" onerror="this.replaceWith(document.createTextNode(\'' + esc(name.slice(0, 1)) + '\'))">' : esc(info.icon || name.slice(0, 1));
+  // what the slides already know: the 52-week note and the next event on this stock's card
+  const tile = document.querySelector('.tile [data-sym="' + CSS.escape(sym) + '"]'), card = tile && tile.closest('.tile');
+  const ev = [card && card.querySelector('.tev') && card.querySelector('.tev').textContent, card && card.querySelector('.w52') && card.querySelector('.w52').textContent].filter(t => t && t.trim()).map(esc).join(' · ');
+  const nw = ((FEED && FEED.news) || {}), items = [...((nw.Watch || {}).items || []).filter(x => x.sym === sym),
+    ...(us && !idx ? ((nw.USMarkets || {}).items || []).filter(x => new RegExp('\\b(' + [tick, name.split(' ')[0]].map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b', 'i').test(x.t)) : [])].slice(0, 3);
+  const news = items.map(x => { const k = String(x.t).lastIndexOf(' - ');
+    return '<a href="#" data-url="' + esc(x.u || '') + '">' + esc(k > 20 ? x.t.slice(0, k) : x.t) + (k > 20 ? '<small>' + esc(x.t.slice(k + 3)) + '</small>' : '') + '</a>'; }).join('');
+  DS.sym = sym;
+  dsShell('<div class="hd"><div class="lg">' + logo + '</div><div class="nm">' + esc(name) + '<small>' + esc(sub) + '</small></div>' +
+    '<div class="px"><b>' + cur + dsNum(q.price, 2) + '</b><span class="' + dsCls(q.pct) + '">' + (q.pct > 0 ? '▲ ' : q.pct < 0 ? '▼ ' : '') + dsPct(q.pct) +
+    (q.change != null && isFinite(q.change) ? ' (' + (q.change > 0 ? '+' : q.change < 0 ? '−' : '') + dsNum(Math.abs(q.change), 2) + ')' : '') + ' today</span></div><button class="x" aria-label="Close">✕</button></div>' +
+    '<div><div class="dtabs">' + [['1d', '1D'], ['3mo', '3M'], ['1y', '1Y']].map(r => '<button data-r="' + r[0] + '">' + r[1] + '</button>').join('') + '</div>' +
+    '<div class="dch"><div class="wait">Loading chart…</div></div><div class="drl"></div>' + (ev ? '<div class="devt">' + ev + '</div>' : '') + '</div>' +
+    '<div><h4>52-week range</h4><div class="drng"><b style="left:50%;opacity:0"></b></div><div class="drl dr52"><span></span><span></span></div>' +
+    '<div class="dst"><div><span>3M</span><b class="r3">--</b></div><div><span>1Y</span><b class="r1">--</b></div><div><span>Day range</span><b class="dday">--</b></div><div><span>From high</span><b class="dfh">--</b></div></div>' +
+    (news ? '<h4 style="margin-top:14px">Latest news</h4><div class="dnw">' + news + '</div>' : '') + '</div>');
+  dsRange(idx ? '1d' : '3mo');
+  ['1d', '3mo', '1y'].forEach(r => dsFetch(sym, r).then(() => dsStats(sym)));
+  dsStats(sym);
+}
+function dsFetch(sym, r) {
+  const k = sym + '|' + r, c = DS.hist[k];
+  if (c && Date.now() - c.at < (r === '1d' ? 120e3 : 3 * 3600e3)) return Promise.resolve(c.v);
+  return fetch(SERVER_URL + '/v2/hist?sym=' + encodeURIComponent(sym) + '&r=' + r).then(x => x.json()).then(v => { if (v && v.pts) DS.hist[k] = { v, at: Date.now() }; return v; }).catch(() => null);
+}
+function dsStats(sym) {
+  if (DS.sym !== sym || !DS.el) return;
+  const q = (wsData || {})[sym] || {}, h1 = (DS.hist[sym + '|1d'] || {}).v, h3 = (DS.hist[sym + '|3mo'] || {}).v, hy = (DS.hist[sym + '|1y'] || {}).v;
+  const px = q.price != null ? q.price : h1 && h1.pts.at(-1)[1];
+  const ret = h => h && h.pts.length > 1 ? (h.pts.at(-1)[1] / h.pts[0][1] - 1) * 100 : null;      // each return from its own history
+  if (q.price == null && h1) {                        // no live quote on the slides: fill the header from today's history
+    const b = DS.el.querySelector('.px b'), sp = DS.el.querySelector('.px span'), last = h1.pts.at(-1)[1], pc = h1.prev ? (last / h1.prev - 1) * 100 : null;
+    if (b && /--/.test(b.textContent)) { b.textContent = b.textContent.replace(/--.*/, dsNum(last, 2)); sp.className = dsCls(pc); sp.textContent = (pc > 0 ? '▲ ' : pc < 0 ? '▼ ' : '') + dsPct(pc) + ' today'; }
+  }
+  const set = (s, v, c) => { const e = DS.el.querySelector(s); if (e) { e.textContent = v; if (c) e.className = s.slice(1) + ' ' + c; } };
+  const r3 = ret(h3), r1 = ret(hy); set('.r3', dsPct(r3), dsCls(r3)); set('.r1', dsPct(r1), dsCls(r1));
+  const hs = (hy && hy.hi52 ? hy : h1 && h1.hi52 ? h1 : null);       // the 52-week range and the price it is measured against come from one source
+  const [hi, lo, p52] = q.hi52 && q.lo52 && q.price != null ? [q.hi52, q.lo52, q.price] : hs ? [hs.hi52, hs.lo52, (h1 || hs).pts.at(-1)[1]] : [];
+  if (h1 && h1.dayLo != null) set('.dday', dsNum(h1.dayLo, 0) + '–' + dsNum(h1.dayHi, 0));
+  if (hi && lo && p52) { const px = p52;
+    const b = DS.el.querySelector('.drng b'); b.style.left = Math.max(0, Math.min(100, (px - lo) / (hi - lo) * 100)).toFixed(1) + '%'; b.style.opacity = 1;
+    const sp = DS.el.querySelectorAll('.dr52 span'); sp[0].textContent = 'Low ' + dsNum(lo, 0); sp[1].textContent = 'High ' + dsNum(hi, 0);
+    set('.dfh', dsPct((px / hi - 1) * 100));
+  }
+}
+function dsRange(r) {
+  const sym = DS.sym; if (!sym) return;
+  DS.el.querySelectorAll('.dtabs button').forEach(b => b.classList.toggle('on', b.dataset.r === r));
+  dsFetch(sym, r).then(h => {
+    if (DS.sym !== sym || !DS.el.querySelector('.dtabs button.on') || DS.el.querySelector('.dtabs button.on').dataset.r !== r) return;
+    const box = DS.el.querySelector('.dch'), lab = DS.el.querySelector('.drl');
+    if (!h || !h.pts || h.pts.length < 2) { box.innerHTML = '<div class="wait">Chart not available right now</div>'; lab.innerHTML = ''; return; }
+    const pts = h.pts, base = r === '1d' && h.prev ? h.prev : pts[0][1], vs = pts.map(p => p[1]).concat(r === '1d' && h.prev ? [h.prev] : []);
+    const lo = Math.min(...vs), hi = Math.max(...vs), t0 = pts[0][0], t1 = pts.at(-1)[0];
+    const X = t => ((t - t0) / ((t1 - t0) || 1) * 600).toFixed(1), Y = v => (6 + (hi - v) / ((hi - lo) || 1) * 138).toFixed(1);
+    const col = pts.at(-1)[1] >= base ? '#3ddc84' : '#ff6b6b', line = pts.map(p => X(p[0]) + ',' + Y(p[1])).join(' ');
+    box.innerHTML = '<svg viewBox="0 0 600 150" preserveAspectRatio="none"><defs><linearGradient id="dsg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + col + '" stop-opacity=".35"/><stop offset="1" stop-color="' + col + '" stop-opacity="0"/></linearGradient></defs>' +
+      (r === '1d' && h.prev ? '<line x1="0" x2="600" y1="' + Y(h.prev) + '" y2="' + Y(h.prev) + '" stroke="rgba(255,255,255,.35)" stroke-dasharray="4 5" vector-effect="non-scaling-stroke"/>' : '') +
+      '<polygon points="0,150 ' + line + ' 600,150" fill="url(#dsg)"/><polyline points="' + line + '" fill="none" stroke="' + col + '" stroke-width="2.4" vector-effect="non-scaling-stroke"/></svg>';
+    const tz = h.tz || 'Asia/Kolkata', f = r === '1d' ? { hour: 'numeric', minute: '2-digit', timeZone: tz } : r === '3mo' ? { day: 'numeric', month: 'short', timeZone: tz } : { month: 'short', year: '2-digit', timeZone: tz };
+    lab.innerHTML = [t0, (t0 + t1) / 2, t1].map(t => '<span>' + new Date(t).toLocaleString('en-IN', f) + '</span>').join('');
+    if (r === '1d') dsStats(sym);
+  });
+}
+function dsWeather() {
+  const H = typeof WX_HOURS !== 'undefined' ? WX_HOURS : [];
+  if (!H.length) return;
+  const txt = id => (document.getElementById(id) || {}).textContent || '';
+  const place = (typeof away !== 'undefined' && away && awayName) ? awayName : HOME.name;
+  const T = H.map(x => x.t), lo = Math.min(...T), hi = Math.max(...T), n = H.length;
+  const pl = H.map((x, i) => ((i + .5) / n * 600).toFixed(1) + ',' + (10 + (hi - x.t) / ((hi - lo) || 1) * 50).toFixed(1)).join(' ');
+  const wet = x => (x.pp != null ? x.pp >= 50 : x.mm >= 0.5), damp = x => (x.pp != null ? x.pp >= 30 : x.mm >= 0.2);
+  const k = H.findIndex(wet), k2 = H.findIndex(damp), nudges = [];
+  nudges.push(k === 0 ? '🌧️ Rain likely now' : k > 0 ? '🌧️ Rain likely from about ' + H[k].lbl : k2 >= 0 ? '🌦️ Chance of a light shower around ' + H[k2].lbl : '☀️ Dry for the next ' + n + ' hours');
+  for (let i = 0; i < n - 1; i++) {                 // first stretch of two dry, comfortable hours, morning or evening
+    const ok = j => H[j] && !damp(H[j]) && H[j].t <= 29 && ((H[j].h >= 6 && H[j].h <= 9) || (H[j].h >= 16 && H[j].h <= 20));
+    if (ok(i) && ok(i + 1)) { nudges.push('🚶 Good for a walk: ' + H[i].lbl + '–' + H[i + 2 > n - 1 ? i + 1 : i + 2].lbl); break; }
+  }
+  const sun = txt('wSun').trim(); if (sun) nudges.push(sun);
+  const wind = wxModel && wxModel.current && wxModel.current.wind_speed_10m; if (wind != null) nudges.push('💨 Wind ' + Math.round(wind) + ' km/h');
+  const aqi = txt('wAqi'); if (aqi && aqi !== '--') nudges.push('🌫️ AQI ' + aqi + ' ' + txt('wAqiCat'));
+  DS.sym = null;
+  dsShell('<div class="hd"><div class="lg" style="background:#2f7fe0">' + esc(txt('wIcon') || '⛅') + '</div><div class="nm">' + esc(place) + '<small>' + esc(txt('wFeel') || 'Now') + '</small></div>' +
+    '<div class="px"><b>' + esc(txt('wTemp')) + '</b><span style="color:#8cc8ff">' + esc(txt('wDesc')) + '</span></div><button class="x" aria-label="Close">✕</button></div>' +
+    '<div class="wtl"><h4>Next ' + n + ' hours</h4><svg viewBox="0 0 600 70" preserveAspectRatio="none"><polyline points="' + pl + '" fill="none" stroke="#ffb347" stroke-width="2.4" vector-effect="non-scaling-stroke"/></svg></div>' +
+    '<div class="hrs">' + H.map(x => '<div class="hc"><small>' + x.lbl + '</small><span>' + x.ic + '</span><b>' + Math.round(x.t) + '°</b><i style="height:' +
+      Math.max(2, Math.min(36, x.pp != null ? x.pp * .36 : x.mm * 12)).toFixed(0) + 'px"></i><em>' + (x.pp != null ? (x.pp >= 10 ? x.pp + '%' : '') : (x.mm >= 0.2 ? x.mm.toFixed(1) + 'mm' : '')) + '</em></div>').join('') + '</div>' +
+    '<div class="nudge">' + nudges.map(t => '<div>' + esc(t) + '</div>').join('') + '</div>');
+}
+document.addEventListener('click', e => {
+  if (mode === 'night' || !e.target.closest || swiped) return;
+  if (e.target.closest('#dsheet, #setWrap, #viewMenu, .viewsel, #gearBtn, footer, #bars, .navbtn')) return;
+  const sl = e.target.closest('.slide'); if (!sl || !sl.classList.contains('active')) return;
+  let sym = null, wx = false;
+  const tile = e.target.closest('.grid6 .tile'), row = e.target.closest('.ws-r'), wc = e.target.closest('#wxCard');
+  if (tile) { const p = tile.querySelector('.p[data-sym]'); sym = p && p.dataset.sym; }
+  else if (row) sym = row.dataset.sym;
+  else if (wc) wx = true;
+  else { const c = e.target.closest('.card'); if (c && c.querySelector('#sparkSvg')) sym = 'INDEXNSE:NIFTY_50'; else if (c && c.querySelector('#spxSvg')) sym = 'INDEXSP:.INX'; }
+  if (!sym && !wx) return;
+  e.stopPropagation(); e.preventDefault();
+  if (wx) dsWeather(); else dsStock(sym);
+}, true);
 addEventListener('resize', () => { const p = wsPortrait(); if (p !== wsWasPortrait) { wsWasPortrait = p; renderWatchSummary(); } });
 function buildGridSlides(list, title, accent, mode, per, view) {
   const slot = document.getElementById('stockSlot');
@@ -3076,8 +3258,8 @@ function renderWeather() {
   const h = wxModel && wxModel.hourly; if (!h || !h.time) return;
   const nowKey = new Date().toLocaleString('sv-SE', { timeZone:'Asia/Kolkata' }).slice(0, 13).replace(' ', 'T');
   let i0 = h.time.findIndex(x => x.slice(0, 13) > nowKey); if (i0 < 0) i0 = 0;
-  const box = document.getElementById('wHours'); box.innerHTML = '';
-  h.time.slice(i0, i0 + 6).forEach((tm, k) => {
+  const box = document.getElementById('wHours'); box.innerHTML = ''; WX_HOURS = [];
+  h.time.slice(i0, i0 + 12).forEach((tm, k) => {
     const i = i0 + k, hh = +tm.slice(11, 13);
     const code = h.weather_code[i], rainy = code >= 51 && code <= 82;
     const mm = met ? h.rain_mm[i] : (h.precipitation ? h.precipitation[i] : null), pp = met ? null : h.precipitation_probability[i];
@@ -3094,7 +3276,8 @@ function renderWeather() {
     d.querySelector('.rn').textContent = met
       ? (h.rain_mm[i] >= 0.2 ? h.rain_mm[i].toFixed(1) + 'mm' : '')
       : (h.precipitation_probability[i] >= 20 ? h.precipitation_probability[i] + '%' : '');
-    box.appendChild(d);
+    WX_HOURS.push({ lbl: d.querySelector('.tm').textContent, h: hh, ic, t: adj(h.temperature_2m[i], (hrT - Date.now()) / 3600e3), pp: met ? null : h.precipitation_probability[i], mm: met ? (h.rain_mm[i] || 0) : null });
+    if (k < 6) box.appendChild(d);
   });
 }
 // MET Norway symbol → our weather codes (for the backup forecast)
@@ -3184,6 +3367,7 @@ async function loadBlend() {
 }
 let wxLastSrc = null;
 const o0 = () => (wxObs && wxObs.age <= HAL_MAX_AGE) || (wxObsBL && wxObsBL.age <= HAL_MAX_AGE);
+var WX_HOURS = [];
 async function loadWeather() {
   try {
     // stick with whichever forecast worked last time, so the numbers don't flip between two services

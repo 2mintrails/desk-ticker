@@ -75,6 +75,23 @@ function yahooSym(g) {
   if ((m = g.match(/^(NASDAQ|NYSE|NYSEARCA|NYSEAMERICAN|BATS):(.+)$/))) return m[2].replace(/\./g, '-');
   return null;
 }
+// price history for one symbol, for the app's tap-to-open detail card (1 day, 3 months or 1 year); kept a while per symbol
+const HIST = { '1d': ['5m', 2 * 60e3], '3mo': ['1d', 3 * 3600e3], '1y': ['1wk', 6 * 3600e3] };
+async function hist(env, sym, range) {
+  const ys = yahooSym(sym); if (!ys || !HIST[range]) return { error: 'unknown symbol or range' };
+  const key = 'hist_' + range + '_' + ys.replace(/[^A-Za-z0-9^.=&-]/g, ''), c = (await dbGet(env, [key]))[key];
+  if (c && Date.now() - c.at < HIST[range][1]) return c.v;
+  try {
+    const r = (await get('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ys) + '?range=' + range + '&interval=' + HIST[range][0], { json: true })).chart.result[0];
+    const m = r.meta || {}, cl = (r.indicators.quote[0] || {}).close || [];
+    const pts = (r.timestamp || []).map((t, i) => [t * 1000, cl[i]]).filter(x => x[1] != null && isFinite(x[1])).map(x => [x[0], Math.round(x[1] * 100) / 100]);
+    if (pts.length < 2) throw new Error('no history');
+    const v = { sym, range, pts, prev: m.chartPreviousClose ?? m.previousClose ?? null, dayHi: m.regularMarketDayHigh ?? null, dayLo: m.regularMarketDayLow ?? null,
+      hi52: m.fiftyTwoWeekHigh ?? null, lo52: m.fiftyTwoWeekLow ?? null, tz: m.exchangeTimezoneName || '' };
+    await dbPut(env, key, v);
+    return v;
+  } catch (e) { return c ? c.v : { error: String(e.message || e) }; }
+}
 // Prices and previous closes come from Yahoo's DAILY closes (last 5 sessions): the latest close is today's price
 // (it moves during the session), the one before it is the previous close. (Yahoo's intraday "previous close"
 // fields were seen a day off, 12–14 Nov.) The three main indices also get the day's 5-minute line.
@@ -681,6 +698,7 @@ export default {
         const [code, out] = await saveSettings(env, body);
         return new Response(JSON.stringify(out), { status: code, headers: CORS });
       }
+      if (u.pathname === '/v2/hist') return new Response(JSON.stringify(await hist(env, String(u.searchParams.get('sym') || '').slice(0, 40), u.searchParams.get('r'))), { headers: CORS });
       if (u.pathname === '/v2/lookup') return new Response(JSON.stringify(await lookup(u.searchParams.get('q'), u.searchParams.get('mkt'))), { headers: CORS });
       if (u.pathname === '/v2/local') return new Response(JSON.stringify(await localHere(env, +u.searchParams.get('lat'), +u.searchParams.get('lon'), u.searchParams.get('city'))), { headers: CORS });
       if (u.pathname === '/v2/feed') return new Response(JSON.stringify(await feed(env)), { headers: CORS });
