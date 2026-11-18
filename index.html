@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v18.8-2026-11-18">
+<meta name="ticker-version" content="v18.9-2026-11-18">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -249,6 +249,28 @@
   .n-time{font-family:"JetBrains Mono",monospace;font-weight:500;font-size:clamp(56px,34vh,180px);letter-spacing:-4px;line-height:1}
   .n-date{font-size:clamp(13px,5vh,22px);margin-top:1.5vh;letter-spacing:1px}
   .n-info{font-size:clamp(11px,4vh,17px);margin-top:1.2vh;opacity:.8}
+  /* ---------- the dark screen takes the theme's look (late-night clock and focus) ---------- */
+  .n-box{position:relative;z-index:2}
+  .n-scene{position:absolute;inset:0;pointer-events:none;display:none}
+  body.night.amb .nightv{background:radial-gradient(circle at 28% 35%,rgba(70,160,150,.16),transparent 45%),radial-gradient(circle at 75% 70%,rgba(130,100,220,.14),transparent 45%),#030407}
+  body.night.amb .n-box{color:rgb(190,230,225);opacity:.55} body.night.amb .n-time{font-weight:300}
+  body.night.anime .nightv{background:linear-gradient(180deg,#04051a 0%,#0b0a2a 70%,#140c33 100%)}
+  body.night.anime .n-scene{display:block}
+  body.night.anime .n-box{color:rgb(255,215,235);opacity:.6} body.night.anime .n-time{font-weight:800}
+  body.night.retro .n-box{color:#ff4b3a;opacity:.85} body.night.retro .n-time{text-shadow:0 0 18px rgba(255,75,58,.7),0 0 4px rgba(255,75,58,.9)}
+  body.night.swiss .n-box{color:#fff;opacity:.62} body.night.swiss .n-time::after{content:'';display:block;width:120px;height:2px;background:#e3262f;margin:1.4vh auto 0}
+  body.night.calm:not(.amb):not(.anime):not(.retro):not(.swiss) .n-box{color:rgb(200,200,210);opacity:.45}
+  /* ---------- focus: a dashed border fills clockwise as the minutes pass ---------- */
+  .n-border{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:none;z-index:1}
+  body.night.focus .n-border{display:block}
+  .n-border .nb-bg{fill:none;stroke:var(--fc,#c8935a);stroke-opacity:.35;stroke-width:6;stroke-dasharray:14 6}
+  .n-border .nb-on{fill:none;stroke:var(--fc,#c8935a);stroke-width:7;stroke-dasharray:14 6;filter:drop-shadow(0 0 3px var(--fc,#c8935a))}
+  body.amb .nightv{--fc:#7fd3c8} body.anime .nightv{--fc:#ff8fc4} body.retro .nightv{--fc:#ff4b3a} body.swiss .nightv{--fc:#e3262f} body.calm:not(.amb):not(.anime):not(.retro):not(.swiss) .nightv{--fc:#6f7f99}
+  .n-info .fdot{color:var(--fc,#c8935a)}
+  body.night.focus .n-date, body.night.focus #nSky{display:none}
+  .n-hint{position:fixed;left:50%;bottom:max(24px,6vh);transform:translate(-50%,10px);z-index:3;opacity:0;transition:.35s;pointer-events:none;
+    background:rgba(255,255,255,.1);color:#cfd6e4;font:600 14px Inter,sans-serif;padding:9px 16px;border-radius:99px;border:1px solid rgba(255,255,255,.15)}
+  .n-hint.on{opacity:1;transform:translate(-50%,0)}
   /* ---------- tap to go deeper: one detail card over the slide (a stock, an index, or the weather) ---------- */
   #dsheet{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(5,8,18,.55);
     backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .25s;font-family:Inter,"Space Grotesk",-apple-system,sans-serif;
@@ -1125,7 +1147,7 @@
       <div class="mkt" id="mkt"></div>
       <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
       <div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
-        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Theme</div><div class="looks"><button data-look="ambient">✨ Ambient</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button><button data-look="anime">🌸 Anime 90s</button></div><div class="dataline" id="dataLine"></div><div class="diag" id="diag"></div></div></div>
+        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Focus</div><div class="looks"><button data-focus="15">🎯 15 min</button><button data-focus="30">🎯 30 min</button><button data-focus="45">🎯 45 min</button></div><div class="sep"></div><div class="mh">Theme</div><div class="looks"><button data-look="ambient">✨ Ambient</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button><button data-look="anime">🌸 Anime 90s</button></div><div class="dataline" id="dataLine"></div><div class="diag" id="diag"></div></div></div>
     </div>
   </header>
 
@@ -1249,6 +1271,9 @@
 <button class="navbtn r" id="navNext" aria-label="Next slide">&#8250;</button>
 
 <div class="nightv" id="nightv">
+  <div class="n-scene" id="nScene"></div>
+  <svg class="n-border" id="nBorder" preserveAspectRatio="none"><defs><mask id="nMask" maskUnits="userSpaceOnUse"><path fill="none" stroke="#fff" stroke-width="16" stroke-dasharray="0 1"/></mask></defs><path class="nb-bg"/><path class="nb-on" mask="url(#nMask)"/></svg>
+  <div class="n-hint" id="nHint">Press and hold to end focus</div>
   <div class="n-box" id="nBox">
     <div class="n-time" id="nTime">--:--</div>
     <div class="n-date" id="nDate"></div>
@@ -2614,6 +2639,7 @@ function modeNow() {
   const d = hm(MODES.day), e = hm(MODES.evening), n = hm(MODES.night);
   const isNight = n > d ? (m >= n || m < d) : (m >= n && m < d);     // the night clock may start before or after midnight
   const base = isNight ? 'night' : (m >= e || m < d ? 'evening' : 'day');
+  if (typeof focusOn === 'function' && focusOn()) return 'night';      // focus: the dark screen until the time is up
   return base === 'night' && Date.now() < peekUntil ? 'evening' : base;
 }
 let lastShowAt = Date.now();
@@ -2734,6 +2760,7 @@ let lastTap = 0, tapTimer;
 let swiped = false;
 document.body.addEventListener('click', e => {
   if (swiped) { swiped = false; return; }
+  if (mode === 'night' && focusOn()) { focusHint(); return; }
   if (mode === 'night') { peekUntil = Date.now() + 60 * 1000; applyMode(true); return; }
   flashNav();
   const now = Date.now(), x = e.clientX;
@@ -2782,10 +2809,79 @@ function nightTick() {
   const nf = document.querySelector('.ix-p[data-sym]');
   if (nf && nf.textContent !== '--') parts.push('Nifty ' + nf.textContent);
   document.getElementById('nInfo').textContent = parts.join('  ·  ');
+  if (focusOn()) {
+    const left = Math.max(1, Math.ceil((FOCUS.end - Date.now()) / 60e3));
+    document.getElementById('nInfo').innerHTML = '<span class="fdot">● Focus</span>  ·  ' + left + ' min left  ·  ' + FOCUS.total + '-min session';
+    document.getElementById('nSky').textContent = '';
+  }
   if (d.getMinutes() % 5 === 0 && d.getSeconds() === 0) document.getElementById('nBox').style.transform =
     `translate(${(Math.random() * 6 - 3).toFixed(1)}vw, ${(Math.random() * 8 - 4).toFixed(1)}vh)`;
 }
 everySecond(nightTick);
+/* ---------- FOCUS: a dark screen with the time, for 15, 30 or 45 minutes; a dashed border fills as the minutes pass ---------- */
+var FOCUS = null;                                   // { end, total } in ms / minutes
+try { const f = JSON.parse(localStorage.getItem('deskTickerFocus') || 'null'); if (f && f.end > Date.now()) FOCUS = f; } catch (e) {}
+function focusOn() { return !!(FOCUS && FOCUS.end > Date.now()); }
+function focusStart(min) {
+  FOCUS = { end: Date.now() + min * 60e3, total: min };
+  try { localStorage.setItem('deskTickerFocus', JSON.stringify(FOCUS)); } catch (e) {}
+  document.getElementById('viewMenu').classList.remove('open');
+  if (typeof dsHide === 'function') dsHide();
+  peekUntil = 0; focusDraw(); applyMode(true); nightTick();
+}
+function focusStop(done) {
+  const total = FOCUS && FOCUS.total; FOCUS = null;
+  try { localStorage.removeItem('deskTickerFocus'); } catch (e) {}
+  document.body.classList.remove('focus'); applyMode(true);
+  if (done && total) { toast('✓ ' + total + ' min of focus done'); clearTimeout(toastTimer); toastTimer = setTimeout(() => document.getElementById('toast').classList.remove('show'), 6000); }
+}
+function focusDraw() {                               // the border path follows the screen size
+  const svg = document.getElementById('nBorder'); if (!svg) return;
+  const W = innerWidth, H = innerHeight, i = 12;
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  const d = 'M' + W / 2 + ',' + i + ' H' + (W - i) + ' V' + (H - i) + ' H' + i + ' V' + i + ' Z';
+  svg.querySelectorAll('path').forEach(p => p.setAttribute('d', d));
+  svg.dataset.per = 2 * ((W - 2 * i) + (H - 2 * i));
+  focusTick();
+}
+function focusTick() {
+  const on = focusOn();
+  if (!on && FOCUS) { focusStop(true); return; }
+  document.body.classList.toggle('focus', on);
+  if (!on) return;
+  const svg = document.getElementById('nBorder'), per = +svg.dataset.per || 1;
+  const frac = Math.min(1, 1 - (FOCUS.end - Date.now()) / (FOCUS.total * 60e3));
+  svg.querySelector('#nMask path').setAttribute('stroke-dasharray', (frac * per).toFixed(1) + ' ' + per);
+}
+addEventListener('resize', focusDraw);
+focusDraw(); everySecond(focusTick);
+if (focusOn()) applyMode(true);                     // reloaded during a focus session: carry on
+// the dark screen in the Anime 90s theme: a few stars, a moon and a dim skyline
+(function () {
+  const sc = document.getElementById('nScene'); if (!sc) return;
+  let s = 7, stars = ''; const R = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let k = 0; k < 70; k++) stars += '<circle cx="' + (R() * 1000).toFixed(0) + '" cy="' + (R() * 380).toFixed(0) + '" r="' + (R() * .8 + .6).toFixed(1) + '" fill="#fff" opacity="' + (R() * .45 + .2).toFixed(2) + '"/>';
+  let x = 0, sky = '';
+  while (x < 1000) { const bw = 28 + R() * 44, bh = 50 + R() * 120;
+    sky += '<rect x="' + x.toFixed(0) + '" y="' + (600 - bh).toFixed(0) + '" width="' + bw.toFixed(0) + '" height="' + bh.toFixed(0) + '" fill="#07061a"/>';
+    for (let wy = 600 - bh + 10; wy < 594; wy += 14) for (let wx = x + 6; wx < x + bw - 6; wx += 12) if (R() < .2) sky += '<rect x="' + wx.toFixed(0) + '" y="' + wy.toFixed(0) + '" width="5" height="6" fill="#ffd27a" opacity=".35"/>';
+    x += bw + R() * 6; }
+  sc.innerHTML = '<svg viewBox="0 0 1000 600" preserveAspectRatio="xMidYMax slice" style="width:100%;height:100%">' + stars + '<circle cx="820" cy="110" r="28" fill="#f4ecd0" opacity=".5"/>' + sky + '</svg>';
+})();
+// on the focus screen a tap only reminds how to end it; press and hold ends it
+var FHOLD = null;
+function focusHint() { const h = document.getElementById('nHint'); h.classList.add('on'); clearTimeout(h._t); h._t = setTimeout(() => h.classList.remove('on'), 2500); }
+document.getElementById('nightv').addEventListener('pointerdown', e => {
+  if (!focusOn()) return;
+  clearTimeout(FHOLD);
+  const r = document.createElement('div'); r.className = 'holdring'; r.style.left = e.clientX + 'px'; r.style.top = e.clientY + 'px'; r.style.animationDuration = '.8s';
+  document.body.appendChild(r);
+  const off = () => { clearTimeout(FHOLD); r.remove(); ['pointerup', 'pointercancel'].forEach(ev => removeEventListener(ev, off)); };
+  addEventListener('pointerup', off); addEventListener('pointercancel', off);
+  FHOLD = setTimeout(() => { off(); try { navigator.vibrate && navigator.vibrate(15); } catch (x) {} focusStop(false); }, 800);
+});
+document.querySelectorAll('#viewMenu button[data-focus]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); focusStart(+b.dataset.focus); }));
+
 
 /* ---------- VIEW PICKER: All slides, or Indian stock mode (remembered on each phone) ---------- */
 var VIEW = 'all';
