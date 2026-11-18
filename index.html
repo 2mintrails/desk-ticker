@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v18.6-2026-11-18">
+<meta name="ticker-version" content="v18.7-2026-11-18">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1539,7 +1539,7 @@ function renderWatchSummary(data) {
   A.dataset.empty = have.length ? '' : '1';
   if (have.length) {
     const up = have.filter(x => x.p > 0).length, dn = have.filter(x => x.p < 0).length, fl = have.length - up - dn, max = Math.max(1, ...have.map(x => Math.abs(x.p)));
-    const row = x => '<div class="ws-r ' + (x.p > 0 ? 'up' : x.p < 0 ? 'dn' : '') + '" data-sym="' + esc(x.sym) + '"><span class="n">' + esc(x.name) + '</span><span class="t"><i style="width:' + Math.max(2, Math.abs(x.p) / max * 100).toFixed(1) + '%"></i></span>' +
+    const row = x => '<div class="ws-r ' + (x.p > 0 ? 'up' : x.p < 0 ? 'dn' : '') + '" data-wsym="' + esc(x.sym) + '"><span class="n">' + esc(x.name) + '</span><span class="t"><i style="width:' + Math.max(2, Math.abs(x.p) / max * 100).toFixed(1) + '%"></i></span>' +
       '<span class="v">' + (x.p > 0 ? '+' : x.p < 0 ? '−' : '') + Math.abs(x.p).toFixed(1) + '%</span></div>';
     const fill = (sec, rows, cols, title, pg) => {
       sec.querySelector('.ws-t').textContent = title; sec.querySelector('.ws-pg').textContent = pg; sec.dataset.title = title;
@@ -1686,7 +1686,7 @@ document.addEventListener('click', e => {
   let sym = null, wx = false;
   const tile = e.target.closest('.grid6 .tile'), row = e.target.closest('.ws-r'), wc = e.target.closest('#wxCard');
   if (tile) { const p = tile.querySelector('.p[data-sym]'); sym = p && p.dataset.sym; }
-  else if (row) sym = row.dataset.sym;
+  else if (row) sym = row.dataset.wsym;
   else if (wc) wx = true;
   else { const c = e.target.closest('.card'); if (c && c.querySelector('#sparkSvg')) sym = 'INDEXNSE:NIFTY_50'; else if (c && c.querySelector('#spxSvg')) sym = 'INDEXSP:.INX'; }
   if (!sym && !wx) return;
