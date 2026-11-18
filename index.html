@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v18.7-2026-11-18">
+<meta name="ticker-version" content="v18.8-2026-11-18">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -78,6 +78,16 @@
   .slide{position:absolute;inset:0;opacity:0;transform:translateY(14px) scale(.985);pointer-events:none;
     transition:opacity .9s ease,transform .9s cubic-bezier(.2,.7,.2,1)}
   .slide.active{opacity:1;transform:none;pointer-events:auto}
+  /* slide change: the old slide fades out first, then the new one comes in and its parts rise one after another */
+  html body .slide{transition:opacity .35s ease,transform .35s ease!important}
+  html body .slide.active{transition:opacity .45s ease .28s,transform .6s cubic-bezier(.2,.8,.2,1) .28s!important}
+  .slide.active > *, .slide.active .grid6 > .tile, .slide.active .metals > *, .slide.active .fxrow > *{animation:riseIn .7s cubic-bezier(.2,.8,.2,1) .3s backwards}
+  .slide.active > *:nth-child(2), .slide.active .grid6 > .tile:nth-child(2), .slide.active .metals > *:nth-child(2), .slide.active .fxrow > *:nth-child(2){animation-delay:.38s}
+  .slide.active > *:nth-child(3), .slide.active .grid6 > .tile:nth-child(3), .slide.active .fxrow > *:nth-child(3){animation-delay:.46s}
+  .slide.active .grid6 > .tile:nth-child(4){animation-delay:.54s} .slide.active .grid6 > .tile:nth-child(5){animation-delay:.62s} .slide.active .grid6 > .tile:nth-child(n+6){animation-delay:.7s}
+  .slide.active .grid6, .slide.active .metals, .slide.active .fxrow{animation:none}
+  @keyframes riseIn{from{opacity:0;transform:translateY(16px)}}
+  @media (prefers-reduced-motion: reduce){ .slide.active *{animation:none!important} }
 
   .card{height:100%;border-radius:22px;background:var(--glass);border:1px solid var(--line);
     backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
@@ -277,7 +287,15 @@
   #dsheet .hc em{font-style:normal;font-size:11px;color:#8cc8ff;min-height:1.2em}
   #dsheet .wtl{grid-column:1/-1} #dsheet .wtl svg{width:100%;height:9vh;display:block}
   #dsheet .nudge{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap} #dsheet .nudge div{background:rgba(255,255,255,.07);border-radius:10px;padding:7px 12px;font-size:13px}
-  .grid6 .tile, .ws-r, #wxCard, .slide .card:has(#sparkSvg), .slide .card:has(#spxSvg){cursor:pointer}
+  .grid6 .tile, .ws-r, #wxCard, .slide .card:has(#sparkSvg), .slide .card:has(#spxSvg){-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+  .holdring{position:fixed;z-index:70;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;pointer-events:none;
+    background:conic-gradient(#3b82f6 var(--p), rgba(128,128,128,.35) 0);filter:drop-shadow(0 0 3px rgba(0,0,0,.35));-webkit-mask:radial-gradient(circle,transparent 21px,#000 22px);mask:radial-gradient(circle,transparent 21px,#000 22px);
+    animation:holdFill .5s linear forwards;opacity:.9}
+  @property --p{syntax:'<percentage>';inherits:false;initial-value:0%}
+  @keyframes holdFill{from{--p:0%}to{--p:100%}}
+  .holdhint{position:fixed;left:50%;bottom:max(18px,4vh);z-index:70;transform:translate(-50%,10px);opacity:0;transition:.35s;pointer-events:none;
+    background:rgba(20,24,36,.92);color:#fff;font:600 14px Inter,sans-serif;padding:9px 16px;border-radius:99px;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+  .holdhint.on{opacity:1;transform:translate(-50%,0)}
   @media (orientation:portrait) and (max-aspect-ratio: 4/5){
     #dsheet .box{grid-template-columns:minmax(0,1fr);width:94vw;padding:2vh 4.5vw;gap:1.4vh}
     #dsheet .hd{flex-wrap:wrap} #dsheet .nm{font-size:18px;flex:1} #dsheet .px{order:3;width:100%;text-align:left;margin-left:0} #dsheet .px b{font-size:26px}
@@ -1679,20 +1697,50 @@ function dsWeather() {
       Math.max(2, Math.min(36, x.pp != null ? x.pp * .36 : x.mm * 12)).toFixed(0) + 'px"></i><em>' + (x.pp != null ? (x.pp >= 10 ? x.pp + '%' : '') : (x.mm >= 0.2 ? x.mm.toFixed(1) + 'mm' : '')) + '</em></div>').join('') + '</div>' +
     '<div class="nudge">' + nudges.map(t => '<div>' + esc(t) + '</div>').join('') + '</div>');
 }
-document.addEventListener('click', e => {
-  if (mode === 'night' || !e.target.closest || swiped) return;
-  if (e.target.closest('#dsheet, #setWrap, #viewMenu, .viewsel, #gearBtn, footer, #bars, .navbtn')) return;
-  const sl = e.target.closest('.slide'); if (!sl || !sl.classList.contains('active')) return;
-  let sym = null, wx = false;
-  const tile = e.target.closest('.grid6 .tile'), row = e.target.closest('.ws-r'), wc = e.target.closest('#wxCard');
-  if (tile) { const p = tile.querySelector('.p[data-sym]'); sym = p && p.dataset.sym; }
-  else if (row) sym = row.dataset.wsym;
-  else if (wc) wx = true;
-  else { const c = e.target.closest('.card'); if (c && c.querySelector('#sparkSvg')) sym = 'INDEXNSE:NIFTY_50'; else if (c && c.querySelector('#spxSvg')) sym = 'INDEXSP:.INX'; }
-  if (!sym && !wx) return;
-  e.stopPropagation(); e.preventDefault();
-  if (wx) dsWeather(); else dsStock(sym);
+// what a press on this spot would open: a stock, an index or the weather (or nothing)
+function dsTargetOf(t) {
+  if (mode === 'night' || !t || !t.closest) return null;
+  if (t.closest('#dsheet, #setWrap, #viewMenu, .viewsel, #gearBtn, footer, #bars, .navbtn, .nlist')) return null;
+  const sl = t.closest('.slide'); if (!sl || !sl.classList.contains('active')) return null;
+  const tile = t.closest('.grid6 .tile'), row = t.closest('.ws-r');
+  if (tile) { const p = tile.querySelector('.p[data-sym]'); return p ? { sym: p.dataset.sym } : null; }
+  if (row) return row.dataset.wsym ? { sym: row.dataset.wsym } : null;
+  if (t.closest('#wxCard')) return { wx: true };
+  const c = t.closest('.card');
+  if (c && c.querySelector('#sparkSvg')) return { sym: 'INDEXNSE:NIFTY_50' };
+  if (c && c.querySelector('#spxSvg')) return { sym: 'INDEXSP:.INX' };
+  return null;
+}
+// press and hold (half a second) opens the detail card; a quick tap keeps working as before (arrows, next / previous)
+var HOLD = { timer: null, x: 0, y: 0, ring: null, fired: false };
+function holdCancel() { clearTimeout(HOLD.timer); HOLD.timer = null; if (HOLD.ring) { HOLD.ring.remove(); HOLD.ring = null; } }
+document.addEventListener('pointerdown', e => {
+  holdCancel(); HOLD.fired = false;
+  if (e.button > 0) return;
+  const tg = dsTargetOf(e.target); if (!tg) return;
+  HOLD.x = e.clientX; HOLD.y = e.clientY;
+  const r = document.createElement('div'); r.className = 'holdring'; r.style.left = e.clientX + 'px'; r.style.top = e.clientY + 'px';
+  document.body.appendChild(r); HOLD.ring = r;
+  HOLD.timer = setTimeout(() => {
+    holdCancel(); HOLD.fired = true; clearTimeout(tapTimer); lastTap = 0;
+    try { navigator.vibrate && navigator.vibrate(12); } catch (x) {}
+    try { localStorage.setItem('deskTickerHoldHint', '1'); } catch (x) {}
+    if (tg.wx) dsWeather(); else dsStock(tg.sym);
+  }, 500);
 }, true);
+document.addEventListener('pointermove', e => { if (HOLD.timer && Math.hypot(e.clientX - HOLD.x, e.clientY - HOLD.y) > 12) holdCancel(); }, true);
+['pointerup', 'pointercancel', 'scroll'].forEach(ev => document.addEventListener(ev, e => {
+  if (!HOLD.timer) return;
+  holdCancel();
+  if (ev === 'pointerup') {                       // it was a tap on something that has details: say once how to open them
+    let seen = '1'; try { seen = localStorage.getItem('deskTickerHoldHint'); } catch (x) {}
+    if (!seen) { try { localStorage.setItem('deskTickerHoldHint', '1'); } catch (x) {}
+      const h = document.createElement('div'); h.className = 'holdhint'; h.textContent = 'Tip: press and hold a card to see its details';
+      document.body.appendChild(h); setTimeout(() => h.classList.add('on'), 30); setTimeout(() => { h.classList.remove('on'); setTimeout(() => h.remove(), 400); }, 4000); }
+  }
+}, true));
+document.addEventListener('click', e => { if (HOLD.fired) { HOLD.fired = false; e.stopPropagation(); e.preventDefault(); } }, true);   // the release after a hold is not a tap
+document.addEventListener('contextmenu', e => { if (dsTargetOf(e.target)) e.preventDefault(); }, true);
 addEventListener('resize', () => { const p = wsPortrait(); if (p !== wsWasPortrait) { wsWasPortrait = p; renderWatchSummary(); } });
 function buildGridSlides(list, title, accent, mode, per, view) {
   const slot = document.getElementById('stockSlot');
@@ -2089,7 +2137,7 @@ function renderPrices(f) {
       const d = data[el.dataset.sym]; if (!d || d.price == null) return;
       if (el.dataset.f === 'price') {
         const prev = parseFloat(el.dataset.v);
-        el.textContent = money(el.dataset.sym, d.price);
+        countTo(el, prev, d.price);
         if (isFinite(prev) && prev !== d.price) {
           el.classList.remove('flash-up', 'flash-down'); void el.offsetWidth;
           el.classList.add(d.price > prev ? 'flash-up' : 'flash-down');
@@ -3368,6 +3416,16 @@ async function loadBlend() {
 let wxLastSrc = null;
 const o0 = () => (wxObs && wxObs.age <= HAL_MAX_AGE) || (wxObsBL && wxObsBL.age <= HAL_MAX_AGE);
 var WX_HOURS = [];
+// a price that changes on the slide being shown rolls to its new value instead of jumping
+function countTo(el, from, to) {
+  const sym = el.dataset.sym; cancelAnimationFrame(el._roll);
+  const shown = el.closest('.slide.active') && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!shown || !isFinite(from) || from === to || Math.abs(to - from) / Math.abs(to || 1) > 0.2) { el.textContent = money(sym, to); return; }
+  const t0 = performance.now(), dur = 700;
+  const step = t => { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = money(sym, k < 1 ? from + (to - from) * e : to); if (k < 1) el._roll = requestAnimationFrame(step); };
+  el._roll = requestAnimationFrame(step);
+}
 async function loadWeather() {
   try {
     // stick with whichever forecast worked last time, so the numbers don't flip between two services
