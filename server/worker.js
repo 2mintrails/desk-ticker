@@ -467,13 +467,13 @@ async function jobBullion(env) {
     .filter((x, i, l) => l.findIndex(y => y.title.toLowerCase().slice(0, 50) === x.title.toLowerCase().slice(0, 50)) === i).slice(0, 14);
   const views = { gold: all.filter(x => now - x.t < 5 * 86400e3 && /\bgold\b/i.test(x.title) && OUTLOOK.test(x.title)).slice(0, 6),
                   silver: all.filter(x => now - x.t < 5 * 86400e3 && /\bsilver\b/i.test(x.title) && OUTLOOK.test(x.title)).slice(0, 6) };
-  const sig = 'p2' + JSON.stringify([recent, views].map(o => [o.gold.map(x => x.title), o.silver.map(x => x.title)]));
+  const sig = 'p3' + JSON.stringify([recent, views].map(o => [o.gold.map(x => x.title), o.silver.map(x => x.title)]));
   const old = (await dbGet(env, ['news_Bullion'])).news_Bullion;
   let sum = old && old.v && old.v.sum, aiNote = 'kept';
   if (!sum || !String(old.v.sig || '').startsWith(sig.slice(0, 2)) || (old.v.sig !== sig && now - (sum.at || 0) > 25 * 60e3) || now - (sum.at || 0) > 6 * 3600e3) {
     try { sum = await bullionSummary(env, recent, views); aiNote = 'new'; } catch (e) { aiNote = 'AI failed: ' + String(e.message || e).slice(0, 80); if (sum && now - sum.at > 12 * 3600e3) sum = null; }
   }
-  out.sum = sum || null; out.sig = sig;
+  out.sum = sum || null; out.sig = aiNote === 'new' ? sig : (old && old.v && old.v.sig) || '';   // only a fresh summary moves the signature on
   await dbPut(env, 'news_Bullion', out);
   const n = lists.reduce((a, l) => a + l.length, 0);
   return 'summary ' + aiNote + ': ' + (sum ? ['gold', 'silver'].map(m => m + ' why=' + (sum[m]?.why || '-') + ' | experts=' + (sum[m]?.experts || '-') + ' (' + (sum[m]?.n || 0) + ')').join(' · ') : 'none') + ' [' + recent.gold.length + 'g/' + recent.silver.length + 's headlines, ' + n + ' read]';
