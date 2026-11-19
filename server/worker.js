@@ -432,8 +432,8 @@ async function bullionSummary(env, recent, views) {
   const fmt = l => l.length ? l.map(x => '- ' + x.title + ' (' + (x.source || '') + ')').join('\n') : '(none)';
   const prompt = 'Headlines from Indian business news in the last day or so.\n\nGOLD:\n' + fmt(recent.gold) + '\n\nGOLD analyst/outlook headlines (last 5 days):\n' + fmt(views.gold) +
     '\n\nSILVER:\n' + fmt(recent.silver) + '\n\nSILVER analyst/outlook headlines (last 5 days):\n' + fmt(views.silver) +
-    '\n\nFor gold and for silver separately, write:\n"why": one plain sentence, max 9 words, on why the price is moving, using only reasons stated in these headlines (e.g. "Falling on a strong dollar and Fed rate-hike bets"). No numbers unless in the headlines. Empty string if the headlines give no reason.\n' +
-    '"experts": max 9 words summarising what analysts/experts in these headlines expect next (direction, range or support level as they state it). Empty string if no headline reports an analyst or expert view. Never add your own prediction.\n"n": how many headlines the experts line is based on.\n' +
+    '\n\nFor gold and for silver separately, write:\n"why": one plain sentence, max 9 words. It MUST start with "Falling on", "Rising on", "Steady as" or "Mixed as" (pick from what the headlines say the price did), then the reasons the headlines give. Example: "Falling on a strong dollar and Fed rate-hike bets". No numbers unless in the headlines. Empty string if the headlines give no reason.\n' +
+    '"experts": max 9 words stating what analysts/experts in these headlines expect next: a direction, range, target or support/resistance level that a headline actually states (e.g. "Weak near term; support near 1.28 lakh"). A headline that only asks a question ("more fall ahead or bounce back?") or says "what experts say" without the view is NOT a view: ignore it. Empty string if no headline states a view. Never add your own prediction.\n"n": how many headlines the experts line is based on.\n' +
     'Reply with JSON only: {"gold":{"why":"","experts":"","n":0},"silver":{"why":"","experts":"","n":0}}';
   let r;
   for (const model of ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct']) {
@@ -467,7 +467,7 @@ async function jobBullion(env) {
     .filter((x, i, l) => l.findIndex(y => y.title.toLowerCase().slice(0, 50) === x.title.toLowerCase().slice(0, 50)) === i).slice(0, 14);
   const views = { gold: all.filter(x => now - x.t < 5 * 86400e3 && /\bgold\b/i.test(x.title) && OUTLOOK.test(x.title)).slice(0, 6),
                   silver: all.filter(x => now - x.t < 5 * 86400e3 && /\bsilver\b/i.test(x.title) && OUTLOOK.test(x.title)).slice(0, 6) };
-  const sig = JSON.stringify([recent, views].map(o => [o.gold.map(x => x.title), o.silver.map(x => x.title)]));
+  const sig = 'p2' + JSON.stringify([recent, views].map(o => [o.gold.map(x => x.title), o.silver.map(x => x.title)]));
   const old = (await dbGet(env, ['news_Bullion'])).news_Bullion;
   let sum = old && old.v && old.v.sum, aiNote = 'kept';
   if (!sum || (old.v.sig !== sig && now - (sum.at || 0) > 25 * 60e3) || now - (sum.at || 0) > 6 * 3600e3) {
