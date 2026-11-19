@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v19.1-2026-11-19">
+<meta name="ticker-version" content="v19.2-2026-11-19">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -206,12 +206,13 @@
   .why[hidden]{display:none!important}
   .why .half{flex:1;min-width:0;display:flex;flex-direction:column;gap:.7vh}
   .why .half+.half{border-left:1px solid rgba(255,255,255,.12);padding-left:2.4vw}
-  .why .r{display:flex;align-items:baseline;gap:10px;font-size:clamp(13px,3.9vh,17px);font-weight:600;line-height:1.25}
+  .why .r{display:flex;align-items:baseline;gap:10px;font-size:clamp(13px,3.7vh,16px);font-weight:600;line-height:1.25}
   .why .r b{flex:none;font-size:.72em;letter-spacing:1.5px;text-transform:uppercase;opacity:.75}
   .why .g b{color:#ffd36b} .why .s b{color:#d6dbe6}
-  .why .t1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .why .dn{color:#f87171} .why .up{color:#4ade80} .why .olx.plain{color:inherit;opacity:.8}
+  .why .t1{min-width:0;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
   .why .src{opacity:.55;font-weight:500}
-  .why .olx{font-size:clamp(12px,3.4vh,15px);color:#ffd36b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .why .olx{font-size:clamp(12px,3.4vh,15px);color:#ffd36b;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
   .why .olx i{font-style:normal;font-size:.8em;letter-spacing:1.3px;text-transform:uppercase;opacity:.8;margin-right:6px}
   .slide.has-why{display:flex;flex-direction:column}
   .slide.has-why > .metals{max-height:70vh;flex:1 1 auto;height:auto}
@@ -2039,6 +2040,7 @@ function renderGR() {
   const longest = GR.goldHist && GR.goldHist.length ? (Date.parse(GR.goldHist[GR.goldHist.length - 1].iso) - Date.parse(GR.goldHist[0].iso)) / 864e5 : 0;
   document.querySelectorAll('#mRange button').forEach(b => { b.classList.toggle('on', +b.dataset.r === MRANGE); b.disabled = +b.dataset.r > 7 && longest < +b.dataset.r - 3; });
   document.getElementById('mRange').classList.toggle('ready', longest >= 12);
+
 }
 try { MRANGE = [7, 15, 30].includes(+localStorage.getItem('deskTickerMetalRange')) ? +localStorage.getItem('deskTickerMetalRange') : 7; } catch (e) {}
 document.getElementById('mRange').addEventListener('click', e => {
@@ -2373,12 +2375,16 @@ let newsPageTimer;
 window.addEventListener('resize', () => ['newsIN', 'newsWD'].forEach(id => fitNews(document.getElementById(id))));
 // gold & silver: the headline behind today's move, plus an analyst view when one was published lately (none of it is our own forecast)
 function agoTxt(ms) { const m = Math.max(1, Math.round((Date.now() - ms) / 6e4)); return m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'; }
+var WHY_B = null;   // var, not let: renderGR can run before this line
 function renderWhy(B) {
+  if (B !== undefined) WHY_B = B;
   const box = document.getElementById('mWhy'); if (!box) return; const sec = box.closest('section');
+  const S = WHY_B && WHY_B.sum && Date.now() - (WHY_B.sum.at || 0) < 12 * 3600e3 ? WHY_B.sum : null;
   const half = (k, lab, x) => { if (!x || !x.why) return '';
-    const v = x.view && x.view.t !== x.why.t ? '<div class="olx"><i>Analyst</i>' + esc(x.view.t) + ' <span class="src">· ' + esc(x.view.src) + '</span></div>' : '';
-    return '<div class="half ' + k + '"><div class="r"><b>' + lab + '</b><span class="t1">' + esc(x.why.t) + ' <span class="src">· ' + esc(x.why.src) + (x.why.at ? ', ' + agoTxt(x.why.at) : '') + '</span></span></div>' + v + '</div>'; };
-  const h = B ? half('g', 'Gold', B.gold) + half('s', 'Silver', B.silver) : '';
+    const ex = x.experts ? '<div class="olx"><i>Experts</i>' + (x.raw ? x.experts : esc(x.experts)) + (x.n > 0 ? ' <span class="src">· ' + x.n + (x.n === 1 ? ' report' : ' reports') + '</span>' : '') + '</div>' : '';
+    return '<div class="half ' + k + '"><div class="r"><b>' + lab + '</b><span class="t1">' + (x.raw ? x.why : esc(x.why)) + '</span></div>' + ex + '</div>'; };
+  let h = '';
+  if (S) h = half('g', 'Why', S.gold) + half('s', 'Why', S.silver);
   box.innerHTML = h; box.hidden = !h; if (sec) sec.classList.toggle('has-why', !!h);
 }
 function renderNews(news) {

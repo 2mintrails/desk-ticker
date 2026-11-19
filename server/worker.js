@@ -427,6 +427,29 @@ const METAL_NOT = { gold: /goldman|golden|gold medal|gold coast|gold loan|gold c
   silver: /silver lining|silver medal|silver jubilee|silver screen|silverline|silver lake|quicksilver|silverware|silver fox/i };
 const PRICE_WORDS = /\b(price|prices|rate|rates|bullion|mcx|comex|ounce|oz|per 10 ?g(ram)?|per kg|rall(y|ies)|surges?|jumps?|soars?|climbs?|gains?|rises?|slips?|falls?|drops?|dips?|plunges?|tumbles?|slides?|eases?|steady|flat|record|all-time high|lifetime high|lows?|highs?|outlook|forecast|target|support|resistance|demand|hedge|safe[- ]haven)\b/i;
 const OUTLOOK = /\b((gold|silver|bullion|price|prices)( price)? (outlook|forecast)|(outlook|forecast) (for|on) (gold|silver|bullion)|target|targets|expected to|may (touch|hit|test|rise|fall|reach|cross|trade|consolidate)|could (touch|hit|test|rise|fall|reach|cross)|likely to|seen (at|rising|falling|trading)|predict|support (at|near|level)|resistance|buy on dips|by (diwali|dhanteras|akshaya tritiya|march|december|year[- ]end|20\d\d)|what's next|where (is|are) .* headed|should you buy)\b/i;
+async function bullionSummary(env, recent, views) {
+  if (!env.AI) throw new Error('no AI binding');
+  const fmt = l => l.length ? l.map(x => '- ' + x.title + ' (' + (x.source || '') + ')').join('\n') : '(none)';
+  const prompt = 'Headlines from Indian business news in the last day or so.\n\nGOLD:\n' + fmt(recent.gold) + '\n\nGOLD analyst/outlook headlines (last 5 days):\n' + fmt(views.gold) +
+    '\n\nSILVER:\n' + fmt(recent.silver) + '\n\nSILVER analyst/outlook headlines (last 5 days):\n' + fmt(views.silver) +
+    '\n\nFor gold and for silver separately, write:\n"why": one plain sentence, max 9 words, on why the price is moving, using only reasons stated in these headlines (e.g. "Falling on a strong dollar and Fed rate-hike bets"). No numbers unless in the headlines. Empty string if the headlines give no reason.\n' +
+    '"experts": max 9 words summarising what analysts/experts in these headlines expect next (direction, range or support level as they state it). Empty string if no headline reports an analyst or expert view. Never add your own prediction.\n"n": how many headlines the experts line is based on.\n' +
+    'Reply with JSON only: {"gold":{"why":"","experts":"","n":0},"silver":{"why":"","experts":"","n":0}}';
+  let r;
+  for (const model of ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct']) {
+    try { r = await env.AI.run(model, { messages: [{ role: 'system', content: 'You summarise news headlines faithfully. You never invent facts or forecasts.' }, { role: 'user', content: prompt }], max_tokens: 300, temperature: 0.1 }); break; }
+    catch (e) { r = null; }
+  }
+  if (!r) throw new Error('AI unavailable');
+  const txt = typeof r.response === 'string' ? r.response : JSON.stringify(r.response || '');
+  const j = JSON.parse((txt.match(/\{[\s\S]*\}/) || ['{}'])[0]);
+  const clean = (x, ok) => { const t = String(x || '').replace(/\s+/g, ' ').replace(/^["'\s]+|["'.\s]+$/g, '').trim(); return ok && t.length > 6 && t.length < 90 ? t[0].toUpperCase() + t.slice(1) : ''; };
+  const out = { at: Date.now() };
+  for (const m of ['gold', 'silver']) { const o = j[m] || {};
+    out[m] = { why: clean(o.why, recent[m].length > 0), experts: clean(o.experts, views[m].length + recent[m].length > 0), n: Math.min(+o.n || 0, views[m].length + recent[m].length) }; }
+  if (!out.gold.why && !out.silver.why) throw new Error('empty summary');
+  return out;
+}
 async function jobBullion(env) {
   const lists = await Promise.all(BULLION_FEEDS.map(([u, s]) => readFeed(u, s)));
   const all = lists.flat().filter(x => x.t).sort((a, b) => b.t - a.t), now = Date.now(), seen = new Set(), out = {};
@@ -438,9 +461,22 @@ async function jobBullion(env) {
     const mine = hits.filter(x => m === 'gold' || !/\bgold\b/i.test(x.title) || /\bsilver\b.*\b(falls?|rises?|jumps?|slips?|gains?|drops?|surges?|tumbles?|climbs?)/i.test(x.title));
     out[m] = { why: pick(mine.find(x => now - x.t < 30 * 3600e3 && !OUTLOOK.test(x.title))), view: pick(mine.find(x => now - x.t < 5 * 86400e3 && OUTLOOK.test(x.title))) };
   }
+  // Option B: an AI summary of what the reports say — why it moved, and what experts expect (never our own forecast)
+  const recent = { gold: [], silver: [] };
+  for (const m of ['gold', 'silver']) recent[m] = all.filter(x => now - x.t < 36 * 3600e3 && METAL_RE[m].test(x.title) && !METAL_NOT[m].test(x.title) && PRICE_WORDS.test(x.title))
+    .filter((x, i, l) => l.findIndex(y => y.title.toLowerCase().slice(0, 50) === x.title.toLowerCase().slice(0, 50)) === i).slice(0, 14);
+  const views = { gold: all.filter(x => now - x.t < 5 * 86400e3 && /\bgold\b/i.test(x.title) && OUTLOOK.test(x.title)).slice(0, 6),
+                  silver: all.filter(x => now - x.t < 5 * 86400e3 && /\bsilver\b/i.test(x.title) && OUTLOOK.test(x.title)).slice(0, 6) };
+  const sig = JSON.stringify([recent, views].map(o => [o.gold.map(x => x.title), o.silver.map(x => x.title)]));
+  const old = (await dbGet(env, ['news_Bullion'])).news_Bullion;
+  let sum = old && old.v && old.v.sum, aiNote = 'kept';
+  if (!sum || (old.v.sig !== sig && now - (sum.at || 0) > 25 * 60e3) || now - (sum.at || 0) > 6 * 3600e3) {
+    try { sum = await bullionSummary(env, recent, views); aiNote = 'new'; } catch (e) { aiNote = 'AI failed: ' + String(e.message || e).slice(0, 80); if (sum && now - sum.at > 12 * 3600e3) sum = null; }
+  }
+  out.sum = sum || null; out.sig = sig;
   await dbPut(env, 'news_Bullion', out);
   const n = lists.reduce((a, l) => a + l.length, 0);
-  return ['gold', 'silver'].map(m => m + ': ' + (out[m].why ? out[m].why.t.slice(0, 60) : 'no reason') + ' | view: ' + (out[m].view ? out[m].view.t.slice(0, 50) : 'none')).join(' · ') + ' (' + n + ' read)';
+  return 'summary ' + aiNote + ': ' + (sum ? ['gold', 'silver'].map(m => m + ' why=' + (sum[m]?.why || '-') + ' | experts=' + (sum[m]?.experts || '-') + ' (' + (sum[m]?.n || 0) + ')').join(' · ') : 'none') + ' [' + recent.gold.length + 'g/' + recent.silver.length + 's headlines, ' + n + ' read]';
 }
 // US watchlist news: the same, from US business feeds, for the stocks in the US watchlist
 const WATCH_FEEDS_US = [...FEEDS.USMarkets,
@@ -709,7 +745,7 @@ async function feed(env) {
   { const L = d.news_Local, W = d.news_Watch;
     news.Local = { at: L?.at || null, city: L?.v?.city || '', items: (L?.v?.items || []).map(i => ({ t: i.text, u: i.link })) };
     news.Watch = { at: W?.at || null, items: (W?.v || []).map(i => ({ t: i.text, u: i.link, sym: i.sym, tick: i.tick })) };
-    news.Bullion = { at: d.news_Bullion?.at || null, ...(d.news_Bullion?.v || {}) };
+    news.Bullion = { at: d.news_Bullion?.at || null, sum: d.news_Bullion?.v?.sum || null };
     const WU = d.news_WatchUS; news.WatchUS = { at: WU?.at || null, items: (WU?.v || []).map(i => ({ t: i.text, u: i.link, sym: i.sym, tick: i.tick })) }; }
   ['India', 'World', 'Markets', 'USMarkets'].forEach(s => { const x = d['news_' + s]; news[s] = { at: x?.at || null, items: (x?.v || []).map(i => ({ t: i.text, u: i.link })) }; });
   const a = E.aqi;

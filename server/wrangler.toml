@@ -11,3 +11,6 @@ crons = ["* * * * *"]
 binding = "DB"
 database_name = "desk-ticker"
 database_id = "__D1_ID__"   # filled in by the GitHub workflow
+
+[ai]
+binding = "AI"   # Cloudflare Workers AI: turns the gold/silver headlines into a one-line summary
