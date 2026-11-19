@@ -470,7 +470,7 @@ async function jobBullion(env) {
   const sig = 'p2' + JSON.stringify([recent, views].map(o => [o.gold.map(x => x.title), o.silver.map(x => x.title)]));
   const old = (await dbGet(env, ['news_Bullion'])).news_Bullion;
   let sum = old && old.v && old.v.sum, aiNote = 'kept';
-  if (!sum || (old.v.sig !== sig && now - (sum.at || 0) > 25 * 60e3) || now - (sum.at || 0) > 6 * 3600e3) {
+  if (!sum || !String(old.v.sig || '').startsWith(sig.slice(0, 2)) || (old.v.sig !== sig && now - (sum.at || 0) > 25 * 60e3) || now - (sum.at || 0) > 6 * 3600e3) {
     try { sum = await bullionSummary(env, recent, views); aiNote = 'new'; } catch (e) { aiNote = 'AI failed: ' + String(e.message || e).slice(0, 80); if (sum && now - sum.at > 12 * 3600e3) sum = null; }
   }
   out.sum = sum || null; out.sig = sig;
