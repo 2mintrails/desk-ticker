@@ -427,6 +427,53 @@ const METAL_NOT = { gold: /goldman|golden|gold medal|gold coast|gold loan|gold c
   silver: /silver lining|silver medal|silver jubilee|silver screen|silverline|silver lake|quicksilver|silverware|silver fox/i };
 const PRICE_WORDS = /\b(price|prices|rate|rates|bullion|mcx|comex|ounce|oz|per 10 ?g(ram)?|per kg|rall(y|ies)|surges?|jumps?|soars?|climbs?|gains?|rises?|slips?|falls?|drops?|dips?|plunges?|tumbles?|slides?|eases?|steady|flat|record|all-time high|lifetime high|lows?|highs?|outlook|forecast|target|support|resistance|demand|hedge|safe[- ]haven)\b/i;
 const OUTLOOK = /\b((gold|silver|bullion|price|prices)( price)? (outlook|forecast)|(outlook|forecast) (for|on) (gold|silver|bullion)|target|targets|expected to|may (touch|hit|test|rise|fall|reach|cross|trade|consolidate)|could (touch|hit|test|rise|fall|reach|cross)|likely to|seen (at|rising|falling|trading)|predict|support (at|near|level)|resistance|buy on dips|by (diwali|dhanteras|akshaya tritiya|march|december|year[- ]end|20\d\d)|what's next|where (is|are) .* headed|should you buy)\b/i;
+/* ---------------- market mood: the trend and the why, in words, for India (Nifty) and the US (S&P 500) ---------------- */
+function nyParts(t) { const o = {}; new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour12: false, weekday: 'short', hour: 'numeric', minute: 'numeric' })
+  .formatToParts(new Date(t)).forEach(x => o[x.type] = x.value); return { wd: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(o.weekday), m: (+o.hour % 24) * 60 + +o.minute }; }
+function sessionOpen(mkt, t) {
+  if (mkt === 'in') { const p = istParts(t), m = p.h * 60 + p.mi; return p.wd >= 1 && p.wd <= 5 && m >= 555 && m < 930; }
+  const p = nyParts(t); return p.wd >= 1 && p.wd <= 5 && p.m >= 570 && p.m < 960;
+}
+async function moodSummary(env, mkt, heads, move) {
+  if (!env.AI) throw new Error('no AI binding');
+  const name = mkt === 'in' ? 'the Indian stock market (Nifty 50 / Sensex)' : 'the US stock market (S&P 500, Nasdaq, Dow)';
+  const prompt = 'Latest market headlines about ' + name + ':\n' + heads.map(h => '- ' + h).join('\n') + '\n\n' + (move ? 'Fact: ' + move + '\n\n' : '') +
+    'Write two short lines in plain English for someone glancing at a desk display:\n' +
+    '"trend": max 12 words on what the market is doing (direction, how long the run has gone on, which sectors lead or lag), as the headlines describe it. Example: "Third straight day of gains; banks lead, IT lags".\n' +
+    '"why": max 14 words on why, using only reasons given in the headlines. Example: "Foreign investors are buying again on rate-cut hopes; easing crude helps".\n' +
+    'Rules: NO digits or numbers of any kind (no index levels, points, percentages, prices, amounts); words like "third" or "week" are fine. No predictions or advice. If the headlines give no reason, "why" is an empty string.\n' +
+    'Reply with JSON only: {"trend":"","why":""}';
+  let r;
+  for (const model of ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct']) {
+    try { r = await env.AI.run(model, { messages: [{ role: 'system', content: 'You summarise market news faithfully. You never invent facts, numbers or forecasts.' }, { role: 'user', content: prompt }], max_tokens: 200, temperature: 0.1 }); break; }
+    catch (e) { r = null; }
+  }
+  if (!r) throw new Error('AI unavailable');
+  const txt = typeof r.response === 'string' ? r.response : JSON.stringify(r.response || '');
+  const j = JSON.parse((txt.match(/\{[\s\S]*\}/) || ['{}'])[0]);
+  const clean = x => { const t = String(x || '').replace(/\s+/g, ' ').replace(/^["'\s]+|["'.\s]+$/g, '').trim(); return t.length > 6 && t.length < 110 && !/\d/.test(t) ? t[0].toUpperCase() + t.slice(1) : ''; };
+  const out = { trend: clean(j.trend), why: clean(j.why) };
+  if (!out.trend) throw new Error('no usable trend line: ' + txt.slice(0, 80));
+  return out;
+}
+async function jobMood(env) {
+  const d = await dbGet(env, ['news_Markets', 'news_USMarkets', 'mood', 'sheet1']), now = Date.now(), old = d.mood?.v || {}, out = { ...old }, notes = [];
+  const pct = sym => { const r = (d.sheet1?.v || []).find(x => String(x[0] || '').trim() === sym); const p = r && parseFloat(r[1]), c = r && parseFloat(r[2]);
+    return p && isFinite(c) && p !== c ? c / (p - c) * 100 : null; };
+  for (const [mkt, key, sym, lab] of [['in', 'news_Markets', 'INDEXNSE:NIFTY_50', 'Nifty 50'], ['us', 'news_USMarkets', 'INDEXSP:.INX', 'S&P 500']]) {
+    const cur = old[mkt], open = sessionOpen(mkt, now);
+    // while the market is open: refresh every 30 min; once it closes: one final version, then hold until the next session
+    const due = !cur || (open ? now - cur.at > 30 * 60e3 || cur.final : !cur.final);
+    if (!due) { notes.push(mkt + ' kept (' + (cur.final ? 'final' : 'live') + ')'); continue; }
+    const heads = (d[key]?.v || []).map(x => String(x.text || '')).filter(Boolean).slice(0, 14);
+    if (heads.length < 3) { notes.push(mkt + ' too few headlines'); continue; }
+    const pc = pct(sym), move = pc == null ? '' : lab + ' is ' + (Math.abs(pc) < 0.15 ? 'roughly flat' : pc > 0 ? 'up' : 'down') + ' today' + (open ? ' so far' : ' at the close') + '.';
+    try { const s = await moodSummary(env, mkt, heads, move); out[mkt] = { ...s, at: now, final: !open }; notes.push(mkt + (open ? ' live' : ' final') + ': ' + s.trend + ' | ' + (s.why || '-')); }
+    catch (e) { notes.push(mkt + ' AI failed: ' + String(e.message || e).slice(0, 80)); }
+  }
+  await dbPut(env, 'mood', out);
+  return notes.join(' · ');
+}
 async function bullionSummary(env, recent, views) {
   if (!env.AI) throw new Error('no AI binding');
   const fmt = l => l.length ? l.map(x => '- ' + x.title + ' (' + (x.source || '') + ')').join('\n') : '(none)';
@@ -581,7 +628,7 @@ async function jobMetals(env) {
 
 /* ---------------- the timer ---------------- */
 async function runJob(env, job) {
-  try { const note = job === 'news:Local' ? await jobLocal(env) : job === 'news:Watch' ? await jobWatch(env) : job === 'news:WatchUS' ? await jobWatch(env, true) : job === 'news:Bullion' ? await jobBullion(env) : job.startsWith('news:') ? await jobNews(env, job.slice(5)) : job === 'env' ? await jobEnv(env) : job === 'metals' ? await jobMetals(env) : await jobPrices(env); await logRun(env, job, true, note); return note; }
+  try { const note = job === 'news:Local' ? await jobLocal(env) : job === 'news:Watch' ? await jobWatch(env) : job === 'news:WatchUS' ? await jobWatch(env, true) : job === 'news:Bullion' ? await jobBullion(env) : job === 'news:Mood' ? await jobMood(env) : job.startsWith('news:') ? await jobNews(env, job.slice(5)) : job === 'env' ? await jobEnv(env) : job === 'metals' ? await jobMetals(env) : await jobPrices(env); await logRun(env, job, true, note); return note; }
   catch (e) { await logRun(env, job, false, e.message || e); return 'failed: ' + (e.message || e); }
 }
 async function tick(env, t = Date.now()) {
@@ -589,7 +636,7 @@ async function tick(env, t = Date.now()) {
   if (marketWindow(t) || m % 20 === 0) jobs.push('prices');
   if (m % 10 === 0) jobs.push('env');
   if (m % 10 === 5 && (p.h >= 6 && p.h <= 19 || m === 5)) jobs.push('metals');   // every 10 min from 6 am to 7 pm, else hourly
-  const sec = { 1: 'Local', 2: 'India', 3: 'Watch', 4: 'World', 6: 'Markets', 7: 'WatchUS', 8: 'USMarkets', 9: 'Bullion' }[m % 10];   // one news section every 2 minutes
+  const sec = { 1: 'Local', 2: 'India', 3: 'Watch', 4: 'World', 6: 'Markets', 7: 'WatchUS', 8: 'USMarkets', 9: 'Bullion', 0: 'Mood' }[m % 10];   // one news section every 2 minutes
   if (sec) jobs.push('news:' + sec);
   for (const j of jobs) await runJob(env, j);
 }
@@ -701,7 +748,7 @@ const rateOf = v => { const m = String(v || '').match(/([\d,]+(?:\.\d+)?)\s*(?:\
 const isoDay = s => { const t = Date.parse(s); return t ? new Date(t + 6 * 3600e3).toISOString().slice(0, 10) : null; };
 async function feed(env) {
   const cfg = await getCfg(env);
-  const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'ibja', 'gr_silver', 'gr_gold', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets', 'news_Local', 'news_Watch', 'news_WatchUS', 'news_Bullion'];
+  const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'ibja', 'gr_silver', 'gr_gold', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets', 'news_Local', 'news_Watch', 'news_WatchUS', 'news_Bullion', 'mood'];
   const d = await dbGet(env, keys), E = d.env?.v || {}, rows = (d.sheet1?.v || []).slice(1);
   const quotes = {};
   rows.forEach(r => {
@@ -745,6 +792,7 @@ async function feed(env) {
   { const L = d.news_Local, W = d.news_Watch;
     news.Local = { at: L?.at || null, city: L?.v?.city || '', items: (L?.v?.items || []).map(i => ({ t: i.text, u: i.link })) };
     news.Watch = { at: W?.at || null, items: (W?.v || []).map(i => ({ t: i.text, u: i.link, sym: i.sym, tick: i.tick })) };
+    news.Mood = { at: d.mood?.at || null, ...(d.mood?.v || {}) };
     news.Bullion = { at: d.news_Bullion?.at || null, sum: d.news_Bullion?.v?.sum || null };
     const WU = d.news_WatchUS; news.WatchUS = { at: WU?.at || null, items: (WU?.v || []).map(i => ({ t: i.text, u: i.link, sym: i.sym, tick: i.tick })) }; }
   ['India', 'World', 'Markets', 'USMarkets'].forEach(s => { const x = d['news_' + s]; news[s] = { at: x?.at || null, items: (x?.v || []).map(i => ({ t: i.text, u: i.link })) }; });
@@ -785,7 +833,7 @@ export default {
       }
       if (u.pathname === '/v1/run') {                 // run one job now (used once after each deploy); at most once a minute per job
         const job = u.searchParams.get('job') || 'prices';
-        if (!/^(prices|env|metals|news:(India|World|Markets|USMarkets|Local|Watch|WatchUS|Bullion))$/.test(job)) return new Response('unknown job', { status: 400 });
+        if (!/^(prices|env|metals|news:(India|World|Markets|USMarkets|Local|Watch|WatchUS|Bullion|Mood))$/.test(job)) return new Response('unknown job', { status: 400 });
         const last = (await dbGet(env, ['log'])).log?.v?.[job];
         if (last && last.at === istStamp().slice(0, 16) + last.at.slice(16)) return new Response(JSON.stringify({ job, note: 'ran this minute already', last }), { headers: CORS });
         return new Response(JSON.stringify({ job, note: await runJob(env, job) }), { headers: CORS });
