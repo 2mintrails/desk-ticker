@@ -440,7 +440,7 @@ async function moodSummary(env, mkt, heads, move) {
   const prompt = 'Latest market headlines about ' + name + ':\n' + heads.map(h => '- ' + h).join('\n') + '\n\n' + (move ? 'Fact: ' + move + '\n\n' : '') +
     'Write two short lines in plain English for someone glancing at a desk display:\n' +
     '"trend": max 12 words on what the market is doing (direction, how long the run has gone on, which sectors lead or lag), as the headlines describe it. Example: "Third straight day of gains; banks lead, IT lags".\n' +
-    '"why": max 14 words on why, using only reasons given in the headlines. Example: "Foreign investors are buying again on rate-cut hopes; easing crude helps".\n' +
+    '"why": max 14 words on the main reasons the market moved today, as the market-wrap headlines explain them (ignore single-company stories unless headlines say they moved the whole market). Example: "Foreign investors are buying again on rate-cut hopes; easing crude helps".\n' +
     'Rules: NO digits or numbers of any kind (no index levels, points, percentages, prices, amounts); words like "third" or "week" are fine. No predictions or advice. If the headlines give no reason, "why" is an empty string.\n' +
     'Reply with JSON only: {"trend":"","why":""}';
   let r;
@@ -463,12 +463,19 @@ async function jobMood(env) {
   for (const [mkt, key, sym, lab] of [['in', 'news_Markets', 'INDEXNSE:NIFTY_50', 'Nifty 50'], ['us', 'news_USMarkets', 'INDEXSP:.INX', 'S&P 500']]) {
     const cur = old[mkt], open = sessionOpen(mkt, now);
     // while the market is open: refresh every 30 min; once it closes: one final version, then hold until the next session
-    const due = !cur || (open ? now - cur.at > 30 * 60e3 || cur.final : !cur.final);
+    const MOOD_V = 2, due = !cur || cur.v !== MOOD_V || (open ? now - cur.at > 30 * 60e3 || cur.final : !cur.final);
     if (!due) { notes.push(mkt + ' kept (' + (cur.final ? 'final' : 'live') + ')'); continue; }
-    const heads = (d[key]?.v || []).map(x => String(x.text || '')).filter(Boolean).slice(0, 14);
+    // market-wrap headlines straight from the market feeds: ones that talk about the index or the market as a whole, newest first
+    const feeds = mkt === 'in' ? FEEDS.Markets : FEEDS.USMarkets;
+    const raw = (await Promise.all(feeds.map(([u, s]) => readFeed(u, s)))).flat().filter(x => x.t && now - x.t < 12 * 3600e3).sort((a, b) => b.t - a.t);
+    const WRAP = mkt === 'in' ? /\b(sensex|nifty|dalal street|d-street|indian (stock |equity |share )?markets?|stock market|market (today|close|closing|wrap)|closing bell|opening bell|benchmarks?|fii|fpi|foreign investors?)\b/i
+                              : /\b(wall street|s&p( 500)?|nasdaq|dow( jones)?|us stocks|stock market|stocks (rise|fall|rally|slip|close|end|open|gain|drop)|market (today|close|wrap)|closing bell|treasur(y|ies) yields?|fed\b)/i;
+    const seenT = new Set(), heads = raw.filter(x => WRAP.test(x.title) && !seenT.has(x.title.toLowerCase().slice(0, 50)) && seenT.add(x.title.toLowerCase().slice(0, 50)))
+      .slice(0, 16).map(x => x.title);
+    if (heads.length < 3) heads.push(...(d[key]?.v || []).map(x => String(x.text || '')).filter(Boolean).slice(0, 10));
     if (heads.length < 3) { notes.push(mkt + ' too few headlines'); continue; }
     const pc = pct(sym), move = pc == null ? '' : lab + ' is ' + (Math.abs(pc) < 0.15 ? 'roughly flat' : pc > 0 ? 'up' : 'down') + ' today' + (open ? ' so far' : ' at the close') + '.';
-    try { const s = await moodSummary(env, mkt, heads, move); out[mkt] = { ...s, at: now, final: !open }; notes.push(mkt + (open ? ' live' : ' final') + ': ' + s.trend + ' | ' + (s.why || '-')); }
+    try { const s = await moodSummary(env, mkt, heads, move); out[mkt] = { ...s, at: now, final: !open, v: MOOD_V }; notes.push(mkt + (open ? ' live' : ' final') + ' (' + heads.length + ' headlines): ' + s.trend + ' | ' + (s.why || '-')); }
     catch (e) { notes.push(mkt + ' AI failed: ' + String(e.message || e).slice(0, 80)); }
   }
   await dbPut(env, 'mood', out);
