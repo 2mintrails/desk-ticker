@@ -463,7 +463,7 @@ async function jobMood(env) {
   for (const [mkt, key, sym, lab] of [['in', 'news_Markets', 'INDEXNSE:NIFTY_50', 'Nifty 50'], ['us', 'news_USMarkets', 'INDEXSP:.INX', 'S&P 500']]) {
     const cur = old[mkt], open = sessionOpen(mkt, now);
     // while the market is open: refresh every 30 min; once it closes: one final version, then hold until the next session
-    const MOOD_V = 2, due = !cur || cur.v !== MOOD_V || (open ? now - cur.at > 30 * 60e3 || cur.final : !cur.final);
+    const MOOD_V = 3, due = !cur || cur.v !== MOOD_V || (open ? now - cur.at > 30 * 60e3 || cur.final : !cur.final);
     if (!due) { notes.push(mkt + ' kept (' + (cur.final ? 'final' : 'live') + ')'); continue; }
     // market-wrap headlines straight from the market feeds: ones that talk about the index or the market as a whole, newest first
     const feeds = mkt === 'in' ? FEEDS.Markets : FEEDS.USMarkets;
@@ -475,7 +475,7 @@ async function jobMood(env) {
     if (heads.length < 3) heads.push(...(d[key]?.v || []).map(x => String(x.text || '')).filter(Boolean).slice(0, 10));
     if (heads.length < 3) { notes.push(mkt + ' too few headlines'); continue; }
     const pc = pct(sym), move = pc == null ? '' : lab + ' is ' + (Math.abs(pc) < 0.15 ? 'roughly flat' : pc > 0 ? 'up' : 'down') + ' today' + (open ? ' so far' : ' at the close') + '.';
-    try { const s = await moodSummary(env, mkt, heads, move); out[mkt] = { ...s, at: now, final: !open, v: MOOD_V }; notes.push(mkt + (open ? ' live' : ' final') + ' (' + heads.length + ' headlines): ' + s.trend + ' | ' + (s.why || '-')); }
+    try { const s = await moodSummary(env, mkt, heads, move); out[mkt] = { ...s, at: now, final: !open, v: MOOD_V }; notes.push(mkt + (open ? ' live' : ' final') + ' (' + heads.length + ' headlines): ' + s.trend + ' | ' + (s.why || '-') + ' || ' + heads.map(h => h.slice(0, 70)).join(' ~ ')); }
     catch (e) { notes.push(mkt + ' AI failed: ' + String(e.message || e).slice(0, 80)); }
   }
   await dbPut(env, 'mood', out);
