@@ -45,7 +45,7 @@ jobs:
         run: |
           URL=$(grep -o 'https://[a-z0-9.-]*workers.dev' deploy.log | head -1); echo "Server: $URL"
           sleep 8
-          for j in prices env metals news:India news:World news:Markets news:USMarkets news:Local news:Watch news:WatchUS; do echo "--- $j"; curl -s "$URL/v1/run?job=$j"; echo; done
+          for j in prices env metals news:India news:World news:Markets news:USMarkets news:Local news:Watch news:WatchUS news:Bullion; do echo "--- $j"; curl -s "$URL/v1/run?job=$j"; echo; done
           for q in "NSE:TITAN&r=3mo" "INDEXNSE:NIFTY_50&r=1d" "NASDAQ:NVDA&r=1y"; do echo "--- hist $q"; curl -s "$URL/v2/hist?sym=$q" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('error') or (len(d['pts']), d['pts'][0], d['pts'][-1], 'prev', d.get('prev'), '52w', d.get('lo52'), d.get('hi52'), 'day', d.get('dayLo'), d.get('dayHi')))"; done
           echo "--- US watchlist headlines"; curl -s "$URL/v2/feed" | python3 -c "import sys,json; [print(' *', i.get('tick'), i['t']) for i in json.load(sys.stdin)['news']['WatchUS']['items']]"
           echo "--- US market headlines"; curl -s "$URL/v2/feed" | python3 -c "import sys,json; [print(' *', i['t']) for i in json.load(sys.stdin)['news']['USMarkets']['items']]"
