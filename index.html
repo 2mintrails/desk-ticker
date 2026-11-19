@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v18.9-2026-11-18">
+<meta name="ticker-version" content="v19.0-2026-11-19">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1195,6 +1195,10 @@
       <div class="card ncol solo-news"><div class="nhead"><span class="nflag">⭐</span>Watchlist News</div><ol class="nlist" id="newsWL"></ol></div>
       <div class="mnote news-note"></div>
     </section>
+    <section class="slide" data-title="US Watchlist News" data-accent="#9aa3b2" data-needs="news" data-only="1" data-views="us">
+      <div class="card ncol solo-news"><div class="nhead"><span class="nflag">⭐</span>US Watchlist News</div><ol class="nlist" id="newsWLU"></ol></div>
+      <div class="mnote news-note"></div>
+    </section>
     <section class="slide" data-title="US Market News" data-accent="#9aa3b2" data-needs="news" data-only="1" data-views="us">
       <div class="card ncol solo-news"><div class="nhead"><span class="nflag">🇺🇸</span>US Market News</div><ol class="nlist" id="newsUS"></ol></div>
       <div class="mnote news-note"></div>
@@ -2374,15 +2378,15 @@ function renderNews(news) {
   }
   const got = fill('newsIN', pickL(0)) + fill('newsWD', pickL(1)) + fill('newsMK', pickL(3)) + fill('newsUS', pickL(7));
   {                                                   // local and watchlist news: shown only when there is some
-    const was = ['newsLC', 'newsWL'].map(id => document.getElementById(id).children.length > 0).join();
+    const was = ['newsLC', 'newsWL', 'newsWLU'].map(id => document.getElementById(id).children.length > 0).join();
     const extra = (id, sec) => { const items = ((sec || {}).items || []).map(x => ({ t: String(x.t || '').trim(), u: String(x.u || '').trim(), sym: x.sym, tick: x.tick })).filter(x => x.t).slice(0, 8);
       if (!items.length) { const ol = document.getElementById(id); ol.innerHTML = ''; ol._all = []; } else fill(id, items); };
     const loc = away ? (LOCAL_HERE || { city: '', items: [] }) : news.Local;
-    extra('newsLC', loc); extra('newsWL', news.Watch);
+    extra('newsLC', loc); extra('newsWL', news.Watch); extra('newsWLU', news.WatchUS);
     const city = (loc || {}).city, ls = document.getElementById('localSlide'), t = city ? city + ' News' : 'Local News';
     document.getElementById('lcName').textContent = t;
     if (ls.dataset.title !== t) { ls.dataset.title = t; if (typeof slides !== 'undefined' && slides[idx] === ls) document.getElementById('title').textContent = t; }
-    if (newsReady && was !== ['newsLC', 'newsWL'].map(id => document.getElementById(id).children.length > 0).join() && typeof applyMode === 'function' && mode) applyMode(true);
+    if (newsReady && was !== ['newsLC', 'newsWL', 'newsWLU'].map(id => document.getElementById(id).children.length > 0).join() && typeof applyMode === 'function' && mode) applyMode(true);
   }
   if (got) {
     document.querySelectorAll('.news-note').forEach(n => n.textContent = label + (at ? (label === 'Live feeds' ? ' · updated ' : ' · new headlines at ') +
@@ -2737,7 +2741,7 @@ function applyMode(force, fresh) {
     && !hiddenBySetting(s) && !(s.dataset.needs === 'news' && !newsReady) && !(s.querySelector('#newsMK') && !document.getElementById('newsMK').children.length)
     && !(s.querySelector('#newsUS') && !document.getElementById('newsUS').children.length)
     && !(s.dataset.ws && s.dataset.empty)
-    && !['newsLC', 'newsWL'].some(id => s.querySelector('#' + id) && !document.getElementById(id).children.length));
+    && !['newsLC', 'newsWL', 'newsWLU'].some(id => s.querySelector('#' + id) && !document.getElementById(id).children.length));
   bars.innerHTML = '';
   slides.forEach(() => { const s = document.createElement('span'); s.appendChild(document.createElement('b')); bars.appendChild(s); });
   idx = (locked || sameDay) && slides.includes(keep) ? slides.indexOf(keep) : 0;
