@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v19.4-2026-11-20">
+<meta name="ticker-version" content="v19.5-2026-11-20">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -211,8 +211,9 @@
   .why .src{opacity:.55;font-weight:500}
   .why .olx{font-size:clamp(12px,3.4vh,15px);color:#ffd36b;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
   .why .olx i{font-style:normal;font-size:.8em;letter-spacing:1.3px;text-transform:uppercase;opacity:.85;margin-right:6px}
-  .metal .why{margin-top:auto} .metal.gold .why b{color:#ffd36b} .metal.silver .why b{color:#d6dbe6}
-  .metal.has-why{justify-content:flex-start;padding-top:2.6vh;padding-bottom:2vh;gap:.4vh}
+  .metal.gold .why b{color:#ffd36b} .metal.silver .why b{color:#d6dbe6}
+  /* price block stays centred in the space above; the why lines sit at the foot of the card */
+  .metal.has-why{padding-bottom:2vh} .metal.has-why > :first-child{margin-top:auto} .metal.has-why > .why{margin-top:auto}
   body.light .metal.gold .why b, body.light .why .olx{color:#b7791f} body.light .metal.silver .why b{color:#64748b}
   .mood-why .r b{min-width:4.6em;color:#7dd3fc} body.light .mood-why .r b{color:#0284c7}
   .mood-why .foot{font-size:clamp(10px,2.9vh,13px);opacity:.5}
@@ -229,7 +230,7 @@
     .card.idx.has-why .mood-why{margin-bottom:.4vh}
     .metal.has-why{padding-top:1.6vh}
     .metal.has-why .wk .plot{height:5.5vh} .metal.has-why .price{font-size:clamp(34px,11vw,50px);line-height:1.05} .metal.has-why .per{margin-top:0}
-    .metal.has-why .why{margin-top:1vh}
+    .metal.has-why > .why{margin-top:auto;padding-top:1.1vh}
     .slide.has-why .mrange{top:.6vh}
   }
   .mnote{position:absolute;left:0;right:0;bottom:1.4vh;text-align:center;font-size:clamp(9px,2.8vh,11px);color:var(--dim);letter-spacing:.5px}
