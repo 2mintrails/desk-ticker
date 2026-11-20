@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v19.3-2026-11-19">
+<meta name="ticker-version" content="v19.4-2026-11-20">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -202,35 +202,34 @@
   .chip{white-space:nowrap;width:max-content;max-width:100%;flex:none}
   .gold .chip .dot{background:var(--gold2)} .silver .chip .dot{background:var(--silver2)}
   /* gold & silver: why it moved, and an analyst view, from news headlines */
-  .why{margin:1vh 2vw 0;padding:1.1vh 1.4vw;border-radius:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);display:flex;gap:2.4vw;flex:none}
+  /* the "why" lines live inside their card: under the price on the index cards, at the foot of each gold/silver card */
+  .why{display:flex;flex-direction:column;gap:.6vh;border-top:1px solid var(--line);padding-top:1.3vh;min-width:0}
   .why[hidden]{display:none!important}
-  .why .half{flex:1;min-width:0;display:flex;flex-direction:column;gap:.7vh}
-  .why .half+.half{border-left:1px solid rgba(255,255,255,.12);padding-left:2.4vw}
   .why .r{display:flex;align-items:baseline;gap:10px;font-size:clamp(13px,3.7vh,16px);font-weight:600;line-height:1.25}
-  .why .r b{flex:none;font-size:.72em;letter-spacing:1.5px;text-transform:uppercase;opacity:.75}
-  .why .g b{color:#ffd36b} .why .s b{color:#d6dbe6}
-  .why .dn{color:#f87171} .why .up{color:#4ade80} .why .olx.plain{color:inherit;opacity:.8}
+  .why .r b{flex:none;font-size:.72em;letter-spacing:1.5px;text-transform:uppercase;opacity:.8}
   .why .t1{min-width:0;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
   .why .src{opacity:.55;font-weight:500}
   .why .olx{font-size:clamp(12px,3.4vh,15px);color:#ffd36b;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
-  .why .olx i{font-style:normal;font-size:.8em;letter-spacing:1.3px;text-transform:uppercase;opacity:.8;margin-right:6px}
-  .slide.has-why{display:flex;flex-direction:column}
-  .slide.has-why > .metals, .slide.has-why > .card.idx{max-height:70vh;flex:1 1 auto;height:auto;min-height:0}
-  .mood-why{flex-direction:column;gap:.6vh}
-  .mood-why .r b{min-width:4.6em;color:#7dd3fc}
+  .why .olx i{font-style:normal;font-size:.8em;letter-spacing:1.3px;text-transform:uppercase;opacity:.85;margin-right:6px}
+  .metal .why{margin-top:auto} .metal.gold .why b{color:#ffd36b} .metal.silver .why b{color:#d6dbe6}
+  .metal.has-why{justify-content:flex-start;padding-top:2.6vh;padding-bottom:2vh;gap:.4vh}
+  body.light .metal.gold .why b, body.light .why .olx{color:#b7791f} body.light .metal.silver .why b{color:#64748b}
+  .mood-why .r b{min-width:4.6em;color:#7dd3fc} body.light .mood-why .r b{color:#0284c7}
   .mood-why .foot{font-size:clamp(10px,2.9vh,13px);opacity:.5}
+  .card.idx.has-why{grid-template-rows:1fr auto}
+  .card.idx.has-why .ix-l{grid-row:1;grid-column:1;align-self:center}
+  .card.idx.has-why .spark{grid-row:1 / span 2;grid-column:2}
+  .card.idx.has-why .mood-why{grid-row:2;grid-column:1;margin-bottom:2.4vh}
   .slide.has-why .mrange{bottom:auto;top:2.2vh}
   .slide.has-why > .mnote{display:none}
-  body.swiss .why,body.retro .why{border-radius:4px}
-  body.calm:not(.amb):not(.anime):not(.retro):not(.swiss) .why{background:rgba(255,255,255,.05)}
   @media (orientation:portrait){
-    .why{flex-direction:column;gap:1.2vh;margin:1vh 3vw 0}
-    .why .half+.half{border-left:0;padding-left:0;border-top:1px solid rgba(255,255,255,.12);padding-top:1.2vh}
-    .why{padding:1vh 3.5vw}
     .why .r{font-size:clamp(13px,3.9vw,16px)} .why .olx{font-size:clamp(12px,3.5vw,14px)}
-    .why .t1,.why .olx{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
-    .slide.has-why > .metals{max-height:62vh}
-    .slide.has-why > .card.idx{max-height:60vh}
+    .card.idx.has-why{grid-template-rows:auto minmax(0,1fr) auto}
+    .card.idx.has-why .ix-l, .card.idx.has-why .spark, .card.idx.has-why .mood-why{grid-column:1;grid-row:auto}
+    .card.idx.has-why .mood-why{margin-bottom:.4vh}
+    .metal.has-why{padding-top:1.6vh}
+    .metal.has-why .wk .plot{height:5.5vh} .metal.has-why .price{font-size:clamp(34px,11vw,50px);line-height:1.05} .metal.has-why .per{margin-top:0}
+    .metal.has-why .why{margin-top:1vh}
     .slide.has-why .mrange{top:.6vh}
   }
   .mnote{position:absolute;left:0;right:0;bottom:1.4vh;text-align:center;font-size:clamp(9px,2.8vh,11px);color:var(--dim);letter-spacing:.5px}
@@ -1199,8 +1198,8 @@
           <div class="src" id="srcNote"></div>
         </div>
         <div class="spark"><div class="k" id="sparkLbl">Today · live</div><svg id="sparkSvg"></svg></div>
+        <div class="why mood-why" data-mood="in" hidden></div>
       </div>
-      <div class="why mood-why" data-mood="in" hidden></div>
     </section>
 
     <!-- 2. STOCK SLIDES are generated by the script from IN_STOCKS and US_STOCKS. -->
@@ -1285,6 +1284,7 @@
           <div class="per"><span id="goldG">--</span> <span>per gram</span></div>
           <div class="dchg flat" id="goldD"></div>
           <div class="wk" id="goldW"></div>
+          <div class="why" data-metal="gold" hidden></div>
         </div>
         <div class="card metal silver">
           <div class="chip"><span class="dot"></span>Silver <span class="u">1kg</span></div>
@@ -1292,10 +1292,10 @@
           <div class="per"><span id="silverG">--</span> <span>per gram</span></div>
           <div class="dchg flat" id="silverD"></div>
           <div class="wk" id="silverW"></div>
+          <div class="why" data-metal="silver" hidden></div>
         </div>
       </div>
       <div class="mrange" id="mRange"><button data-r="7">7D</button><button data-r="15">15D</button><button data-r="30">1M</button></div>
-      <div class="why two" id="mWhy" hidden></div>
       <div class="mnote" id="mNote">Estimated from international spot × USD/INR</div>
     </section>
 
@@ -1595,8 +1595,8 @@ function buildSpxSlide() {
         <div class="ix-sub spx-s">The 500 biggest US companies · India time 8:00 pm–2:30 am (7:00 pm–1:30 am in US summer)</div>
       </div>
       <div class="spark"><div class="k" id="spxLbl">Today · live</div><svg id="spxSvg"></svg></div>
+      <div class="why mood-why" data-mood="us" hidden></div>
     </div>
-    <div class="why mood-why" data-mood="us" hidden></div>
     <div class="mnote stock-note" data-mkt="us"></div>`;
   document.getElementById('stockSlot').before(sec);
 }
@@ -2384,25 +2384,28 @@ function agoTxt(ms) { const m = Math.max(1, Math.round((Date.now() - ms) / 6e4))
 var WHY_B = null;   // var, not let: renderGR can run before this line
 function renderWhy(B) {
   if (B !== undefined) WHY_B = B;
-  const box = document.getElementById('mWhy'); if (!box) return; const sec = box.closest('section');
   const S = WHY_B && WHY_B.sum && Date.now() - (WHY_B.sum.at || 0) < 12 * 3600e3 ? WHY_B.sum : null;
-  const half = (k, lab, x) => { if (!x || !x.why) return '';
-    const ex = x.experts ? '<div class="olx"><i>Experts</i>' + (x.raw ? x.experts : esc(x.experts)) + (x.n > 0 ? ' <span class="src">· ' + x.n + (x.n === 1 ? ' report' : ' reports') + '</span>' : '') + '</div>' : '';
-    return '<div class="half ' + k + '"><div class="r"><b>' + lab + '</b><span class="t1">' + (x.raw ? x.why : esc(x.why)) + '</span></div>' + ex + '</div>'; };
-  let h = '';
-  if (S) h = half('g', 'Why', S.gold) + half('s', 'Why', S.silver);
-  box.innerHTML = h; box.hidden = !h; if (sec) sec.classList.toggle('has-why', !!h);
+  let any = false, sec = null;
+  document.querySelectorAll('.why[data-metal]').forEach(box => {
+    const x = S && S[box.dataset.metal], card = box.closest('.metal'); sec = box.closest('section');
+    const ok = !!(x && x.why);
+    box.innerHTML = !ok ? '' : '<div class="r"><b>Why</b><span class="t1">' + esc(x.why) + '</span></div>' +
+      (x.experts ? '<div class="olx"><i>Experts</i>' + esc(x.experts) + (x.n > 0 ? ' <span class="src">· ' + x.n + (x.n === 1 ? ' report' : ' reports') + '</span>' : '') + '</div>' : '');
+    box.hidden = !ok; if (card) card.classList.toggle('has-why', ok); any = any || ok;
+  });
+  if (sec) sec.classList.toggle('has-why', any);   // moves the 7D/15D/1M buttons to the top and hides the bottom note
 }
+
 // stock market mood: the trend and the why, in words (summarised from the day's market news; live while the market is open, final after the close)
 function renderMood(M) {
   document.querySelectorAll('.mood-why').forEach(box => {
-    const x = M && M[box.dataset.mood], sec = box.closest('section');
+    const x = M && M[box.dataset.mood], sec = box.closest('section'), card = box.closest('.card');
     const ok = x && x.trend && Date.now() - (x.at || 0) < 4 * 864e5;
     const t = ok ? new Date(x.at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }).replace(/\s?(am|pm)/i, m => ' ' + m.trim().toLowerCase()) : '';
     box.innerHTML = !ok ? '' : '<div class="r"><b>Trend</b><span class="t1">' + esc(x.trend) + '</span></div>' +
       (x.why ? '<div class="r"><b>Why</b><span class="t1">' + esc(x.why) + '</span></div>' : '') +
       '<div class="foot">Summary of the day\'s market news · ' + (x.final ? 'final, after the ' + (box.dataset.mood === 'us' ? 'US ' : '') + 'close' : 'updated ' + t) + '</div>';
-    box.hidden = !ok; if (sec) sec.classList.toggle('has-why', !!ok);
+    box.hidden = !ok; if (card) card.classList.toggle('has-why', !!ok); if (sec) sec.classList.toggle('has-why', !!ok);
   });
 }
 function renderNews(news) {
