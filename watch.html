@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="disabled-adaptations" content="watch">
+<meta name="ticker-version" content="w1.0-2026-11-22">
+<title>Desk Ticker · Watch</title>
+<style>
+  /* Apple Watch version of the desk ticker: three swipe screens, black, big text, no effects */
+  html,body{margin:0;background:#000;color:#fff;font-family:-apple-system,system-ui,"SF Pro Text",Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%}
+  .pages{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;height:100vh;scrollbar-width:none}
+  .pages::-webkit-scrollbar{display:none}
+  .pg{flex:0 0 100%;scroll-snap-align:start;box-sizing:border-box;padding:10px 12px 22px;position:relative}
+  .top{display:flex;justify-content:space-between;font-size:13px;color:#8e8e93;margin:0 2px 6px}
+  .top b{color:#fff;font-weight:600}
+  .lab{font-size:11px;letter-spacing:1.2px;color:#8e8e93;text-transform:uppercase;font-weight:600}
+  .big{font-size:30px;font-weight:700;letter-spacing:-.5px;line-height:1.05}
+  .mid{font-size:22px;font-weight:700;line-height:1.1}
+  .chg{font-size:15px;font-weight:600;margin-top:2px}
+  .up{color:#30d158}.dn{color:#ff453a}.fl{color:#8e8e93}
+  .g{color:#ffd60a}.s{color:#d1d1d6}
+  .line{font-size:13.5px;line-height:1.25;margin-top:8px;color:#e5e5ea}
+  .line i{font-style:normal;font-size:10px;letter-spacing:1px;color:#64d2ff;font-weight:700;margin-right:4px}
+  .line i.gy{color:#ffd60a}
+  .temp{display:flex;justify-content:space-between;align-items:center}
+  .temp span:first-child{font-size:44px;font-weight:300}
+  .temp span:last-child{font-size:34px}
+  .note{font-size:10px;color:#636366;margin-top:10px}
+  .dots{position:fixed;bottom:6px;left:0;right:0;display:flex;justify-content:center;gap:5px;pointer-events:none}
+  .dots span{width:5px;height:5px;border-radius:9px;background:#48484a}
+  .dots span.on{background:#fff}
+</style>
+</head>
+<body>
+<div class="pages" id="pages">
+  <section class="pg"><div class="top"><span>Markets</span><b class="clk"></b></div><div id="mk"><div class="line fl">Loading…</div></div></section>
+  <section class="pg"><div class="top"><span>Bullion</span><b class="clk"></b></div><div id="bu"><div class="line fl">Loading…</div></div></section>
+  <section class="pg"><div class="top"><span id="place">Weather</span><b class="clk"></b></div><div id="wx"><div class="line fl">Loading…</div></div></section>
+</div>
+<div class="dots" id="dots"><span class="on"></span><span></span><span></span></div>
+<script>
+const SERVER = 'https://desk-ticker.twominutetrails.workers.dev';
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const inr = n => '₹' + Math.round(n).toLocaleString('en-IN');
+const num = n => Math.round(n).toLocaleString('en-IN');
+const cls = p => p > 0.005 ? 'up' : p < -0.005 ? 'dn' : 'fl';
+const arrow = p => p > 0.005 ? '▲ ' : p < -0.005 ? '▼ ' : '';
+const ist = () => { const d = new Date(Date.now() + (330 + new Date().getTimezoneOffset()) * 6e4); return { h: d.getHours(), m: d.getMinutes(), wd: d.getDay() }; };
+
+function clock() {
+  const t = new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).replace(/\s?(am|pm)/i, '');
+  document.querySelectorAll('.clk').forEach(e => e.textContent = t);
+}
+
+function markets(f) {
+  // the US market from 7 pm to 3 am India time, the Indian market the rest of the day
+  const t = ist(), us = t.h >= 19 || t.h < 3;
+  const sym = us ? 'INDEXSP:.INX' : 'INDEXNSE:NIFTY_50', name = us ? 'S&P 500' : 'Nifty 50';
+  const q0 = (f.quotes || {})[sym] || {}, q = { price: q0.p != null ? q0.p : q0.price, pct: q0.pct }, M = ((f.news || {}).Mood || {})[us ? 'us' : 'in'];
+  const fresh = M && M.trend && Date.now() - (M.at || 0) < 4 * 864e5;
+  document.getElementById('mk').innerHTML =
+    '<div class="lab">' + name + '</div>' +
+    '<div class="big">' + (q.price != null ? num(q.price) : '--') + '</div>' +
+    (q.pct != null ? '<div class="chg ' + cls(q.pct) + '">' + arrow(q.pct) + Math.abs(q.pct).toFixed(2) + '% today</div>' : '') +
+    (fresh ? '<div class="line"><i>TREND</i>' + esc(M.trend) + '</div>' + (M.why ? '<div class="line"><i>WHY</i>' + esc(M.why) + '</div>' : '') : '');
+}
+
+function bullion(f) {
+  const m = f.metals || {}, g = (m.gold || [])[0], s = (m.silver || [])[0], g1 = (m.gold || [])[1], s1 = (m.silver || [])[1];
+  // today's change: the server's figure when it has one, otherwise against the previous published rate
+  const pc = x => { if (!x) return null; if (x.c != null && x.p !== x.c) return x.c / (x.p - x.c) * 100; const y = x === g ? g1 : s1; return y && y.p ? (x.p - y.p) / y.p * 100 : null; };
+  const S = ((f.news || {}).Bullion || {}).sum, why = S && Date.now() - (S.at || 0) < 12 * 3600e3 && S.gold && S.gold.why;
+  const row = (lab, c, x, mult, first) => !x ? '' :
+    '<div class="lab"' + (first ? '' : ' style="margin-top:8px"') + '>' + lab + '</div><div class="mid ' + c + '">' + inr(x.p * mult) + '</div>' +
+    (pc(x) != null ? '<div class="chg ' + cls(pc(x)) + '">' + arrow(pc(x)) + Math.abs(pc(x)).toFixed(1) + '% today</div>' : '');
+  document.getElementById('bu').innerHTML = (g || s) ?
+    row('Gold 24K · 10g', 'g', g, 10, true) + row('Silver · 1kg', 's', s, 1, false) +
+    (why ? '<div class="line" style="margin-top:6px"><i class="gy">WHY</i>' + esc(why) + '</div>' : '')
+    : '<div class="line fl">No rates yet</div>';
+}
+
+const WX = { 0: ['Clear', '☀️'], 1: ['Mostly clear', '🌤️'], 2: ['Partly cloudy', '⛅'], 3: ['Cloudy', '☁️'], 45: ['Fog', '🌫️'], 48: ['Fog', '🌫️'],
+  51: ['Drizzle', '🌦️'], 53: ['Drizzle', '🌦️'], 55: ['Drizzle', '🌦️'], 61: ['Light rain', '🌧️'], 63: ['Rain', '🌧️'], 65: ['Heavy rain', '🌧️'],
+  80: ['Showers', '🌦️'], 81: ['Showers', '🌧️'], 82: ['Heavy showers', '⛈️'], 95: ['Thunderstorm', '⛈️'], 96: ['Thunderstorm', '⛈️'], 99: ['Thunderstorm', '⛈️'] };
+function aqiWord(a) { return a <= 50 ? ['Good', '#30d158'] : a <= 100 ? ['Moderate', '#ff9f0a'] : a <= 150 ? ['Poor', '#ff6b3d'] : ['Unhealthy', '#ff453a']; }
+async function weather(f) {
+  const st = f.settings || {}, lat = parseFloat(st['Home lat']) || 12.9352, lon = parseFloat(st['Home lon']) || 77.6245;
+  document.getElementById('place').textContent = String(st['Home name'] || 'Bengaluru').split(',').pop().trim() || 'Weather';
+  try {
+    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
+      '&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&hourly=precipitation_probability&forecast_hours=6&timezone=auto&forecast_days=1');
+    const w = await r.json(), c = w.current || {}, d = w.daily || {}, code = WX[c.weather_code] || ['', '🌡️'];
+    const soon = Math.max(0, ...((w.hourly || {}).precipitation_probability || []).slice(0, 3));
+    const rain = soon >= 50 ? 'Rain likely in the next few hours' : (d.precipitation_probability_max || [0])[0] >= 40 ? 'Chance of rain later today' : 'Rain: none expected today';
+    const a = f.aqi && f.aqi.aqi != null ? Math.round(f.aqi.aqi) : null, aw = a != null ? aqiWord(a) : null;
+    document.getElementById('wx').innerHTML =
+      '<div class="temp"><span>' + Math.round(c.temperature_2m) + '°</span><span>' + code[1] + '</span></div>' +
+      '<div class="line" style="margin-top:2px">' + esc(code[0]) + ' · high ' + Math.round(d.temperature_2m_max[0]) + '° low ' + Math.round(d.temperature_2m_min[0]) + '°</div>' +
+      '<div class="line">' + rain + '</div>' +
+      (a != null ? '<div class="line">Air: <b style="color:' + aw[1] + '">' + aw[0] + '</b> · AQI ' + a + '</div>' : '');
+  } catch (e) { document.getElementById('wx').innerHTML = '<div class="line fl">Weather unavailable</div>'; }
+}
+
+async function load() {
+  try {
+    const r = await fetch(SERVER + '/v2/feed?_=' + Date.now(), { cache: 'no-store' });
+    const f = await r.json();
+    try { localStorage.setItem('deskTickerWatchFeed', JSON.stringify(f)); } catch (e) {}
+    show(f);
+  } catch (e) {
+    let f = null; try { f = JSON.parse(localStorage.getItem('deskTickerWatchFeed')); } catch (e2) {}
+    if (f) show(f); else document.getElementById('mk').innerHTML = '<div class="line fl">Can\'t reach the server</div>';
+  }
+}
+function show(f) {
+  for (const [n, fn] of [['markets', markets], ['bullion', bullion], ['weather', weather]]) { try { fn(f); } catch (e) { console.warn(n, e); } }
+}
+
+const pages = document.getElementById('pages');
+pages.addEventListener('scroll', () => {
+  const i = Math.round(pages.scrollLeft / pages.clientWidth);
+  document.querySelectorAll('#dots span').forEach((d, k) => d.classList.toggle('on', k === i));
+}, { passive: true });
+
+clock(); setInterval(clock, 15e3);
+load(); setInterval(load, 60e3);                                   // refresh every minute while it's open
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { clock(); load(); } });
+</script>
+</body>
+</html>
