@@ -753,6 +753,36 @@ const IST_DMY = s => { const m = String(s || '').match(/(\d{2})-(\d{2})-(\d{4})\
 const rateOf = v => { const m = String(v || '').match(/([\d,]+(?:\.\d+)?)\s*(?:\(\s*([+\-−]?[\d,]+(?:\.\d+)?)\s*\))?/); if (!m) return null;
   const p = parseFloat(m[1].replace(/,/g, '')), c = m[2] != null ? parseFloat(m[2].replace(/,/g, '').replace('−', '-')) : null; return p > 0 ? { p, c } : null; };
 const isoDay = s => { const t = Date.parse(s); return t ? new Date(t + 6 * 3600e3).toISOString().slice(0, 10) : null; };
+/* ---------------- /v2/watch: a short plain-text summary for an Apple Watch Shortcut ---------------- */
+async function watchText(env) {
+  const f = await feed(env), now = Date.now(), out = [];
+  const t = istParts(now), us = t.h >= 19 || t.h < 3;
+  const num = n => Math.round(n).toLocaleString('en-IN'), inr = n => '₹' + num(n);
+  const arr = p => p > 0.005 ? '▲' : p < -0.005 ? '▼' : '•';
+  const sym = us ? 'INDEXSP:.INX' : 'INDEXNSE:NIFTY_50', q = (f.quotes || {})[sym] || {};
+  if (q.p != null) out.push((us ? 'S&P 500 ' : 'Nifty 50 ') + num(q.p) + (q.pct != null ? ' ' + arr(q.pct) + ' ' + Math.abs(q.pct).toFixed(2) + '%' : ''));
+  const M = ((f.news || {}).Mood || {})[us ? 'us' : 'in'];
+  if (M && M.trend && now - (M.at || 0) < 4 * 864e5) { out.push('Trend: ' + M.trend); if (M.why) out.push('Why: ' + M.why); }
+  const m = f.metals || {}, g = (m.gold || [])[0], g1 = (m.gold || [])[1], sv = (m.silver || [])[0], s1 = (m.silver || [])[1];
+  const pc = (x, y) => !x ? null : x.c != null && x.p !== x.c ? x.c / (x.p - x.c) * 100 : y && y.p ? (x.p - y.p) / y.p * 100 : null;
+  if (out.length) out.push('');
+  if (g) { const p = pc(g, g1); out.push('Gold 10g ' + inr(g.p * 10) + (p != null ? ' ' + arr(p) + ' ' + Math.abs(p).toFixed(1) + '%' : '')); }
+  if (sv) { const p = pc(sv, s1); out.push('Silver 1kg ' + inr(sv.p) + (p != null ? ' ' + arr(p) + ' ' + Math.abs(p).toFixed(1) + '%' : '')); }
+  const S = ((f.news || {}).Bullion || {}).sum;
+  if (S && now - (S.at || 0) < 12 * 3600e3 && S.gold && S.gold.why) out.push('Why: ' + S.gold.why);
+  try {
+    const st = f.settings || {}, lat = parseFloat(st['Home lat']) || 12.9352, lon = parseFloat(st['Home lon']) || 77.6245;
+    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=1');
+    const w = await r.json(), c = w.current || {}, d = w.daily || {};
+    const WX = { 0: 'clear', 1: 'mostly clear', 2: 'partly cloudy', 3: 'cloudy', 45: 'fog', 48: 'fog', 51: 'drizzle', 53: 'drizzle', 55: 'drizzle', 61: 'light rain', 63: 'rain', 65: 'heavy rain', 80: 'showers', 81: 'showers', 82: 'heavy showers', 95: 'thunderstorm', 96: 'thunderstorm', 99: 'thunderstorm' };
+    out.push('');
+    out.push(Math.round(c.temperature_2m) + '° ' + (WX[c.weather_code] || '') + ' · ' + Math.round(d.temperature_2m_max[0]) + '°/' + Math.round(d.temperature_2m_min[0]) + '°' +
+      ((d.precipitation_probability_max || [0])[0] >= 40 ? ' · rain likely' : ''));
+  } catch (e) {}
+  const a = f.aqi && f.aqi.aqi != null ? Math.round(f.aqi.aqi) : null;
+  if (a != null) out.push('Air: ' + (a <= 50 ? 'Good' : a <= 100 ? 'Moderate' : a <= 150 ? 'Poor' : 'Unhealthy') + ' (AQI ' + a + ')');
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim() || 'No data yet';
+}
 async function feed(env) {
   const cfg = await getCfg(env);
   const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'ibja', 'gr_silver', 'gr_gold', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets', 'news_Local', 'news_Watch', 'news_WatchUS', 'news_Bullion', 'mood'];
@@ -831,6 +861,7 @@ export default {
       if (u.pathname === '/v2/hist') return new Response(JSON.stringify(await hist(env, String(u.searchParams.get('sym') || '').slice(0, 40), u.searchParams.get('r'))), { headers: CORS });
       if (u.pathname === '/v2/lookup') return new Response(JSON.stringify(await lookup(u.searchParams.get('q'), u.searchParams.get('mkt'))), { headers: CORS });
       if (u.pathname === '/v2/local') return new Response(JSON.stringify(await localHere(env, +u.searchParams.get('lat'), +u.searchParams.get('lon'), u.searchParams.get('city'))), { headers: CORS });
+      if (u.pathname === '/v2/watch') return new Response(await watchText(env), { headers: { ...CORS, 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
       if (u.pathname === '/v2/feed') return new Response(JSON.stringify(await feed(env)), { headers: CORS });
       if (u.pathname === '/v1/all') return new Response(JSON.stringify(await allTabs(env)), { headers: CORS });
       if (u.pathname === '/v1/status') {
