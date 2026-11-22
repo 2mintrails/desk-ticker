@@ -4,41 +4,35 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="disabled-adaptations" content="watch">
-<meta name="ticker-version" content="w1.0-2026-11-22">
+<meta name="ticker-version" content="w1.1-2026-11-22">
 <title>Desk Ticker · Watch</title>
 <style>
   /* Apple Watch version of the desk ticker: three swipe screens, black, big text, no effects */
+  /* Apple Watch version: one column you scroll with the Digital Crown; sizes follow the screen width, so nothing gets cut off */
   html,body{margin:0;background:#000;color:#fff;font-family:-apple-system,system-ui,"SF Pro Text",Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%}
-  .pages{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;height:100vh;scrollbar-width:none}
-  .pages::-webkit-scrollbar{display:none}
-  .pg{flex:0 0 100%;scroll-snap-align:start;box-sizing:border-box;padding:10px 12px 22px;position:relative}
-  .top{display:flex;justify-content:space-between;font-size:13px;color:#8e8e93;margin:0 2px 6px}
+  body{padding:2px 7vw 14vw;box-sizing:border-box;width:100%;overflow-x:hidden}
+  .pg{padding:3vw 0 5vw;border-bottom:1px solid #2c2c2e;margin-bottom:4vw}
+  .pg:last-child{border-bottom:0}
+  .top{display:flex;justify-content:space-between;font-size:6.2vw;color:#8e8e93;margin-bottom:2vw}
   .top b{color:#fff;font-weight:600}
-  .lab{font-size:11px;letter-spacing:1.2px;color:#8e8e93;text-transform:uppercase;font-weight:600}
-  .big{font-size:30px;font-weight:700;letter-spacing:-.5px;line-height:1.05}
-  .mid{font-size:22px;font-weight:700;line-height:1.1}
-  .chg{font-size:15px;font-weight:600;margin-top:2px}
+  .lab{font-size:5.2vw;letter-spacing:.5px;color:#8e8e93;text-transform:uppercase;font-weight:600}
+  .big{font-size:13vw;font-weight:700;letter-spacing:-.5px;line-height:1.05}
+  .mid{font-size:10.5vw;font-weight:700;line-height:1.1}
+  .chg{font-size:7vw;font-weight:600;margin-top:1vw}
   .up{color:#30d158}.dn{color:#ff453a}.fl{color:#8e8e93}
   .g{color:#ffd60a}.s{color:#d1d1d6}
-  .line{font-size:13.5px;line-height:1.25;margin-top:8px;color:#e5e5ea}
-  .line i{font-style:normal;font-size:10px;letter-spacing:1px;color:#64d2ff;font-weight:700;margin-right:4px}
+  .line{font-size:6.4vw;line-height:1.25;margin-top:3vw;color:#e5e5ea;overflow-wrap:anywhere}
+  .line i{font-style:normal;font-size:4.6vw;letter-spacing:.5px;color:#64d2ff;font-weight:700;margin-right:1.5vw}
   .line i.gy{color:#ffd60a}
   .temp{display:flex;justify-content:space-between;align-items:center}
-  .temp span:first-child{font-size:44px;font-weight:300}
-  .temp span:last-child{font-size:34px}
-  .note{font-size:10px;color:#636366;margin-top:10px}
-  .dots{position:fixed;bottom:6px;left:0;right:0;display:flex;justify-content:center;gap:5px;pointer-events:none}
-  .dots span{width:5px;height:5px;border-radius:9px;background:#48484a}
-  .dots span.on{background:#fff}
+  .temp span:first-child{font-size:19vw;font-weight:300}
+  .temp span:last-child{font-size:14vw}
 </style>
 </head>
 <body>
-<div class="pages" id="pages">
   <section class="pg"><div class="top"><span>Markets</span><b class="clk"></b></div><div id="mk"><div class="line fl">Loading…</div></div></section>
-  <section class="pg"><div class="top"><span>Bullion</span><b class="clk"></b></div><div id="bu"><div class="line fl">Loading…</div></div></section>
-  <section class="pg"><div class="top"><span id="place">Weather</span><b class="clk"></b></div><div id="wx"><div class="line fl">Loading…</div></div></section>
-</div>
-<div class="dots" id="dots"><span class="on"></span><span></span><span></span></div>
+  <section class="pg"><div class="top"><span>Bullion</span></div><div id="bu"><div class="line fl">Loading…</div></div></section>
+  <section class="pg"><div class="top"><span id="place">Weather</span></div><div id="wx"><div class="line fl">Loading…</div></div></section>
 <script>
 const SERVER = 'https://desk-ticker.twominutetrails.workers.dev';
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -116,12 +110,6 @@ async function load() {
 function show(f) {
   for (const [n, fn] of [['markets', markets], ['bullion', bullion], ['weather', weather]]) { try { fn(f); } catch (e) { console.warn(n, e); } }
 }
-
-const pages = document.getElementById('pages');
-pages.addEventListener('scroll', () => {
-  const i = Math.round(pages.scrollLeft / pages.clientWidth);
-  document.querySelectorAll('#dots span').forEach((d, k) => d.classList.toggle('on', k === i));
-}, { passive: true });
 
 clock(); setInterval(clock, 15e3);
 load(); setInterval(load, 60e3);                                   // refresh every minute while it's open
