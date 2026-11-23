@@ -278,8 +278,8 @@ function isEnglish(t) {
   const foreign = w.filter(x => /^(der|die|das|und|nicht|mit|für|ist|le|la|les|des|et|est|pour|el|los|las|y|con|para|del|una|het|een|van)$/.test(x)).length;
   return foreign <= en;
 }
-function isNews(t) {
-  if (!isEnglish(t) || t.split(/\s+/).length < 6) return false;
+function isNews(t, anyLang) {
+  if ((!anyLang && !isEnglish(t)) || t.split(/\s+/).length < 6) return false;
   if (/^(video|watch|photos?|gallery|in pics|quiz|podcast|listen|opinion)\b/i.test(t)) return false;
   if (/\b(live (results|updates|blog|coverage|score)|election results|results 20\d\d|20\d\d .*results$|as it happened|highlights)\b/i.test(t)) return false;
   if (/\blive\s*:|\blive$|^live\b|\bLIVE\b/.test(t)) return false;
@@ -289,7 +289,7 @@ function isNews(t) {
   if (/\b(special|quiz|horoscope|rashifal|lucky (number|colour)|wishes|greetings|images|messages)\s*:/i.test(t)) return false;
   return true;
 }
-async function readFeed(url, src) {
+async function readFeed(url, src, anyLang) {
   try {
     const xml = await get(url);
     return (xml.match(/<item[\s>][\s\S]*?<\/item>/gi) || []).map(it => {
@@ -298,11 +298,11 @@ async function readFeed(url, src) {
       if (source && title.endsWith(' - ' + source)) title = title.slice(0, -(source.length + 3));
       title = title.replace(/\s*\|\s*Latest News.*$/i, '');
       return { title, source, link: decode(tag(it, 'link')), t: Date.parse(decode(tag(it, 'pubDate'))) || 0 };
-    }).filter(x => x.title && isNews(x.title) && !BLOCK.some(b => (x.source || '').toLowerCase().startsWith(b.toLowerCase())));
+    }).filter(x => x.title && isNews(x.title, anyLang) && !BLOCK.some(b => (x.source || '').toLowerCase().startsWith(b.toLowerCase())));
   } catch (e) { return []; }
 }
 const STOP = new Set('a an the of to in on for at by with and or is are was were be as from after over into its his her their this that says said amid new news'.split(' '));
-const words = t => new Set(t.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !STOP.has(w)));
+const words = t => new Set(t.toLowerCase().replace(/[^a-z0-9\u0900-\u097F ]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !STOP.has(w)));
 const sameStory = (a, b) => { let n = 0; a.forEach(w => { if (b.has(w)) n++; }); return n >= 3 && n / Math.min(a.size, b.size) >= 0.5; };
 function pickTop(items, o = {}) {
   const KEEP_N = o.keep || KEEP, PER = o.per || MAX_PER_SOURCE;
@@ -374,7 +374,7 @@ async function localNews(plan, env) {
   const read = lists.reduce((n, l) => n + l.length, 0);
   if (!plan.slug) return { top: pickTop(items, { keep: 8, per: 7, ageH: 24 }), note: plan.feeds.length + ' feeds, ' + read + ' read' };
   // a city without its own feed: the Hindi papers' city news comes first, then other stories that name it, from the last day only
-  const found = (await Promise.all((await cityFeeds(env, plan.slug)).map(([u, s]) => readFeed(u, s)))).flat();
+  const found = (await Promise.all((await cityFeeds(env, plan.slug)).map(([u, s]) => readFeed(u, s, true)))).flat();
   let top = pickTop(found, { keep: 8, per: 4, ageH: 24 });
   if (top.length < 8) { const have = new Set(top.map(x => x.text.toLowerCase().slice(0, 40)));
     top = top.concat(pickTop(items, { keep: 8 - top.length, per: 3, ageH: 24 }).filter(x => !have.has(x.text.toLowerCase().slice(0, 40)))); }
@@ -389,7 +389,7 @@ async function cityFeeds(env, slug) {
   const key = 'lhstate_' + slug.replace(/-/g, ''), c = (await dbGet(env, [key]))[key];
   let st = c && Date.now() - c.at < 7 * 864e5 ? c.v.state : undefined;
   if (st === undefined) {
-    const tries = await Promise.all(LH_STATES.map(async x => (await readFeed('https://api.livehindustan.com/feeds/rss/' + x + '/' + slug + '/rssfeed.xml', 'Live Hindustan')).length ? x : ''));
+    const tries = await Promise.all(LH_STATES.map(async x => (await readFeed('https://api.livehindustan.com/feeds/rss/' + x + '/' + slug + '/rssfeed.xml', 'Live Hindustan', true)).length ? x : ''));
     st = tries.find(Boolean) || ''; await dbPut(env, key, { state: st });
   }
   if (st) out.push(['https://api.livehindustan.com/feeds/rss/' + st + '/' + slug + '/rssfeed.xml', 'Live Hindustan']);
@@ -423,7 +423,7 @@ async function jobLocal(env) {
 async function localHere(env, lat, lon, cityName) {
   if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return { city: '', items: [] };
   const plan = localPlan(lat, lon, cityName); if (!plan) return { city: '', items: [] };
-  const key = 'local3_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
+  const key = 'local4_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
   if (c && Date.now() - c.at < 15 * 60e3) return { ...c.v, at: c.at };
   const { top } = await localNews(plan, env);
   if (!top.length && c && c.v.items.length && Date.now() - c.at < 6 * 3600e3) return { ...c.v, at: c.at };   // feeds failed: keep the last list for a while
