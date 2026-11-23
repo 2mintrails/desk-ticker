@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v20.0-2026-11-23">
+<meta name="ticker-version" content="v20.1-2026-11-23">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1594,8 +1594,24 @@ function renderSignals() {
     if (ev) ev.hidden = !!show;          // the event moves into the detail card when a signal line needs the space
   });
 }
+// no review for this stock: just the price picture in plain words, no buy or wait call
+function techBlock(sym) {
+  const t = ((FEED && FEED.tech) || {})[sigKey(sym)], q = ((FEED && FEED.quotes) || {})[sym], p = q && q.p;
+  if (!t || !t.sma50 || !p) return '';
+  const T = sigThr(), d50 = (p / t.sma50 - 1) * 100, d200 = t.sma200 ? (p / t.sma200 - 1) * 100 : null, fromHi = t.hi ? (p / t.hi - 1) * 100 : null;
+  const near = Math.abs(d50) <= T.near50;
+  const parts = [
+    near ? 'Near its 50-day average' : Math.abs(d50).toFixed(1) + '% ' + (d50 > 0 ? 'above' : 'below') + ' its 50-day average',
+    d200 == null ? '' : (d200 >= 0 ? 'above' : 'below') + ' its 200-day average',
+    'RSI ' + Math.round(t.rsi) + (t.rsi > T.rsiHot ? ' (running hot)' : t.rsi < T.rsiLo ? ' (weak)' : ' (calm)'),
+    t.chg5 == null ? '' : (t.chg5 >= 0 ? '+' : '') + t.chg5.toFixed(1) + '% over 5 sessions'].filter(Boolean);
+  return '<div class="sig2 gr"><div class="top"><span class="pill gr">Price check</span><span class="sent">' + esc(parts.join(', ')) + '.</span></div>' +
+    '<details class="sdet"><summary>Details</summary><div>50-day avg ' + dsNum(t.sma50, 2) + (t.sma200 ? ' · 200-day avg ' + dsNum(t.sma200, 2) : '') +
+    (fromHi != null ? ' · ' + Math.abs(fromHi).toFixed(1) + '% below its 1-year high' : '') + ' · figures from ' + tm2(t.at) + '</div></details>' +
+    '<div class="sfoot">No review for this stock yet, so no entry signal · price figures only, not advice</div></div>';
+}
 function sigBlock(sym) {
-  const g = sigFor(sym); if (!g) return '';
+  const g = sigFor(sym); if (!g) return techBlock(sym);
   const r = g.r, row = (k, v) => v ? '<b>' + k + '</b><span>' + v + '</span>' : '';
   const fails = (g.checks || []).filter(c => !c.ok).map(c => esc(c.txt));
   const flags = [r.score && r.score.flags, /high/i.test((r.score || {}).pe || '') && 'P/E ' + r.score.pe].filter(Boolean).map(esc);
@@ -1774,7 +1790,7 @@ function dsStock(sym) {
   const news = items.map(x => { const k = String(x.t).lastIndexOf(' - ');
     return '<a href="#" data-url="' + esc(x.u || '') + '">' + esc(k > 20 ? x.t.slice(0, k) : x.t) + (k > 20 ? '<small>' + esc(x.t.slice(k + 3)) + '</small>' : '') + '</a>'; }).join('');
   DS.sym = sym;
-  DS.ms = sigFor(sym) ? 40000 : 20000;                // more to read when there's a signal block
+  DS.ms = sigFor(sym) || techBlock(sym) ? 40000 : 20000;   // more to read when there's a signal block
   dsShell('<div class="hd"><div class="lg">' + logo + '</div><div class="nm">' + esc(name) + '<small>' + esc(sub) + '</small></div>' +
     '<div class="px"><b>' + cur + dsNum(q.price, 2) + '</b><span class="' + dsCls(q.pct) + '">' + (q.pct > 0 ? '▲ ' : q.pct < 0 ? '▼ ' : '') + dsPct(q.pct) +
     (q.change != null && isFinite(q.change) ? ' (' + (q.change > 0 ? '+' : q.change < 0 ? '−' : '') + dsNum(Math.abs(q.change), 2) + ')' : '') + ' today</span></div><button class="x" aria-label="Close">✕</button></div>' +

@@ -719,7 +719,7 @@ async function tick(env, t = Date.now()) {
   const p = istParts(t), m = p.mi, jobs = [];
   if (marketWindow(t) || m % 20 === 0) jobs.push('prices');
   if (m % 10 === 0) jobs.push('env');
-  if (m % 30 === 13) jobs.push('tech');                 // signal maths: only refetches stocks whose figures are over 10 hours old
+  if (m % 10 === 3) jobs.push('tech');                  // price figures: 10 stocks at a time, only those over 10 hours old
   if (m % 10 === 5 && (p.h >= 6 && p.h <= 19 || m === 5)) jobs.push('metals');   // every 10 min from 6 am to 7 pm, else hourly
   const sec = { 1: 'Local', 2: 'India', 3: 'Watch', 4: 'World', 6: 'Markets', 7: 'WatchUS', 8: 'USMarkets', 9: 'Bullion', 0: 'Mood' }[m % 10];   // one news section every 2 minutes
   if (sec) jobs.push('news:' + sec);
@@ -795,9 +795,11 @@ function parseReview(text) {
 async function jobTech(env) {
   const cfg = await getCfg(env), recs = (cfg.review || {}).records || {}, done = cfg.done || {};
   const all = [...((cfg.watch || {}).in || []), ...((cfg.watch || {}).us || [])].filter(x => !/^INDEX/.test(x.sym));
-  const want = all.filter(x => { const r = recs[tickKey(x.sym)]; return r && r.verdict === 'BUILD' && !done[tickKey(x.sym)]; });
+  // every stock in the portfolio list gets its price figures (reviewed or not); build-list stocks are fetched first
+  const isBuild = x => { const r = recs[tickKey(x.sym)]; return r && r.verdict === 'BUILD' && !done[tickKey(x.sym)]; };
+  const want = [...all.filter(isBuild), ...all.filter(x => !isBuild(x))];
   const old = (await dbGet(env, ['tech'])).tech?.v || {}, out = { ...old }, now = Date.now(), notes = [];
-  const stale = want.filter(x => !old[tickKey(x.sym)] || now - old[tickKey(x.sym)].at > 10 * 3600e3).slice(0, 12);
+  const stale = want.filter(x => !old[tickKey(x.sym)] || now - old[tickKey(x.sym)].at > 10 * 3600e3).slice(0, 10);
   for (const x of stale) {
     const k = tickKey(x.sym), ys = yahooSym(x.sym);
     try {
@@ -814,7 +816,7 @@ async function jobTech(env) {
   }
   Object.keys(out).forEach(k => { if (!want.some(x => tickKey(x.sym) === k)) delete out[k]; });   // drop stocks no longer being built
   await dbPut(env, 'tech', out);
-  return want.length + ' building, ' + stale.length + ' refreshed' + (notes.length ? ': ' + notes.join(', ') : '');
+  return want.length + ' stocks (' + all.filter(isBuild).length + ' building), ' + stale.length + ' refreshed' + (notes.length ? ': ' + notes.join(', ') : '');
 }
 async function getCfg(env) {
   const d = await dbGet(env, ['cfg', 'env']);
