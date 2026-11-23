@@ -119,7 +119,10 @@ async function yahooQuotes(syms) {
       const m = r.meta || {}, ts = r.timestamp || [], cl = ((r.indicators || {}).quote || [{}])[0].close || [];
       const line = ts.map((t, k) => cl[k] == null ? '' : t + ':' + (+cl[k]).toFixed(2)).filter(Boolean).join(';');
       const o = out[s] || {};
-      out[s] = { price: m.regularMarketPrice ?? o.price, prev: o.prev ?? m.chartPreviousClose, at: m.regularMarketTime || null, line };
+      // price and previous close both from this intraday chart, so they always belong to the same session
+      // (the 5-day daily summary sometimes lacks the latest day around midnight, which shifted the previous close back a day)
+      const pc = m.chartPreviousClose ?? m.previousClose;
+      out[s] = { price: m.regularMarketPrice ?? o.price, prev: pc != null && m.regularMarketPrice != null ? pc : o.prev, at: m.regularMarketTime || null, line };
     } catch (e) { errs.push(String(e.message || e)); }
   }
   return { out, errs };
