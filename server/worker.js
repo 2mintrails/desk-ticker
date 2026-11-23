@@ -309,7 +309,7 @@ function pickTop(items, o = {}) {
   const KEEP_N = o.keep || KEEP, PER = o.per || MAX_PER_SOURCE;
   const cutoff = Date.now() - (o.ageH || MAX_AGE_H) * 3600e3, seen = new Set(), per = {}, out = [], kept = [];
   items.filter(x => !x.t || x.t === 1 || x.t > cutoff).sort((a, b) => b.t - a.t).forEach(x => {
-    const key = x.title.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 50), ws = words(x.title);
+    const key = x.title.toLowerCase().replace(/[^a-z0-9\u0900-\u097F]/g, '').slice(0, 50), ws = words(x.title);
     if (seen.has(key) || out.length >= KEEP_N || (per[x.source] || 0) >= PER || (o.skip && o.skip(x)) || kept.some(k => sameStory(k, ws))) return;
     seen.add(key); kept.push(ws); per[x.source] = (per[x.source] || 0) + 1;
     out.push({ text: x.source ? x.title + ' - ' + x.source : x.title, link: /^https?:\/\//.test(x.link) ? x.link : '', ...(x.sym ? { sym: x.sym, tick: x.tick } : {}) });
@@ -424,7 +424,7 @@ async function jobLocal(env) {
 async function localHere(env, lat, lon, cityName) {
   if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return { city: '', items: [] };
   const plan = localPlan(lat, lon, cityName); if (!plan) return { city: '', items: [] };
-  const key = 'local6_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
+  const key = 'local7_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
   if (c && Date.now() - c.at < 15 * 60e3) return { ...c.v, at: c.at };
   const { top } = await localNews(plan, env);
   if (!top.length && c && c.v.items.length && Date.now() - c.at < 6 * 3600e3) return { ...c.v, at: c.at };   // feeds failed: keep the last list for a while
