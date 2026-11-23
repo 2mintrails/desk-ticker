@@ -50,7 +50,6 @@ jobs:
           echo "--- US watchlist headlines"; curl -s "$URL/v2/feed" | python3 -c "import sys,json; [print(' *', i.get('tick'), i['t']) for i in json.load(sys.stdin)['news']['WatchUS']['items']]"
           echo "--- US market headlines"; curl -s "$URL/v2/feed" | python3 -c "import sys,json; [print(' *', i['t']) for i in json.load(sys.stdin)['news']['USMarkets']['items']]"
           echo "--- local Aligarh"; curl -s "$URL/v2/local?lat=27.88&lon=78.08&city=Aligarh" | cut -c1-900; echo
-          echo "--- probe"; curl -s "$URL/v1/probe?u=https://www.amarujala.com/rss/uttar-pradesh.xml|https://www.amarujala.com/rss/uttar-pradesh/aligarh.xml|https://www.amarujala.com/rss/aligarh.xml|https://www.jagran.com/rss/uttar-pradesh/aligarh.xml|https://www.jagran.com/rss/news/uttar-pradesh.xml|https://api.livehindustan.com/feeds/rss/uttar-pradesh/aligarh/rssfeed.xml|https://api.livehindustan.com/feeds/rss/uttar-pradesh/rssfeed.xml|https://www.livehindustan.com/rss/uttar-pradesh/aligarh|https://www.bhaskar.com/rss-v1--category-2052.xml|https://navbharattimes.indiatimes.com/state/uttar-pradesh/aligarh/rssfeedsection/62585095.cms"; echo
           echo "--- watch text"; curl -s "$URL/v2/watch"; echo
           echo "--- status"; curl -s "$URL/v1/status"; echo
           echo "--- sample"; curl -s "$URL/v1/all" | node -e "const d=JSON.parse(require('fs').readFileSync(0));for(const [g,t] of Object.entries(d.tabs)){console.log(g, t?t.length+' rows':'none');(t||[]).slice(0,4).forEach(r=>console.log('   ',JSON.stringify(r).slice(0,220)))}"

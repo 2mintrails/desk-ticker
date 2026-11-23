@@ -364,22 +364,36 @@ function localPlan(lat, lon, cityName) {
   const name = String(cityName || '').trim();
   if (!/^[A-Za-z][A-Za-z .'-]{2,39}$/.test(name)) return null;
   const feeds = [...byDist.slice(0, 3).flatMap(x => x[1][3]), ...CITY_WIDE, ...FEEDS.India].filter((f, i, a) => a.findIndex(g => g[0] === f[0]) === i);
-  // plus a Google News search for the city itself, in English and in Hindi: small cities' local news is mostly in Hindi papers
-  const search = [[GN(name), ''], ['https://news.google.com/rss/search?q=' + encodeURIComponent(name + ' when:1d') + '&hl=hi&gl=IN&ceid=IN:hi', '']];
-  return { city: name, feeds, search, match: new RegExp('(?<![A-Za-z])' + reEsc(name) + '(?![A-Za-z])', 'i') };
+  // plus the Hindi papers' own city feeds (small cities' local news is mostly in Hindi): Amar Ujala by city, Live Hindustan by state and city
+  const slug = name.toLowerCase().replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
+  return { city: name, feeds, slug, match: new RegExp('(?<![A-Za-z])' + reEsc(name) + '(?![A-Za-z])', 'i') };
 }
 async function localNews(plan, env) {
   const lists = await Promise.all(plan.feeds.map(([u, s]) => readFeed(u, s)));
   const items = plan.match ? lists.flat().filter(x => plan.match.test(x.title)) : lists.flat();
   const read = lists.reduce((n, l) => n + l.length, 0);
-  if (!plan.search) return { top: pickTop(items, { keep: 8, per: 7, ageH: 24 }), note: plan.feeds.length + ' feeds, ' + read + ' read' };
-  // a city without its own feed: news found by searching for the city comes first, then other stories that name it, from the last day only
-  const found = (await Promise.all(plan.search.map(([u, s]) => readFeed(u, s)))).flat();
-  let top = pickTop(found, { keep: 8, per: 3, ageH: 24 });
+  if (!plan.slug) return { top: pickTop(items, { keep: 8, per: 7, ageH: 24 }), note: plan.feeds.length + ' feeds, ' + read + ' read' };
+  // a city without its own feed: the Hindi papers' city news comes first, then other stories that name it, from the last day only
+  const found = (await Promise.all((await cityFeeds(env, plan.slug)).map(([u, s]) => readFeed(u, s)))).flat();
+  let top = pickTop(found, { keep: 8, per: 4, ageH: 24 });
   if (top.length < 8) { const have = new Set(top.map(x => x.text.toLowerCase().slice(0, 40)));
     top = top.concat(pickTop(items, { keep: 8 - top.length, per: 3, ageH: 24 }).filter(x => !have.has(x.text.toLowerCase().slice(0, 40)))); }
   if (env) top = await toEnglish(env, top);
-  return { top, note: plan.feeds.length + ' feeds + city search, ' + read + ' read, ' + found.length + ' found by search, ' + items.length + ' name ' + plan.city };
+  return { top, note: plan.feeds.length + ' feeds + Hindi city papers, ' + read + ' read, ' + found.length + ' from city papers, ' + items.length + ' name ' + plan.city };
+}
+// which Live Hindustan state section has this city: tried once, then remembered for a week
+const LH_STATES = ['uttar-pradesh', 'bihar', 'uttarakhand', 'jharkhand', 'madhya-pradesh', 'rajasthan', 'haryana', 'delhi', 'himachal-pradesh', 'punjab', 'chhattisgarh'];
+async function cityFeeds(env, slug) {
+  const out = [['https://www.amarujala.com/rss/' + slug + '.xml', 'Amar Ujala']];
+  if (!env) return out;
+  const key = 'lhstate_' + slug.replace(/-/g, ''), c = (await dbGet(env, [key]))[key];
+  let st = c && Date.now() - c.at < 7 * 864e5 ? c.v.state : undefined;
+  if (st === undefined) {
+    const tries = await Promise.all(LH_STATES.map(async x => (await readFeed('https://api.livehindustan.com/feeds/rss/' + x + '/' + slug + '/rssfeed.xml', 'Live Hindustan')).length ? x : ''));
+    st = tries.find(Boolean) || ''; await dbPut(env, key, { state: st });
+  }
+  if (st) out.push(['https://api.livehindustan.com/feeds/rss/' + st + '/' + slug + '/rssfeed.xml', 'Live Hindustan']);
+  return out;
 }
 // Hindi (Devanagari) headlines are translated to short plain English by the AI; if that fails, they stay in Hindi
 async function toEnglish(env, top) {
@@ -409,7 +423,7 @@ async function jobLocal(env) {
 async function localHere(env, lat, lon, cityName) {
   if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return { city: '', items: [] };
   const plan = localPlan(lat, lon, cityName); if (!plan) return { city: '', items: [] };
-  const key = 'local2_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
+  const key = 'local3_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
   if (c && Date.now() - c.at < 15 * 60e3) return { ...c.v, at: c.at };
   const { top } = await localNews(plan, env);
   if (!top.length && c && c.v.items.length && Date.now() - c.at < 6 * 3600e3) return { ...c.v, at: c.at };   // feeds failed: keep the last list for a while
@@ -920,12 +934,6 @@ export default {
       if (u.pathname === '/v2/hist') return new Response(JSON.stringify(await hist(env, String(u.searchParams.get('sym') || '').slice(0, 40), u.searchParams.get('r'))), { headers: CORS });
       if (u.pathname === '/v2/lookup') return new Response(JSON.stringify(await lookup(u.searchParams.get('q'), u.searchParams.get('mkt'))), { headers: CORS });
       if (u.pathname === '/v2/local') return new Response(JSON.stringify(await localHere(env, +u.searchParams.get('lat'), +u.searchParams.get('lon'), u.searchParams.get('city'))), { headers: CORS });
-      if (u.pathname === '/v1/probe') {        // temporary: which newspaper feeds answer from here
-        const urls = (u.searchParams.get('u') || '').split('|').filter(x => /^https:\/\/(www\.|api\.)?(amarujala|jagran|livehindustan|bhaskar|patrika|navbharattimes\.indiatimes)\.com\//.test(x)).slice(0, 12);
-        const out = await Promise.all(urls.map(async x => { try { const r = await fetch(x, { headers: { 'User-Agent': UA } }); const t = await r.text(); const items = t.match(/<item[\s>]/gi) || [];
-          return x + ' → ' + r.status + ', ' + items.length + ' items, ' + (t.match(/अलीगढ़/g) || []).length + ' Aligarh(hi), first: ' + decode(tag((t.match(/<item[\s>][\s\S]*?<\/item>/i) || [''])[0], 'title')).slice(0, 70); } catch (e) { return x + ' → ' + e.message; } }));
-        return new Response(out.join('\n'), { headers: { ...CORS, 'content-type': 'text/plain; charset=utf-8' } });
-      }
       if (u.pathname === '/v2/watch') return new Response(await watchText(env), { headers: { ...CORS, 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
       if (u.pathname === '/v2/feed') return new Response(JSON.stringify(await feed(env)), { headers: CORS });
       if (u.pathname === '/v1/all') return new Response(JSON.stringify(await allTabs(env)), { headers: CORS });
