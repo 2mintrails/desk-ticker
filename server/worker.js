@@ -770,13 +770,37 @@ const SALT = 'desk-ticker:v1:';
 async function sha(t) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(SALT + t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
 /* ---------------- price timing: general, price-only figures for every stock in the portfolio list (no personal review stored) ---------------- */
 const tickKey = s => String(s || '').toUpperCase().replace(/^(NSE|BSE|BOM|NASDAQ|NYSE|NYSEARCA):/, '').replace(/\.(NS|BO)$/, '').replace(/[^A-Z0-9&\-]/g, '').slice(0, 20);
+// Yahoo's fundamentals need a session cookie and a "crumb"; both are kept for 6 hours
+async function yahooSession(env, fresh) {
+  const c = (await dbGet(env, ['ysess'])).ysess;
+  if (!fresh && c && Date.now() - c.at < 6 * 3600e3 && c.v.crumb) return c.v;
+  const r1 = await fetch('https://fc.yahoo.com/', { headers: { 'User-Agent': UA }, redirect: 'manual' });
+  const cookie = (r1.headers.get('set-cookie') || '').split(/,(?=\s*\w+=)/).map(x => x.split(';')[0].trim()).filter(Boolean).join('; ');
+  const r2 = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', { headers: { 'User-Agent': UA, Cookie: cookie } });
+  const crumb = (await r2.text()).trim();
+  if (!r2.ok || !crumb || crumb.length > 40) throw new Error('no Yahoo session (' + r2.status + ')');
+  const v = { cookie, crumb }; await dbPut(env, 'ysess', v); return v;
+}
+async function fundamentals(env, ys) {
+  for (let k = 0; k < 2; k++) {
+    const S = await yahooSession(env, k > 0);
+    const r = await fetch('https://query2.finance.yahoo.com/v10/finance/quoteSummary/' + encodeURIComponent(ys) + '?modules=summaryDetail,financialData,defaultKeyStatistics,price&crumb=' + encodeURIComponent(S.crumb), { headers: { 'User-Agent': UA, Cookie: S.cookie } });
+    if (r.status === 401 || r.status === 403) continue;            // session expired: get a new one and try once more
+    if (!r.ok) throw new Error('fundamentals ' + r.status);
+    const j = (await r.json()).quoteSummary.result[0], f = j.financialData || {}, sd = j.summaryDetail || {}, ks = j.defaultKeyStatistics || {}, pr = j.price || {};
+    const n = x => x && x.raw != null && isFinite(x.raw) ? x.raw : null;
+    return { pe: n(sd.trailingPE), fpe: n(sd.forwardPE), pb: n(ks.priceToBook), roe: n(f.returnOnEquity), de: n(f.debtToEquity) != null ? n(f.debtToEquity) / 100 : null,
+      rev: n(f.revenueGrowth), margin: n(f.profitMargins), mcap: n(sd.marketCap) ?? n(pr.marketCap), div: n(sd.dividendYield), cur: pr.currency || sd.currency || '', at: Date.now() };
+  }
+  throw new Error('Yahoo session refused');
+}
 // daily: 50-day and 200-day averages, 14-day RSI, 5-session move, from a year of daily closes (Yahoo), for every stock in the list
 async function jobTech(env) {
   const cfg = await getCfg(env);
   const all = [...((cfg.watch || {}).in || []), ...((cfg.watch || {}).us || [])].filter(x => !/^INDEX/.test(x.sym));
   const want = all;
   const old = (await dbGet(env, ['tech'])).tech?.v || {}, out = { ...old }, now = Date.now(), notes = [];
-  const stale = want.filter(x => !old[tickKey(x.sym)] || now - old[tickKey(x.sym)].at > 10 * 3600e3).slice(0, 10);
+  const stale = want.filter(x => { const o = old[tickKey(x.sym)]; return !o || now - o.at > 10 * 3600e3 || !o.f || now - (o.f.at || 0) > 24 * 3600e3; }).slice(0, 6);
   for (const x of stale) {
     const k = tickKey(x.sym), ys = yahooSym(x.sym);
     try {
@@ -787,8 +811,10 @@ async function jobTech(env) {
       let g = 0, l = 0; for (let i = 1; i <= 14; i++) { const d = c[i] - c[i - 1]; if (d > 0) g += d; else l -= d; } g /= 14; l /= 14;
       for (let i = 15; i < c.length; i++) { const d = c[i] - c[i - 1]; g = (g * 13 + Math.max(d, 0)) / 14; l = (l * 13 + Math.max(-d, 0)) / 14; }
       const last = c[c.length - 1];
-      out[k] = { sma50: avg(50), sma200: avg(200), rsi: l === 0 ? 100 : 100 - 100 / (1 + g / l), chg5: c.length > 5 ? (last / c[c.length - 6] - 1) * 100 : null, hi: Math.max(...c), last, days: c.length, at: now };
-      notes.push(k + ' ok');
+      let fz = old[k] && old[k].f && now - (old[k].f.at || 0) < 24 * 3600e3 ? old[k].f : null, fnote = '';
+      if (!fz) { try { fz = await fundamentals(env, ys); } catch (e) { fz = (old[k] && old[k].f) || null; fnote = ' (fundamentals: ' + String(e.message || e).slice(0, 30) + ')'; } }
+      out[k] = { sma50: avg(50), sma200: avg(200), rsi: l === 0 ? 100 : 100 - 100 / (1 + g / l), chg5: c.length > 5 ? (last / c[c.length - 6] - 1) * 100 : null, hi: Math.max(...c), last, days: c.length, at: now, f: fz };
+      notes.push(k + ' ok' + fnote);
     } catch (e) { notes.push(k + ' failed: ' + String(e.message || e).slice(0, 40)); }
   }
   Object.keys(out).forEach(k => { if (!want.some(x => tickKey(x.sym) === k)) delete out[k]; });   // drop stocks no longer in the list
@@ -967,31 +993,6 @@ export default {
       if (u.pathname === '/v2/hist') return new Response(JSON.stringify(await hist(env, String(u.searchParams.get('sym') || '').slice(0, 40), u.searchParams.get('r'))), { headers: CORS });
       if (u.pathname === '/v2/lookup') return new Response(JSON.stringify(await lookup(u.searchParams.get('q'), u.searchParams.get('mkt'))), { headers: CORS });
       if (u.pathname === '/v2/local') return new Response(JSON.stringify(await localHere(env, +u.searchParams.get('lat'), +u.searchParams.get('lon'), u.searchParams.get('city'))), { headers: CORS });
-      if (u.pathname === '/v1/probe2') {        // temporary: can the server read fundamentals?
-        const out = [], sym = 'TCS.NS';
-        try {
-          const r1 = await fetch('https://fc.yahoo.com/', { headers: { 'User-Agent': UA }, redirect: 'manual' });
-          const ck = (r1.headers.get('set-cookie') || '').split(/,(?=\s*\w+=)/).map(c => c.split(';')[0].trim()).filter(Boolean).join('; ');
-          out.push('cookie: ' + r1.status + ' ' + (ck ? ck.slice(0, 20) + '…' : 'none'));
-          const r2 = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', { headers: { 'User-Agent': UA, Cookie: ck } });
-          const crumb = (await r2.text()).trim(); out.push('crumb: ' + r2.status + ' ' + crumb.slice(0, 20));
-          const r3 = await fetch('https://query2.finance.yahoo.com/v10/finance/quoteSummary/' + sym + '?modules=summaryDetail,financialData,defaultKeyStatistics,price&crumb=' + encodeURIComponent(crumb), { headers: { 'User-Agent': UA, Cookie: ck } });
-          const t3 = await r3.text(); out.push('quoteSummary: ' + r3.status + ' ' + t3.length + ' bytes');
-          try { const j = JSON.parse(t3).quoteSummary.result[0], f = j.financialData || {}, sd = j.summaryDetail || {}, ks = j.defaultKeyStatistics || {};
-            const v = x => x && (x.fmt || x.raw);
-            out.push('  PE ' + v(sd.trailingPE) + ' | fwdPE ' + v(sd.forwardPE) + ' | ROE ' + v(f.returnOnEquity) + ' | D/E ' + v(f.debtToEquity) + ' | revGrowth ' + v(f.revenueGrowth) + ' | margin ' + v(f.profitMargins) + ' | mcap ' + v(sd.marketCap) + ' | div ' + v(sd.dividendYield) + ' | P/B ' + v(ks.priceToBook));
-          } catch (e) { out.push('  parse: ' + t3.slice(0, 120)); }
-          const r4 = await fetch('https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + sym + ',BEL.NS,AAPL&crumb=' + encodeURIComponent(crumb), { headers: { 'User-Agent': UA, Cookie: ck } });
-          const t4 = await r4.text(); out.push('v7 quote: ' + r4.status + ' ' + t4.length + ' bytes');
-          try { (JSON.parse(t4).quoteResponse.result || []).forEach(q => out.push('  ' + q.symbol + ' PE ' + q.trailingPE + ' P/B ' + q.priceToBook + ' mcap ' + q.marketCap + ' div ' + q.trailingAnnualDividendYield)); } catch (e) { out.push('  parse: ' + t4.slice(0, 120)); }
-        } catch (e) { out.push('yahoo error: ' + e.message); }
-        try {
-          const r5 = await fetch('https://www.google.com/finance/quote/TCS:NSE', { headers: { 'User-Agent': UA } }); const t5 = await r5.text();
-          const m = t5.match(/P\/E ratio[\s\S]{0,400}?<div class="P6K39c">([^<]+)</);
-          out.push('google finance: ' + r5.status + ' ' + t5.length + ' bytes, PE ' + (m ? m[1] : 'not found'));
-        } catch (e) { out.push('google error: ' + e.message); }
-        return new Response(out.join('\n'), { headers: { ...CORS, 'content-type': 'text/plain; charset=utf-8' } });
-      }
       if (u.pathname === '/v2/watch') return new Response(await watchText(env), { headers: { ...CORS, 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
       if (u.pathname === '/v2/feed') return new Response(JSON.stringify(await feed(env)), { headers: CORS });
       if (u.pathname === '/v1/all') return new Response(JSON.stringify(await allTabs(env)), { headers: CORS });

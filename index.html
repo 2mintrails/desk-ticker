@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v20.2-2026-11-23">
+<meta name="ticker-version" content="v20.3-2026-11-23">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -304,30 +304,37 @@
     background:rgba(255,255,255,.1);color:#cfd6e4;font:600 14px Inter,sans-serif;padding:9px 16px;border-radius:99px;border:1px solid rgba(255,255,255,.15)}
   .n-hint.on{opacity:1;transform:translate(-50%,0)}
   /* ---------- tap to go deeper: one detail card over the slide (a stock, an index, or the weather) ---------- */
-  /* entry-signal badges on portfolio tiles, and the signal block in the detail card */
-  .tile{position:relative}
-  .tile .sig{position:absolute;top:1.2vh;right:1vw;font-size:clamp(9px,2.6vh,12px);font-weight:800;letter-spacing:.8px;padding:3px 8px;border-radius:99px;text-transform:uppercase;white-space:nowrap;line-height:1.2}
-  .sig.good,#dsheet .pill.good{background:rgba(61,220,132,.18);color:#3ddc84;border:1px solid rgba(61,220,132,.5)}
-  .sig.wait,#dsheet .pill.wait{background:rgba(255,183,77,.16);color:#ffb74d;border:1px solid rgba(255,183,77,.5)}
-  .sig.re,#dsheet .pill.re{background:rgba(100,170,255,.16);color:#7db7ff;border:1px solid rgba(100,170,255,.5)}
-  .sig.gr,#dsheet .pill.gr{background:rgba(255,255,255,.07);color:#aab4cf;border:1px solid rgba(255,255,255,.18)}
-  .sig.exit,#dsheet .pill.exit{background:rgba(255,107,107,.12);color:#ff8a8a;border:1px solid rgba(255,107,107,.4)}
-  .sig.stale,#dsheet .pill.stale{background:rgba(255,255,255,.06);color:#e6e9f2;border:1px dashed rgba(255,255,255,.45)}
-  .tile .why1{font-size:clamp(10px,2.9vh,13px);opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  @media (min-aspect-ratio: 13/10){ .tile .sig{top:auto;bottom:1.4vh} .tile .why1, .tile:has(.sig) .tev{padding-right:10.5em} }
-  body.amb.light .sig.gr, body.amb.light #dsheet .pill.gr{color:#475569;border-color:rgba(15,23,42,.2);background:rgba(15,23,42,.05)}
-  body.amb.light .sig.stale, body.amb.light #dsheet .pill.stale{color:#1e293b;border-color:rgba(15,23,42,.4)}
-  #dsheet .sig2{grid-column:1/-1;display:flex;flex-direction:column;gap:8px;font-size:15px;line-height:1.35;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14)}
-  #dsheet .sig2.good{background:rgba(61,220,132,.07);border-color:rgba(61,220,132,.28)} #dsheet .sig2.wait{background:rgba(255,183,77,.06);border-color:rgba(255,183,77,.3)}
-  #dsheet .sig2.re{background:rgba(100,170,255,.06);border-color:rgba(100,170,255,.3)}
-  #dsheet .sig2 .top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-  #dsheet .sig2 .pill{font-size:12px;font-weight:800;letter-spacing:1px;padding:4px 10px;border-radius:99px;text-transform:uppercase;white-space:nowrap}
-  #dsheet .sig2 .sent{flex:1;min-width:180px;font-weight:600}
-  #dsheet .sig2 .rows{display:grid;grid-template-columns:auto 1fr;gap:4px 16px}
-  #dsheet .sig2 .rows b{font-size:11px;letter-spacing:1.3px;text-transform:uppercase;opacity:.55;padding-top:3px}
-  #dsheet .sig2 .sdet summary{cursor:pointer;font-size:12px;opacity:.6;letter-spacing:.5px}
-  #dsheet .sig2 .sdet div{font-size:13px;opacity:.8;margin-top:6px;line-height:1.5}
-  #dsheet .sig2 .sfoot{font-size:11px;opacity:.5}
+  /* price-zone tags on portfolio tiles (full in portrait; icon + name only in landscape), and the detail-card block */
+  .tag{display:flex;align-items:center;gap:8px;margin-top:.8vh;padding:6px 10px;border-radius:10px;font-size:clamp(12px,3.4vw,15px);line-height:1.25;min-width:0}
+  .tag i{font-style:normal;font-size:1.15em;flex:none} .tag b{font-weight:800;white-space:nowrap} .tag span{opacity:.85;min-width:0}
+  .tag.good{background:rgba(61,220,132,.16);color:#7ef0ad;border:1px solid rgba(61,220,132,.45)}
+  .tag.hot{background:rgba(255,183,77,.15);color:#ffc977;border:1px solid rgba(255,183,77,.5)}
+  .tag.weak{background:rgba(100,170,255,.14);color:#9cc8ff;border:1px solid rgba(100,170,255,.45)}
+  .tag.mid{background:rgba(255,255,255,.06);color:#c9d1e6;border:1px solid rgba(255,255,255,.15)}
+  body.amb.light .tag.good{color:#047857;background:rgba(16,185,129,.12)} body.amb.light .tag.hot{color:#b45309;background:rgba(245,158,11,.12)}
+  body.amb.light .tag.weak{color:#1d4ed8;background:rgba(59,130,246,.1)} body.amb.light .tag.mid{color:#334155;background:rgba(15,23,42,.05);border-color:rgba(15,23,42,.15)}
+  @media (min-aspect-ratio: 13/10){
+    .tag{margin-top:.4vh;padding:3px 9px;font-size:clamp(11px,3.2vh,14px);align-self:flex-start;gap:6px}
+    .tag span{display:none}
+    .slide .tile:has(.tag){gap:.6vh}
+    .slide .tile:has(.tag) .p{font-size:clamp(18px,min(8vh,3.8vw),32px)}
+  }
+  #dsheet .fz{grid-column:1/-1;display:flex;flex-direction:column;gap:10px}
+  #dsheet .fz .tagbig{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:12px}
+  #dsheet .fz .tagbig.good{background:rgba(61,220,132,.1);border:1px solid rgba(61,220,132,.4)} #dsheet .fz .tagbig.good b{color:#7ef0ad}
+  #dsheet .fz .tagbig.hot{background:rgba(255,183,77,.1);border:1px solid rgba(255,183,77,.45)} #dsheet .fz .tagbig.hot b{color:#ffc977}
+  #dsheet .fz .tagbig.weak{background:rgba(100,170,255,.1);border:1px solid rgba(100,170,255,.4)} #dsheet .fz .tagbig.weak b{color:#9cc8ff}
+  #dsheet .fz .tagbig.mid{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15)}
+  #dsheet .fz .tagbig i{font-style:normal;font-size:22px;line-height:1}
+  #dsheet .fz .tagbig b{display:block;font-size:16px;margin-bottom:2px} #dsheet .fz .tagbig span{font-size:14px;opacity:.85}
+  #dsheet .fz h4{margin:2px 0 0;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;opacity:.55}
+  #dsheet .fz .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  #dsheet .fz .kv div{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 10px;min-width:0}
+  #dsheet .fz .kv small{display:block;font-size:11px;opacity:.6} #dsheet .fz .kv b{font-size:17px}
+  #dsheet .fz .kv em{display:block;font-style:normal;font-size:11px;opacity:.65;margin-top:1px}
+  #dsheet .fz .ok{color:#7ef0ad} #dsheet .fz .hi{color:#ffc977}
+  #dsheet .fz .src{font-size:11px;opacity:.5;white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+  @media (orientation:portrait){ #dsheet .fz .kv{grid-template-columns:repeat(2,1fr)} }
   #dsheet{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(5,8,18,.55);
     backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .25s;font-family:Inter,"Space Grotesk",-apple-system,sans-serif;
     padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
@@ -1557,36 +1564,51 @@ function timingFor(sym) {
     'RSI ' + Math.round(t.rsi) + (hot ? ' (running hot)' : t.rsi < T.rsiLo ? ' (weak)' : ' (calm)'),
     t.chg5 == null ? '' : (t.chg5 >= 0 ? '+' : '') + t.chg5.toFixed(1) + '% over 5 sessions'].filter(Boolean);
   const base = { t, p, d50, parts };
-  if (below200) return { ...base, cls: 're', label: 'Weak trend', line: 'Below 200-day avg', sentence: 'Price is under its long-run (200-day) average.' };
-  if (hot || spike) return { ...base, cls: 'wait', label: 'Running hot', line: spike ? 'Up ' + t.chg5.toFixed(0) + '% in 5 sessions' : 'RSI ' + Math.round(t.rsi),
-    sentence: spike ? 'Up ' + t.chg5.toFixed(0) + '% in five sessions. It has run up fast.' : 'It has run up hard lately (RSI ' + Math.round(t.rsi) + ').' };
-  if (near && calm) return { ...base, cls: 'good', label: 'Good timing', line: where.replace(' avg', '') + ' · RSI ' + Math.round(t.rsi),
-    sentence: 'Near its usual price, calm, no sudden spike, above its long-run average.' };
-  return { ...base, cls: 'gr', label: '', line: '', sentence: 'In between: no clear timing signal today.' };
+  if (below200) return { ...base, cls: 'weak', icon: '↘', label: 'Downtrend', line: 'below 200-day avg', sentence: 'The price is under its long-run (200-day) average, so the longer trend is down.' };
+  if (hot || spike) return { ...base, cls: 'hot', icon: '🔥', label: 'Overheated', line: spike ? 'up ' + t.chg5.toFixed(0) + '% in 5 days' : 'RSI ' + Math.round(t.rsi) + ', ran up fast',
+    sentence: spike ? 'Up ' + t.chg5.toFixed(0) + '% in the last five sessions. It has run up fast.' : 'It has run up hard lately (RSI ' + Math.round(t.rsi) + ' is above ' + T.rsiHot + ').' };
+  if (near && calm) return { ...base, cls: 'good', icon: '✓', label: 'Good price zone', line: Math.abs(d50) < 1 ? 'near usual price, calm' : Math.abs(d50).toFixed(0) + '% ' + (d50 > 0 ? 'above' : 'below') + ' usual, calm',
+    sentence: 'Near its usual (50-day) price, not overheated, no sudden spike, and in a long-term uptrend.' };
+  return { ...base, cls: 'mid', icon: '•', label: 'Neutral', line: 'no clear signal', sentence: 'In between: no clear price signal today.' };
 }
 function renderSignals() {
   document.querySelectorAll('.tile').forEach(tile => {
     const p = tile.querySelector('.p[data-sym]'); if (!p) return;
-    const g = timingFor(p.dataset.sym), on = g && g.label;
-    let b = tile.querySelector('.sig'), l = tile.querySelector('.why1'), ev = tile.querySelector('.tev');
-    if (!on) { if (b) b.remove(); if (l) l.remove(); if (ev) ev.hidden = false; return; }
-    if (!b) { b = document.createElement('span'); tile.appendChild(b); }
-    b.className = 'sig ' + g.cls; b.textContent = g.label;
-    const hasEv = ev && ev.textContent.trim();       // an upcoming event keeps its line; the badge alone says the timing
-    if (hasEv) { if (l) l.remove(); ev.hidden = false; }
-    else { if (!l) { l = document.createElement('div'); l.className = 'why1'; tile.appendChild(l); } l.textContent = g.line; }
+    const g = timingFor(p.dataset.sym);
+    let b = tile.querySelector('.tag');
+    if (!g) { if (b) b.remove(); return; }
+    if (!b) { b = document.createElement('div'); tile.appendChild(b); }
+    b.className = 'tag ' + g.cls;
+    b.innerHTML = '<i>' + g.icon + '</i><b>' + esc(g.label) + '</b><span>' + esc(g.line) + '</span>';   // the reason hides in landscape, where tiles are small
   });
 }
 function sigBlock(sym) {
   const g = timingFor(sym); if (!g) return '';
-  const fromHi = g.t.hi ? (g.p / g.t.hi - 1) * 100 : null;
-  return '<div class="sig2 ' + g.cls + '"><div class="top">' + (g.label ? '<span class="pill ' + g.cls + '">' + esc(g.label) + '</span>' : '<span class="pill gr">Price check</span>') +
-    '<span class="sent">' + esc(g.sentence) + '</span></div>' +
-    '<div class="rows"><b>Today</b><span>' + esc(g.parts.join(' · ')) + '</span></div>' +
-    '<details class="sdet"><summary>Details</summary><div>50-day avg ' + dsNum(g.t.sma50, 2) + (g.t.sma200 ? ' · 200-day avg ' + dsNum(g.t.sma200, 2) : '') +
-    (fromHi != null ? ' · ' + Math.abs(fromHi).toFixed(1) + '% below its 1-year high' : '') + ' · figures from ' + tm2(g.t.at) +
-    '<br>Good timing = within ' + TIMING.near50 + '% of the 50-day avg, RSI ' + TIMING.rsiLo + '–' + TIMING.rsiHi + ', not up over ' + TIMING.spike5 + '% in 5 sessions, above the 200-day avg.</div></details>' +
-    '<div class="sfoot">Price timing only, a mechanical rule, not advice or a forecast</div></div>';
+  const t = g.t, f = t.f || {}, cur = f.cur === 'INR' || /^(NSE|BSE|BOM):/.test(sym) ? '₹' : '$';
+  const box = (k, v, note, cls) => v == null ? '' : '<div><small>' + k + '</small><b' + (cls ? ' class="' + cls + '"' : '') + '>' + v + '</b><em>' + (note || '') + '</em></div>';
+  const pct = (x, d = 0) => (x * 100).toFixed(d) + '%', sgn = x => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(1) + '%';
+  const cap = m => { if (m == null) return null; if (cur === '₹') { const cr = m / 1e7; return cr >= 1e5 ? '₹' + (cr / 1e5).toFixed(1) + 'L cr' : '₹' + Math.round(cr).toLocaleString('en-IN') + ' cr'; }
+    return m >= 1e12 ? '$' + (m / 1e12).toFixed(2) + 'T' : '$' + (m / 1e9).toFixed(1) + 'B'; };
+  const size = m => m == null ? '' : cur === '₹' ? (m >= 2e11 ? 'large cap' : m >= 5e10 ? 'mid cap' : 'small cap') : (m >= 1e10 ? 'large cap' : m >= 2e9 ? 'mid cap' : 'small cap');
+  const fund = [
+    box('P/E', f.pe != null ? f.pe.toFixed(1) : null, f.pe == null ? '' : f.pe < 15 ? 'low' : f.pe < 30 ? 'moderate' : f.pe < 50 ? 'high' : 'very high', f.pe >= 40 ? 'hi' : ''),
+    box('Return on equity', f.roe != null ? pct(f.roe) : null, f.roe == null ? '' : f.roe >= 0.15 ? 'strong' : f.roe >= 0.10 ? 'fair' : 'weak', f.roe >= 0.15 ? 'ok' : f.roe < 0.10 ? 'hi' : ''),
+    box('Debt / equity', f.de != null ? f.de.toFixed(2) : null, f.de == null ? '' : f.de < 0.1 ? 'almost no debt' : f.de < 1 ? 'moderate' : 'high', f.de < 0.5 ? 'ok' : f.de >= 1 ? 'hi' : ''),
+    box('Revenue growth', f.rev != null ? (f.rev >= 0 ? '+' : '−') + pct(Math.abs(f.rev)) : null, 'last 12 months', f.rev >= 0.10 ? 'ok' : f.rev < 0 ? 'hi' : ''),
+    box('Profit margin', f.margin != null ? pct(f.margin) : null, 'net'),
+    box('Market cap', cap(f.mcap), size(f.mcap))].join('');
+  const fromHi = t.hi ? (g.p / t.hi - 1) * 100 : null, d200 = t.sma200 ? (g.p / t.sma200 - 1) * 100 : null;
+  const price = [
+    box('vs 50-day avg', sgn(g.d50), Math.abs(g.d50) <= TIMING.near50 ? 'near usual' : g.d50 > 0 ? 'above usual' : 'below usual', Math.abs(g.d50) <= TIMING.near50 ? 'ok' : ''),
+    box('vs 200-day avg', d200 != null ? sgn(d200) : null, d200 == null ? '' : d200 >= 0 ? 'uptrend' : 'downtrend', d200 >= 0 ? 'ok' : 'hi'),
+    box('RSI (14-day)', String(Math.round(t.rsi)), t.rsi > TIMING.rsiHot ? 'running hot' : t.rsi < TIMING.rsiLo ? 'weak' : 'calm', t.rsi > TIMING.rsiHot ? 'hi' : t.rsi <= TIMING.rsiHi && t.rsi >= TIMING.rsiLo ? 'ok' : ''),
+    box('Last 5 days', t.chg5 != null ? sgn(t.chg5) : null, t.chg5 > TIMING.spike5 ? 'sharp run-up' : 'no spike', t.chg5 > TIMING.spike5 ? 'hi' : ''),
+    box('From 1-yr high', fromHi != null ? sgn(fromHi) : null, ''),
+    box('Dividend yield', f.div != null ? pct(f.div, 1) : null, '')].join('');
+  return '<div class="fz"><div class="tagbig ' + g.cls + '"><i>' + g.icon + '</i><div><b>' + esc(g.label) + '</b><span>' + esc(g.sentence) + '</span></div></div>' +
+    (fund ? '<h4>Fundamentals</h4><div class="kv">' + fund + '</div>' : '') +
+    '<h4>Price</h4><div class="kv">' + price + '</div>' +
+    '<div class="src">From Yahoo Finance, updated daily' + (f.at ? ' (fundamentals ' + new Date(f.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ')' : '') + ' · the price zone is a mechanical rule on price, not advice or a forecast</div></div>';
 }
 function tileCard(st) {
   const card = document.createElement('div'); card.className = 'card tile';
