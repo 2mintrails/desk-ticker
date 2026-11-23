@@ -364,19 +364,43 @@ function localPlan(lat, lon, cityName) {
   const name = String(cityName || '').trim();
   if (!/^[A-Za-z][A-Za-z .'-]{2,39}$/.test(name)) return null;
   const feeds = [...byDist.slice(0, 3).flatMap(x => x[1][3]), ...CITY_WIDE, ...FEEDS.India].filter((f, i, a) => a.findIndex(g => g[0] === f[0]) === i);
-  return { city: name, feeds, match: new RegExp('(?<![A-Za-z])' + reEsc(name) + '(?![A-Za-z])', 'i') };
+  // plus a Google News search for the city itself, in English and in Hindi: small cities' local news is mostly in Hindi papers
+  const search = [[GN(name), ''], ['https://news.google.com/rss/search?q=' + encodeURIComponent(name + ' when:1d') + '&hl=hi&gl=IN&ceid=IN:hi', '']];
+  return { city: name, feeds, search, match: new RegExp('(?<![A-Za-z])' + reEsc(name) + '(?![A-Za-z])', 'i') };
 }
-async function localNews(plan) {
+async function localNews(plan, env) {
   const lists = await Promise.all(plan.feeds.map(([u, s]) => readFeed(u, s)));
   const items = plan.match ? lists.flat().filter(x => plan.match.test(x.title)) : lists.flat();
   const read = lists.reduce((n, l) => n + l.length, 0);
-  return { top: pickTop(items, { keep: 8, per: 7, ageH: plan.match ? 48 : 24 }), note: plan.feeds.length + ' feeds, ' + read + ' read' + (plan.match ? ', ' + items.length + ' name ' + plan.city : '') };
+  if (!plan.search) return { top: pickTop(items, { keep: 8, per: 7, ageH: 24 }), note: plan.feeds.length + ' feeds, ' + read + ' read' };
+  // a city without its own feed: news found by searching for the city comes first, then other stories that name it, from the last day only
+  const found = (await Promise.all(plan.search.map(([u, s]) => readFeed(u, s)))).flat();
+  let top = pickTop(found, { keep: 8, per: 3, ageH: 24 });
+  if (top.length < 8) { const have = new Set(top.map(x => x.text.toLowerCase().slice(0, 40)));
+    top = top.concat(pickTop(items, { keep: 8 - top.length, per: 3, ageH: 24 }).filter(x => !have.has(x.text.toLowerCase().slice(0, 40)))); }
+  if (env) top = await toEnglish(env, top);
+  return { top, note: plan.feeds.length + ' feeds + city search, ' + read + ' read, ' + found.length + ' found by search, ' + items.length + ' name ' + plan.city };
+}
+// Hindi (Devanagari) headlines are translated to short plain English by the AI; if that fails, they stay in Hindi
+async function toEnglish(env, top) {
+  const idx = top.map((x, i) => /[\u0900-\u097F]/.test(x.text) ? i : -1).filter(i => i >= 0);
+  if (!idx.length || !env.AI) return top;
+  try {
+    const list = idx.map((i, k) => (k + 1) + '. ' + top[i].text).join('\n');
+    const r = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', { messages: [
+      { role: 'system', content: 'You translate Hindi news headlines into short, natural English headlines. Keep names and places. Do not add anything.' },
+      { role: 'user', content: 'Translate each headline to English (max 16 words each). Reply with a JSON array of strings, same order, nothing else.\n\n' + list }], max_tokens: 700, temperature: 0.1 });
+    const txt = typeof r.response === 'string' ? r.response : JSON.stringify(r.response || '');
+    const arr = JSON.parse((txt.match(/\[[\s\S]*\]/) || ['[]'])[0]);
+    if (Array.isArray(arr) && arr.length === idx.length) idx.forEach((i, k) => { const t = String(arr[k] || '').trim(); if (t.length > 8 && !/[\u0900-\u097F]/.test(t)) top[i] = { ...top[i], text: t, hi: top[i].text }; });
+  } catch (e) {}
+  return top;
 }
 async function jobLocal(env) {
   const set = (await getCfg(env)).settings || {};
   const plan = localPlan(num(set['Home lat']) ?? HOME.lat, num(set['Home lon']) ?? HOME.lon, set['Home city'] || String(set['Home name'] || '').split(',')[0]);
   if (!plan) { await dbPut(env, 'news_Local', { city: '', items: [] }); return 'home is not near a city with a local feed, and no home city is saved'; }
-  const { top, note } = await localNews(plan);
+  const { top, note } = await localNews(plan, env);
   if (!top.length && !plan.match) throw new Error('no ' + plan.city + ' headlines (' + note + ')');
   await dbPut(env, 'news_Local', { city: plan.city, items: top });       // nothing naming a smaller city: the slide hides itself
   return plan.city + ': ' + top.length + ' headlines (' + note + ')' + (top[0] ? ' · newest: ' + top[0].text.slice(0, 70) : '');
@@ -385,9 +409,9 @@ async function jobLocal(env) {
 async function localHere(env, lat, lon, cityName) {
   if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return { city: '', items: [] };
   const plan = localPlan(lat, lon, cityName); if (!plan) return { city: '', items: [] };
-  const key = 'local_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
+  const key = 'local2_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
   if (c && Date.now() - c.at < 15 * 60e3) return { ...c.v, at: c.at };
-  const { top } = await localNews(plan);
+  const { top } = await localNews(plan, env);
   if (!top.length && c && c.v.items.length && Date.now() - c.at < 6 * 3600e3) return { ...c.v, at: c.at };   // feeds failed: keep the last list for a while
   const v = { city: plan.city, items: top.map(i => ({ t: i.text, u: i.link })) };
   await dbPut(env, key, v);
