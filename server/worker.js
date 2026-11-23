@@ -920,6 +920,12 @@ export default {
       if (u.pathname === '/v2/hist') return new Response(JSON.stringify(await hist(env, String(u.searchParams.get('sym') || '').slice(0, 40), u.searchParams.get('r'))), { headers: CORS });
       if (u.pathname === '/v2/lookup') return new Response(JSON.stringify(await lookup(u.searchParams.get('q'), u.searchParams.get('mkt'))), { headers: CORS });
       if (u.pathname === '/v2/local') return new Response(JSON.stringify(await localHere(env, +u.searchParams.get('lat'), +u.searchParams.get('lon'), u.searchParams.get('city'))), { headers: CORS });
+      if (u.pathname === '/v1/probe') {        // temporary: which newspaper feeds answer from here
+        const urls = (u.searchParams.get('u') || '').split('|').filter(x => /^https:\/\/(www\.|api\.)?(amarujala|jagran|livehindustan|bhaskar|patrika|navbharattimes\.indiatimes)\.com\//.test(x)).slice(0, 12);
+        const out = await Promise.all(urls.map(async x => { try { const r = await fetch(x, { headers: { 'User-Agent': UA } }); const t = await r.text(); const items = t.match(/<item[\s>]/gi) || [];
+          return x + ' → ' + r.status + ', ' + items.length + ' items, ' + (t.match(/अलीगढ़/g) || []).length + ' Aligarh(hi), first: ' + decode(tag((t.match(/<item[\s>][\s\S]*?<\/item>/i) || [''])[0], 'title')).slice(0, 70); } catch (e) { return x + ' → ' + e.message; } }));
+        return new Response(out.join('\n'), { headers: { ...CORS, 'content-type': 'text/plain; charset=utf-8' } });
+      }
       if (u.pathname === '/v2/watch') return new Response(await watchText(env), { headers: { ...CORS, 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
       if (u.pathname === '/v2/feed') return new Response(JSON.stringify(await feed(env)), { headers: CORS });
       if (u.pathname === '/v1/all') return new Response(JSON.stringify(await allTabs(env)), { headers: CORS });
