@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v20.1-2026-11-23">
+<meta name="ticker-version" content="v20.2-2026-11-23">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -314,7 +314,7 @@
   .sig.exit,#dsheet .pill.exit{background:rgba(255,107,107,.12);color:#ff8a8a;border:1px solid rgba(255,107,107,.4)}
   .sig.stale,#dsheet .pill.stale{background:rgba(255,255,255,.06);color:#e6e9f2;border:1px dashed rgba(255,255,255,.45)}
   .tile .why1{font-size:clamp(10px,2.9vh,13px);opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  @media (min-aspect-ratio: 13/10){ .tile .sig{top:auto;bottom:1.4vh} .tile .why1{padding-right:10.5em} }
+  @media (min-aspect-ratio: 13/10){ .tile .sig{top:auto;bottom:1.4vh} .tile .why1, .tile:has(.sig) .tev{padding-right:10.5em} }
   body.amb.light .sig.gr, body.amb.light #dsheet .pill.gr{color:#475569;border-color:rgba(15,23,42,.2);background:rgba(15,23,42,.05)}
   body.amb.light .sig.stale, body.amb.light #dsheet .pill.stale{color:#1e293b;border-color:rgba(15,23,42,.4)}
   #dsheet .sig2{grid-column:1/-1;display:flex;flex-direction:column;gap:8px;font-size:15px;line-height:1.35;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14)}
@@ -1542,90 +1542,51 @@ function buildStockSlides(list, title, accent, mode) {
     sec.appendChild(pair); slot.before(sec);
   }
 }
-/* ---------- entry signals (personal): your review records (pasted in settings) + daily price maths from the server ----------
-   Only BUILD stocks can show a buy signal. Everything is a mechanical rule, not a forecast. */
+/* ---------- price timing (general): from price figures only, for every stock; no personal review, no "buy" calls ----------
+   Good timing = near its usual (50-day) price, calm RSI, no sudden spike, above its 200-day average. A mechanical rule, not advice. */
 const sigKey = s => String(s || '').toUpperCase().replace(/^(NSE|BSE|BOM|NASDAQ|NYSE|NYSEARCA):/, '').replace(/\.(NS|BO)$/, '').replace(/[^A-Z0-9&\-]/g, '');
-function sigThr() { const t = (FEED && FEED.review && FEED.review.thr) || {};
-  return { near50: t.near50 ?? 3, rsiLo: t.rsiLo ?? 35, rsiHi: t.rsiHi ?? 60, rsiHot: t.rsiHot ?? 70, spike5: t.spike5 ?? 8, resultsDays: t.resultsDays ?? 7 }; }
-const sigToday = () => new Date(Date.now() + 330 * 6e4).toISOString().slice(0, 10);
-const sigDate = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-function sigFor(sym) {
-  const R = FEED && FEED.review && FEED.review.records; if (!R) return null;
-  const k = sigKey(sym), r = R[k]; if (!r) return null;
-  const today = sigToday(), T = sigThr(), nr = r.next_results, cap = v => v[0] + v.slice(1).toLowerCase();
-  const plan = r.plan || (r.target != null ? 'Build to ' + r.target + '%' : '');
-  if (nr && nr <= today && (!r.reviewed_on || nr > r.reviewed_on))
-    return { cls: 'stale', label: 'Review pending', line: 'Results out ' + sigDate(nr) + ' · not reviewed', r, k,
-      sentence: 'Results are out since your last review, so the ' + r.verdict + ' verdict may be out of date. Review it with Claude.' };
-  if (r.verdict === 'BUILD' && (FEED.done || {})[k]) return { cls: 'gr', label: 'Hold', line: '', r, k, done: true, sentence: 'Target reached · now a hold.' };
-  if (r.verdict !== 'BUILD') return { cls: r.verdict === 'EXIT' ? 'exit' : 'gr', label: cap(r.verdict), line: r.verdict === 'EXIT' ? (r.rule || r.reason) : '', r, k, sentence: r.rule || r.reason || '' };
-  const t = (FEED.tech || {})[k], q = ((FEED.quotes || {})[sym] || {}).p;
-  if (!t || !t.sma50 || !q) return { cls: 'gr', label: 'Build', line: plan, r, k, plan, sentence: 'On your build list. Price history is still loading, so no entry check yet.' };
-  const d50 = (q / t.sma50 - 1) * 100, below200 = t.sma200 != null && q < t.sma200;
-  const days = nr ? Math.round((Date.parse(nr) - Date.parse(today)) / 864e5) : null, soon = days != null && days >= 0 && days <= T.resultsDays;
+const TIMING = { near50: 3, rsiLo: 35, rsiHi: 60, rsiHot: 70, spike5: 8 };
+function timingFor(sym) {
+  const t = ((FEED && FEED.tech) || {})[sigKey(sym)], q = ((FEED && FEED.quotes) || {})[sym], p = q && q.p;
+  if (!t || !t.sma50 || !p) return null;
+  const T = TIMING, d50 = (p / t.sma50 - 1) * 100, below200 = t.sma200 != null && p < t.sma200;
   const near = Math.abs(d50) <= T.near50, calm = t.rsi >= T.rsiLo && t.rsi <= T.rsiHi, spike = t.chg5 != null && t.chg5 > T.spike5, hot = t.rsi > T.rsiHot;
   const where = Math.abs(d50) < 0.1 ? 'at its 50-day avg' : Math.abs(d50).toFixed(1) + '% ' + (d50 < 0 ? 'below' : 'above') + ' 50-day avg';
-  const checks = [
-    { ok: near, txt: where }, { ok: !below200, txt: below200 ? 'below 200-day avg' : 'above 200-day avg' },
-    { ok: calm, txt: 'RSI ' + Math.round(t.rsi) + (t.rsi > T.rsiHot ? ' (running hot)' : t.rsi < T.rsiLo ? ' (weak)' : '') },
-    { ok: !spike, txt: (t.chg5 >= 0 ? '+' : '') + (t.chg5 || 0).toFixed(1) + '% in 5 sessions' },
-    { ok: !soon, txt: nr ? (soon ? 'results in ' + days + ' day' + (days === 1 ? '' : 's') : 'results ' + sigDate(nr)) : 'results date not set' }];
-  const base = { r, k, plan, t, q, d50, checks };
-  if (below200) return { ...base, cls: 're', label: 'Recheck', line: 'Below 200-day avg',
-    sentence: 'Price is under its long-run (200-day) average. A prompt to recheck the story with Claude, not a buy signal.' };
-  if (hot || spike || soon) return { ...base, cls: 'wait', label: 'Wait',
-    line: spike ? 'Up ' + t.chg5.toFixed(0) + '% in 5 sessions' : soon ? 'Results in ' + days + ' day' + (days === 1 ? '' : 's') : 'RSI ' + Math.round(t.rsi) + ' · running hot',
-    sentence: spike ? 'Ran up ' + t.chg5.toFixed(0) + '% in five sessions. Let it cool before adding.' : soon ? 'Results are due in ' + days + ' day' + (days === 1 ? '' : 's') + '. Wait for them before adding.' : 'It has run up hard lately. Let it cool before adding.' };
-  if (near && calm) return { ...base, cls: 'good', label: 'Good entry', line: where.replace(' avg', ''),
-    sentence: 'Near its usual price, not overheated, no results soon.' };
-  return { ...base, cls: 'gr', label: 'Build', line: where,
-    sentence: 'On your build list, but not at an entry point today: ' + checks.filter(c => !c.ok).map(c => c.txt).join(', ') + '.' };
+  const parts = [near ? 'Near its 50-day average' : Math.abs(d50).toFixed(1) + '% ' + (d50 > 0 ? 'above' : 'below') + ' its 50-day average',
+    t.sma200 == null ? '' : (below200 ? 'below' : 'above') + ' its 200-day average',
+    'RSI ' + Math.round(t.rsi) + (hot ? ' (running hot)' : t.rsi < T.rsiLo ? ' (weak)' : ' (calm)'),
+    t.chg5 == null ? '' : (t.chg5 >= 0 ? '+' : '') + t.chg5.toFixed(1) + '% over 5 sessions'].filter(Boolean);
+  const base = { t, p, d50, parts };
+  if (below200) return { ...base, cls: 're', label: 'Weak trend', line: 'Below 200-day avg', sentence: 'Price is under its long-run (200-day) average.' };
+  if (hot || spike) return { ...base, cls: 'wait', label: 'Running hot', line: spike ? 'Up ' + t.chg5.toFixed(0) + '% in 5 sessions' : 'RSI ' + Math.round(t.rsi),
+    sentence: spike ? 'Up ' + t.chg5.toFixed(0) + '% in five sessions. It has run up fast.' : 'It has run up hard lately (RSI ' + Math.round(t.rsi) + ').' };
+  if (near && calm) return { ...base, cls: 'good', label: 'Good timing', line: where.replace(' avg', '') + ' · RSI ' + Math.round(t.rsi),
+    sentence: 'Near its usual price, calm, no sudden spike, above its long-run average.' };
+  return { ...base, cls: 'gr', label: '', line: '', sentence: 'In between: no clear timing signal today.' };
 }
 function renderSignals() {
   document.querySelectorAll('.tile').forEach(tile => {
     const p = tile.querySelector('.p[data-sym]'); if (!p) return;
-    const g = sigFor(p.dataset.sym);
+    const g = timingFor(p.dataset.sym), on = g && g.label;
     let b = tile.querySelector('.sig'), l = tile.querySelector('.why1'), ev = tile.querySelector('.tev');
-    if (!g) { if (b) b.remove(); if (l) l.remove(); if (ev) ev.hidden = false; return; }
+    if (!on) { if (b) b.remove(); if (l) l.remove(); if (ev) ev.hidden = false; return; }
     if (!b) { b = document.createElement('span'); tile.appendChild(b); }
     b.className = 'sig ' + g.cls; b.textContent = g.label;
-    const show = g.line && g.cls !== 'gr' || (g.cls === 'gr' && g.r.verdict === 'BUILD' && !g.done && g.line);
-    if (show) { if (!l) { l = document.createElement('div'); l.className = 'why1'; tile.appendChild(l); } l.textContent = g.line; } else if (l) l.remove();
-    if (ev) ev.hidden = !!show;          // the event moves into the detail card when a signal line needs the space
+    const hasEv = ev && ev.textContent.trim();       // an upcoming event keeps its line; the badge alone says the timing
+    if (hasEv) { if (l) l.remove(); ev.hidden = false; }
+    else { if (!l) { l = document.createElement('div'); l.className = 'why1'; tile.appendChild(l); } l.textContent = g.line; }
   });
 }
-// no review for this stock: just the price picture in plain words, no buy or wait call
-function techBlock(sym) {
-  const t = ((FEED && FEED.tech) || {})[sigKey(sym)], q = ((FEED && FEED.quotes) || {})[sym], p = q && q.p;
-  if (!t || !t.sma50 || !p) return '';
-  const T = sigThr(), d50 = (p / t.sma50 - 1) * 100, d200 = t.sma200 ? (p / t.sma200 - 1) * 100 : null, fromHi = t.hi ? (p / t.hi - 1) * 100 : null;
-  const near = Math.abs(d50) <= T.near50;
-  const parts = [
-    near ? 'Near its 50-day average' : Math.abs(d50).toFixed(1) + '% ' + (d50 > 0 ? 'above' : 'below') + ' its 50-day average',
-    d200 == null ? '' : (d200 >= 0 ? 'above' : 'below') + ' its 200-day average',
-    'RSI ' + Math.round(t.rsi) + (t.rsi > T.rsiHot ? ' (running hot)' : t.rsi < T.rsiLo ? ' (weak)' : ' (calm)'),
-    t.chg5 == null ? '' : (t.chg5 >= 0 ? '+' : '') + t.chg5.toFixed(1) + '% over 5 sessions'].filter(Boolean);
-  return '<div class="sig2 gr"><div class="top"><span class="pill gr">Price check</span><span class="sent">' + esc(parts.join(', ')) + '.</span></div>' +
-    '<details class="sdet"><summary>Details</summary><div>50-day avg ' + dsNum(t.sma50, 2) + (t.sma200 ? ' · 200-day avg ' + dsNum(t.sma200, 2) : '') +
-    (fromHi != null ? ' · ' + Math.abs(fromHi).toFixed(1) + '% below its 1-year high' : '') + ' · figures from ' + tm2(t.at) + '</div></details>' +
-    '<div class="sfoot">No review for this stock yet, so no entry signal · price figures only, not advice</div></div>';
-}
 function sigBlock(sym) {
-  const g = sigFor(sym); if (!g) return techBlock(sym);
-  const r = g.r, row = (k, v) => v ? '<b>' + k + '</b><span>' + v + '</span>' : '';
-  const fails = (g.checks || []).filter(c => !c.ok).map(c => esc(c.txt));
-  const flags = [r.score && r.score.flags, /high/i.test((r.score || {}).pe || '') && 'P/E ' + r.score.pe].filter(Boolean).map(esc);
-  const sc = r.score || {}, scoreAll = [['ROE', sc.roe], ['Debt/equity', sc.de], ['Growth', sc.growth], ['P/E', sc.pe]].filter(x => x[1]).map(x => x[0] + ' ' + esc(x[1])).join(' · ');
-  const det = (g.checks ? g.checks.map(c => (c.ok ? '✓ ' : '✗ ') + esc(c.txt)).join(' · ') : '') +
-    (g.t ? '<br>50-day avg ' + dsNum(g.t.sma50, 2) + (g.t.sma200 ? ' · 200-day avg ' + dsNum(g.t.sma200, 2) : '') + ' · figures from ' + tm2(g.t.at) : '') +
-    (scoreAll ? '<br>Score: ' + scoreAll : '');
-  return '<div class="sig2 ' + g.cls + '"><div class="top"><span class="pill ' + g.cls + '">' + esc(g.label) + '</span><span class="sent">' + esc(g.sentence) + '</span></div>' +
-    '<div class="rows">' +
-    (r.verdict === 'BUILD' && !g.done ? row('Plan', esc(g.plan || '')) : '') +
-    row('Why', esc(r.reason || '')) +
-    row('Watch', [...fails, ...flags].join(' · ')) + '</div>' +
-    (det ? '<details class="sdet"><summary>Details</summary><div>' + det + '</div></details>' : '') +
-    '<div class="sfoot">Reviewed ' + (r.reviewed_on ? sigDate(r.reviewed_on) : '—') + ' · a mechanical rule on price and your review, not a forecast</div></div>';
+  const g = timingFor(sym); if (!g) return '';
+  const fromHi = g.t.hi ? (g.p / g.t.hi - 1) * 100 : null;
+  return '<div class="sig2 ' + g.cls + '"><div class="top">' + (g.label ? '<span class="pill ' + g.cls + '">' + esc(g.label) + '</span>' : '<span class="pill gr">Price check</span>') +
+    '<span class="sent">' + esc(g.sentence) + '</span></div>' +
+    '<div class="rows"><b>Today</b><span>' + esc(g.parts.join(' · ')) + '</span></div>' +
+    '<details class="sdet"><summary>Details</summary><div>50-day avg ' + dsNum(g.t.sma50, 2) + (g.t.sma200 ? ' · 200-day avg ' + dsNum(g.t.sma200, 2) : '') +
+    (fromHi != null ? ' · ' + Math.abs(fromHi).toFixed(1) + '% below its 1-year high' : '') + ' · figures from ' + tm2(g.t.at) +
+    '<br>Good timing = within ' + TIMING.near50 + '% of the 50-day avg, RSI ' + TIMING.rsiLo + '–' + TIMING.rsiHi + ', not up over ' + TIMING.spike5 + '% in 5 sessions, above the 200-day avg.</div></details>' +
+    '<div class="sfoot">Price timing only, a mechanical rule, not advice or a forecast</div></div>';
 }
 function tileCard(st) {
   const card = document.createElement('div'); card.className = 'card tile';
@@ -1790,7 +1751,7 @@ function dsStock(sym) {
   const news = items.map(x => { const k = String(x.t).lastIndexOf(' - ');
     return '<a href="#" data-url="' + esc(x.u || '') + '">' + esc(k > 20 ? x.t.slice(0, k) : x.t) + (k > 20 ? '<small>' + esc(x.t.slice(k + 3)) + '</small>' : '') + '</a>'; }).join('');
   DS.sym = sym;
-  DS.ms = sigFor(sym) || techBlock(sym) ? 40000 : 20000;   // more to read when there's a signal block
+  DS.ms = timingFor(sym) ? 40000 : 20000;             // more to read when there's a timing block
   dsShell('<div class="hd"><div class="lg">' + logo + '</div><div class="nm">' + esc(name) + '<small>' + esc(sub) + '</small></div>' +
     '<div class="px"><b>' + cur + dsNum(q.price, 2) + '</b><span class="' + dsCls(q.pct) + '">' + (q.pct > 0 ? '▲ ' : q.pct < 0 ? '▼ ' : '') + dsPct(q.pct) +
     (q.change != null && isFinite(q.change) ? ' (' + (q.change > 0 ? '+' : q.change < 0 ? '−' : '') + dsNum(Math.abs(q.change), 2) + ')' : '') + ' today</span></div><button class="x" aria-label="Close">✕</button></div>' +
@@ -3144,12 +3105,11 @@ async function saveShared(body) {
   if (r && r.ok) {
     if (body.newPin) PIN = body.newPin;
     if (body.newPin || body.pin) { try { localStorage.setItem('deskTickerPin', PIN); } catch (e) {} }
-    if (FEED) { FEED.settings = j.settings; FEED.watchlist = j.watch; FEED.pinSet = true; if (j.review !== undefined) { FEED.review = j.review; FEED.done = j.done || {}; }
+    if (FEED) { FEED.settings = j.settings; FEED.watchlist = j.watch; FEED.pinSet = true;
       try { localStorage.setItem(FEED_KEY, JSON.stringify(FEED)); } catch (e) {} }
-    try { renderSignals(); } catch (e) {}
     sheetMap = j.settings || sheetMap; applyEff();
     if (body.watch) setNeedsReload = true;
-    pinWait = null; renderSettings(); setMsg(j.changes && j.changes.length ? 'Review saved: ' + j.changes.join(', ') : 'Saved · all your screens update within a minute');
+    pinWait = null; renderSettings(); setMsg('Saved · all your screens update within a minute');
     return true;
   }
   if (r && r.status === 403 && (j.error === 'choose-pin' || j.error === 'wrong-pin')) {
@@ -3204,17 +3164,6 @@ function renderSettings() {
       '<div class="setrow wadd"><input type="text" id="wAdd" placeholder="Ticker, e.g. ZOMATO or NVDA" autocomplete="off" autocapitalize="characters">' +
       '<select id="wGrp"><option value="in">Portfolio · India</option><option value="us">Portfolio · US</option></select>' +
       '<button data-act="wadd">Add</button></div><small id="wMsg" class="setmsg"></small>') +
-    sec_('review', 'Portfolio review', (() => { const R = FEED && FEED.review; if (!R) return 'Not set up';
-        const n = Object.keys(R.records || {}).length, last = Object.values(R.records || {}).map(x => x.reviewed_on).sort().pop(); return n + ' stocks · reviewed ' + (last ? sigDate(last) : '—'); })(), ' wide',
-      (() => { const R = (FEED && FEED.review && FEED.review.records) || {}, D = (FEED && FEED.done) || {};
-        const build = Object.entries(R).filter(([, x]) => x.verdict === 'BUILD').sort((a, b) => a[0].localeCompare(b[0]));
-        return (build.length ? '<div class="wlbl">Building <small>(tick when you reach the target; it becomes a hold)</small></div>' +
-            build.map(([k, x]) => chk('data-done', k, k + (x.target != null ? ' · target ' + x.target + '%' : x.plan ? ' · ' + esc(x.plan) : ''), !!D[k], D[k] ? 'Target reached' : '')).join('') : '') +
-          '<div class="wlbl" style="margin-top:10px">Update from a review</div>' +
-          '<textarea id="revIn" rows="4" placeholder="Paste the review block from Claude here, from { to }" style="width:100%;box-sizing:border-box;border-radius:10px;padding:8px;font:inherit;font-size:13px;background:rgba(0,0,0,.25);color:inherit;border:1px solid rgba(255,255,255,.2)"></textarea>' +
-          '<div class="setrow"><button class="pri" data-act="review">Save review</button></div>' +
-          '<small style="opacity:.55;font-size:11px">Stocks in the block replace their old records; stocks not in it stay as they were. A new review clears “Target reached” for the stocks it names. ' +
-          'Signals: near the 50-day average (±' + sigThr().near50 + '%), RSI ' + sigThr().rsiLo + '–' + sigThr().rsiHi + ', not up over ' + sigThr().spike5 + '% in 5 sessions, no results within ' + sigThr().resultsDays + ' days.</small>'; })()) +
     sec_('dev', 'This screen only', [DEV.auto && 'Auto mode', DEV.loc && 'Follows location', DEV.fx && 'Effects'].filter(Boolean).join(' · ') || 'All off', '',
       chk('data-dev', 'auto', 'Auto stock mode', DEV.auto, 'Switch to Indian / US stock slides when that market opens') +
       chk('data-dev', 'loc', 'Follow my location', DEV.loc, 'Weather and local news for where this device is') +
@@ -3240,7 +3189,6 @@ function renderSettings() {
     if (e.key === 'Enter' && e.target.id === 'wAdd') panel.querySelector('[data-act="wadd"]').click(); });
   panel.addEventListener('change', e => {
     const el = e.target;
-    if (el.dataset.done) { saveShared({ done: { [el.dataset.done]: el.checked } }); return; }
     if (el.dataset.set) {
       let v = el.type === 'checkbox' ? (el.checked ? 'TRUE' : 'FALSE') : el.value;
       if (el.type === 'time' && !v) return;
@@ -3284,11 +3232,6 @@ function renderSettings() {
         saveShared({ set: { 'Home lat': String(lat), 'Home lon': String(lon), 'Home name': name, 'Home city': city } });
       }, err => setMsg(err.code === 1 ? 'Location is blocked for this site. Allow it in the browser, then try again.' : 'Couldn’t get a location just now. Try again.', true),
       { enableHighAccuracy: true, maximumAge: 60000, timeout: 20000 });
-    }
-    else if (act === 'review') {
-      const t = (document.getElementById('revIn').value || '').trim();
-      if (!t) return setMsg('Paste the review block first.', true);
-      saveShared({ review: t });
     }
     else if (act === 'wdel') {
       const w = workingWatch(); w[b.dataset.g] = w[b.dataset.g].filter(x => x.sym !== b.dataset.sym);
