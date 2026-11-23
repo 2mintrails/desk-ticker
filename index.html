@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v20.4-2026-11-23">
+<meta name="ticker-version" content="v20.5-2026-11-24">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -319,6 +319,10 @@
     .slide .tile:has(.tag){gap:.6vh}
     .slide .tile:has(.tag) .p{font-size:clamp(18px,min(8vh,3.8vw),32px)}
   }
+  .tile.tight .tag span{display:none} .tile.tight .tag{padding:3px 9px;margin-top:.3vh;align-self:flex-start}
+  .tile.tighter{gap:2px} .tile.tighter .p{font-size:clamp(16px,min(6.5vh,7vw),30px)!important} .tile.tighter .tag{font-size:12px}
+  .tile.tightest{position:relative} .tile.tightest .tag{position:absolute;top:8px;right:8px;margin:0;padding:2px 8px;font-size:11px}
+  .tile.tightest .tag b{white-space:nowrap}
   #dsheet .gl{grid-column:1/-1;display:flex;flex-direction:column;gap:10px}
   #dsheet .gl .zone{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:12px}
   #dsheet .gl .zone.good{background:rgba(61,220,132,.1);border:1px solid rgba(61,220,132,.4)} #dsheet .gl .zone.good b{color:#7ef0ad}
@@ -1582,7 +1586,23 @@ function renderSignals() {
     b.className = 'tag ' + g.cls;
     b.innerHTML = '<i>' + g.icon + '</i><b>' + esc(g.label) + '</b><span>' + esc(g.line) + '</span>';   // the reason hides in landscape, where tiles are small
   });
+  fitTiles();
 }
+// every tile checks it fits its box: first the tag drops its reason, then the price gets a little smaller (fonts differ from screen to screen)
+function fitTiles() {
+  document.querySelectorAll('.slide .tile').forEach(t => {
+    t.classList.remove('tight', 'tighter', 'tightest');
+    if (!t.querySelector('.tag') || !t.clientHeight) return;
+    const over = () => t.scrollHeight > t.clientHeight + 1 || [...t.children].some(c => {   // hidden or empty parts don't count
+      const a = c.getBoundingClientRect(), r = t.getBoundingClientRect();
+      return a.height > 0 && getComputedStyle(c).position !== 'absolute' && (a.top < r.top - 1 || a.bottom > r.bottom + 1); });
+    if (over()) t.classList.add('tight');
+    if (over()) t.classList.add('tighter');
+    if (over()) t.classList.add('tightest');      // last step: the tag becomes a small corner badge and takes no height
+  });
+}
+addEventListener('resize', () => { clearTimeout(fitTiles.t); fitTiles.t = setTimeout(fitTiles, 250); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitTiles());
 function sigBlock(sym) {
   const g = timingFor(sym); if (!g) return '';
   const t = g.t, f = t.f, cur = (f && f.cur === 'USD') || !/^(NSE|BSE|BOM):/.test(sym) ? '$' : '₹';
@@ -2841,7 +2861,7 @@ function noteRestart(why) {          // a short log of self-restarts, shown at t
   } catch (e) {}
 }
 function show(i) {
-  lastShowAt = Date.now();
+  lastShowAt = Date.now(); setTimeout(fitTiles, 60);
   try { sessionStorage.setItem('deskTickerSlide', JSON.stringify({ t: slides[i].dataset.title, at: Date.now(), v: VIEW || 'all' })); } catch (e) {}
   allSlides.forEach(s => s.classList.toggle('active', s === slides[i]));
   [...bars.children].forEach((b, k) => {
