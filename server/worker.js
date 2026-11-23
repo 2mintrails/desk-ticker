@@ -243,6 +243,10 @@ const FEEDS = {
   Markets: [['https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms', 'ET Markets'], ['https://www.livemint.com/rss/markets', 'Mint'],
     ['https://www.business-standard.com/rss/markets-106.rss', 'Business Standard'], ['https://www.moneycontrol.com/rss/marketreports.xml', 'Moneycontrol'],
     ['https://www.financialexpress.com/market/feed/', 'Financial Express'], ['https://www.hindustantimes.com/feeds/rss/business/rssfeed.xml', 'Hindustan Times']],
+  MarketsMore: [['https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms', 'ET Markets'], ['https://www.cnbctv18.com/commonfeeds/v1/cne/rss/market.xml', 'CNBC-TV18'],
+    ['https://www.moneycontrol.com/rss/MCtopnews.xml', 'Moneycontrol'], ['https://www.moneycontrol.com/rss/buzzingstocks.xml', 'Moneycontrol'],
+    ['https://www.business-standard.com/rss/markets-news-10601.rss', 'Business Standard'], ['https://www.livemint.com/rss/companies', 'Mint'],
+    ['https://www.thehindubusinessline.com/markets/feeder/default.rss', 'BusinessLine'], ['https://www.ndtvprofit.com/stfeed/markets', 'NDTV Profit']],
   USMarkets: [['https://www.cnbc.com/id/20910258/device/rss/rss.html', 'CNBC'], ['https://feeds.content.dowjones.io/public/rss/mw_topstories', 'MarketWatch'],
     ['https://feeds.content.dowjones.io/public/rss/mw_marketpulse', 'MarketWatch'], ['https://finance.yahoo.com/news/rssindex', 'Yahoo Finance'],
     ['https://www.nasdaq.com/feed/rssoutbound?category=Markets', 'Nasdaq'], ['https://www.investing.com/rss/news_25.rss', 'Investing.com'],
@@ -439,9 +443,9 @@ function summaryLive(mkt, t) {
   if (mkt === 'in') { const p = istParts(t), m = p.h * 60 + p.mi; return p.wd >= 1 && p.wd <= 5 && m >= 555 && m < 975; }
   const p = nyParts(t); return p.wd >= 1 && p.wd <= 5 && p.m >= 570 && p.m < 1005;
 }
-// headlines count only from the morning of the current session day (8 am India / 7 am New York), so last week's stories can't explain today
+// headlines count only from the morning of the current session day (7 am India, so pre-market previews count / 7 am New York), so last week's stories can't explain today
 function sessionCutoff(mkt, t) {
-  if (mkt === 'in') { const p = istParts(t); return t - ((p.h * 60 + p.mi) * 60 + p.s) * 1e3 + 8 * 3600e3; }
+  if (mkt === 'in') { const p = istParts(t); return t - ((p.h * 60 + p.mi) * 60 + p.s) * 1e3 + 7 * 3600e3; }
   const p = nyParts(t); return t - p.m * 60e3 + 7 * 3600e3;
 }
 const MOOD_UP = /\b(inflows?|buying|easing (oil|crude|inflation|yields?)|rate[- ]cut hopes?|rall(y|ies)|gains?|optimism|upgrade|strong earnings|record high|recover(y|s|ing)?|rebound)/i;
@@ -478,14 +482,16 @@ async function jobMood(env) {
   for (const [mkt, key, sym, lab] of [['in', 'news_Markets', 'INDEXNSE:NIFTY_50', 'Nifty 50'], ['us', 'news_USMarkets', 'INDEXSP:.INX', 'S&P 500']]) {
     const cur = old[mkt], open = summaryLive(mkt, now), trading = sessionOpen(mkt, now);
     // while the market is open: refresh every 30 min; once it closes: one final version, then hold until the next session
-    const MOOD_V = 5, due = !cur || cur.v !== MOOD_V || (open ? now - cur.at > 30 * 60e3 || cur.final : !cur.final);
+    const MOOD_V = 6, due = !cur || cur.v !== MOOD_V || (open ? now - cur.at > 30 * 60e3 || cur.final : !cur.final);
     if (!due) { notes.push(mkt + ' kept (' + (cur.final ? 'final' : 'live') + ')'); continue; }
     // market-wrap headlines straight from the market feeds: ones that talk about the index or the market as a whole, newest first
-    const feeds = mkt === 'in' ? FEEDS.Markets : FEEDS.USMarkets;
-    const raw = (await Promise.all(feeds.map(([u, s]) => readFeed(u, s)))).flat().filter(x => x.t && x.t >= Math.min(sessionCutoff(mkt, now), now - 2 * 3600e3) && now - x.t < 20 * 3600e3).sort((a, b) => b.t - a.t);
-    const WRAP = mkt === 'in' ? /\b(sensex|nifty|dalal street|d-street|indian (stock |equity |share )?markets?|stock market|market (today|close|closing|wrap)|closing bell|opening bell|benchmarks?|fii|fpi|foreign investors?)\b/i
+    const feeds = mkt === 'in' ? [...FEEDS.Markets, ...FEEDS.MarketsMore] : FEEDS.USMarkets;
+    const lists = await Promise.all(feeds.map(([u, s]) => readFeed(u, s)));
+    const diag = feeds.map(([u, s], i) => s.replace(/\s+/g, '') + ':' + lists[i].length + '/' + lists[i].filter(x => x.t && x.t >= sessionCutoff(mkt, now)).length).join(' ');
+    const raw = lists.flat().filter(x => x.t && x.t >= Math.min(sessionCutoff(mkt, now), now - 2 * 3600e3) && now - x.t < 20 * 3600e3).sort((a, b) => b.t - a.t);
+    const WRAP = mkt === 'in' ? /\b(sensex|nifty|gift nifty|dalal street|d-street|indian (stock |equity |share )?markets?|stock markets?|share markets?|markets? (today|live|close|closing|wrap|crash|fall|rally|update)|closing bell|opening bell|pre-?open|benchmarks?|fii|fpi|foreign (investors?|funds?)|bank nifty|midcaps?|smallcaps?|india vix)\b/i
                               : /\b(wall street|s&p( 500)?|nasdaq|dow( jones)?|us stocks|stock market|stocks (rise|fall|rally|slip|close|end|open|gain|drop)|market (today|close|wrap)|closing bell|treasur(y|ies) yields?|fed\b)/i;
-    const seenT = new Set(), heads = raw.filter(x => WRAP.test(x.title) && (mkt === 'in' || (!US_JUNK.test(x.title) && (US_STRONG.test(x.title) || !FOREIGN.test(x.title)) && !/\bvs\.? |better buy\b/i.test(x.title))) && !seenT.has(x.title.toLowerCase().slice(0, 50)) && seenT.add(x.title.toLowerCase().slice(0, 50)))
+    const seenT = new Set(), heads = raw.filter(x => WRAP.test(x.title) && (mkt === 'in' || (!US_JUNK.test(x.title) && !FOREIGN.test(x.title) && !/\b(thai|thailand|downer|asx|nzx|philippine|indonesia|malaysia|singapore|vietnam|poland|polish|brazil|mexic)/i.test(x.title) && !/\bvs\.? |better buy|dividend stocks|stocks? to (buy|watch)|should you buy|social security\b/i.test(x.title))) && !seenT.has(x.title.toLowerCase().slice(0, 50)) && seenT.add(x.title.toLowerCase().slice(0, 50)))
       .slice(0, 16).map(x => x.title);
     const pc = pct(sym), dir = pc == null || Math.abs(pc) < 0.15 ? 0 : Math.sign(pc);
     const move = pc == null ? '' : lab + ' is ' + (dir === 0 ? 'roughly flat' : dir > 0 ? 'up' : 'down') + ' today' + (trading ? ' so far' : ' at the close') + '.';
@@ -494,20 +500,22 @@ async function jobMood(env) {
       if (pc == null) { notes.push(mkt + ' too few fresh headlines'); continue; }
       const who = mkt === 'in' ? 'Indian shares' : 'Wall Street';
       out[mkt] = { trend: who + (dir === 0 ? ' are steady' : dir > 0 ? ' are higher' : ' are lower') + (trading ? ' so far today' : ' today'), why: '', at: now, final: !open, v: MOOD_V };
-      notes.push(mkt + ' direction only (' + heads.length + ' fresh headlines)'); continue;
+      notes.push(mkt + ' direction only (' + heads.length + ' fresh headlines) [' + diag + ']'); continue;
     }
-    try { const s = await moodSummary(env, mkt, heads, move, dir); out[mkt] = { ...s, at: now, final: !open, v: MOOD_V }; notes.push(mkt + (open ? ' live' : ' final') + ' (' + heads.length + ' headlines): ' + s.trend + ' | ' + (s.why || '-') + ' || ' + heads.slice(0, 6).map(h => h.slice(0, 60)).join(' ~ ')); }
+    try { const s = await moodSummary(env, mkt, heads, move, dir); out[mkt] = { ...s, at: now, final: !open, v: MOOD_V }; notes.push(mkt + (open ? ' live' : ' final') + ' (' + heads.length + ' headlines): ' + s.trend + ' | ' + (s.why || '-') + ' [' + diag + '] || ' + heads.slice(0, 6).map(h => h.slice(0, 60)).join(' ~ ')); }
     catch (e) { notes.push(mkt + ' AI failed: ' + String(e.message || e).slice(0, 80)); }
   }
   await dbPut(env, 'mood', out);
   return notes.join(' · ');
 }
-async function bullionSummary(env, recent, views) {
+async function bullionSummary(env, recent, views, dirs = {}) {
   if (!env.AI) throw new Error('no AI binding');
   const fmt = l => l.length ? l.map(x => '- ' + x.title + ' (' + (x.source || '') + ')').join('\n') : '(none)';
-  const prompt = 'Headlines from Indian business news in the last day or so.\n\nGOLD:\n' + fmt(recent.gold) + '\n\nGOLD analyst/outlook headlines (last 5 days):\n' + fmt(views.gold) +
+  const word = d => d > 0 ? 'UP' : d < 0 ? 'DOWN' : 'about unchanged';
+  const facts = ['gold', 'silver'].filter(m => dirs[m] != null).map(m => 'Fact: today\'s ' + m + ' rate in India is ' + word(dirs[m]) + ' versus yesterday.').join('\n');
+  const prompt = (facts ? facts + '\n\n' : '') + 'Headlines from Indian business news in the last day or so.\n\nGOLD:\n' + fmt(recent.gold) + '\n\nGOLD analyst/outlook headlines (last 5 days):\n' + fmt(views.gold) +
     '\n\nSILVER:\n' + fmt(recent.silver) + '\n\nSILVER analyst/outlook headlines (last 5 days):\n' + fmt(views.silver) +
-    '\n\nFor gold and for silver separately, write:\n"why": one plain sentence, max 9 words. It MUST start with "Falling on", "Rising on", "Steady as" or "Mixed as" (pick from what the headlines say the price did), then the reasons the headlines give. Example: "Falling on a strong dollar and Fed rate-hike bets". No numbers unless in the headlines. Empty string if the headlines give no reason.\n' +
+    '\n\nFor gold and for silver separately, write:\n"why": one plain sentence, max 9 words. It MUST start with "Falling on", "Rising on", "Steady as" or "Mixed as", matching the Fact for that metal (UP = "Rising on", DOWN = "Falling on"), then reasons the headlines give for THAT direction. If no headline explains that direction, use an empty string. Example: "Falling on a strong dollar and Fed rate-hike bets". No numbers unless in the headlines. Empty string if the headlines give no reason.\n' +
     '"experts": max 9 words stating what analysts/experts in these headlines expect next: a direction, range, target or support/resistance level that a headline actually states (e.g. "Weak near term; support near 1.28 lakh"). A headline that only asks a question ("more fall ahead or bounce back?") or says "what experts say" without the view is NOT a view: ignore it. Empty string if no headline states a view. Never add your own prediction.\n"n": how many headlines the experts line is based on.\n' +
     'Reply with JSON only: {"gold":{"why":"","experts":"","n":0},"silver":{"why":"","experts":"","n":0}}';
   let r;
@@ -522,6 +530,9 @@ async function bullionSummary(env, recent, views) {
   const out = { at: Date.now() };
   for (const m of ['gold', 'silver']) { const o = j[m] || {};
     out[m] = { why: clean(o.why, recent[m].length > 0), experts: clean(o.experts, views[m].length + recent[m].length > 0), n: Math.min(+o.n || 0, views[m].length + recent[m].length) }; }
+  // safety check: a why line pointing the opposite way to today's rate is dropped
+  for (const m of ['gold', 'silver']) { const d = dirs[m], w = out[m].why;
+    if (w && ((d < 0 && /^rising\b/i.test(w)) || (d > 0 && /^falling\b/i.test(w)))) out[m].why = ''; }
   if (!out.gold.why && !out.silver.why) throw new Error('empty summary');
   return out;
 }
@@ -542,11 +553,14 @@ async function jobBullion(env) {
     .filter((x, i, l) => l.findIndex(y => y.title.toLowerCase().slice(0, 50) === x.title.toLowerCase().slice(0, 50)) === i).slice(0, 14);
   const views = { gold: all.filter(x => now - x.t < 5 * 86400e3 && /\bgold\b/i.test(x.title) && OUTLOOK.test(x.title)).slice(0, 6),
                   silver: all.filter(x => now - x.t < 5 * 86400e3 && /\bsilver\b/i.test(x.title) && OUTLOOK.test(x.title)).slice(0, 6) };
-  const sig = 'p3' + JSON.stringify([recent, views].map(o => [o.gold.map(x => x.title), o.silver.map(x => x.title)]));
+  const gr = await dbGet(env, ['gr_gold', 'gr_silver']), dirs = {};
+  for (const [m, k] of [['gold', 'gr_gold'], ['silver', 'gr_silver']]) { const v = gr[k]?.v || {}, ks = Object.keys(v).filter(x => /^\d{4}-/.test(x)).sort();
+    if (ks.length >= 2) { const a = v[ks[ks.length - 1]], b = v[ks[ks.length - 2]]; dirs[m] = Math.abs(a - b) / b < 0.001 ? 0 : Math.sign(a - b); } }
+  const sig = 'p4' + JSON.stringify(dirs) + JSON.stringify([recent, views].map(o => [o.gold.map(x => x.title), o.silver.map(x => x.title)]));
   const old = (await dbGet(env, ['news_Bullion'])).news_Bullion;
   let sum = old && old.v && old.v.sum, aiNote = 'kept';
   if (!sum || !String(old.v.sig || '').startsWith(sig.slice(0, 2)) || (old.v.sig !== sig && now - (sum.at || 0) > 25 * 60e3) || now - (sum.at || 0) > 6 * 3600e3) {
-    try { sum = await bullionSummary(env, recent, views); aiNote = 'new'; } catch (e) { aiNote = 'AI failed: ' + String(e.message || e).slice(0, 80); if (sum && now - sum.at > 12 * 3600e3) sum = null; }
+    try { sum = await bullionSummary(env, recent, views, dirs); aiNote = 'new'; } catch (e) { aiNote = 'AI failed: ' + String(e.message || e).slice(0, 80); if (sum && now - sum.at > 12 * 3600e3) sum = null; }
   }
   out.sum = sum || null; out.sig = aiNote === 'new' ? sig : (old && old.v && old.v.sig) || '';   // only a fresh summary moves the signature on
   await dbPut(env, 'news_Bullion', out);
