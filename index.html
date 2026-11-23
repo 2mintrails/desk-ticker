@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v20.3-2026-11-23">
+<meta name="ticker-version" content="v20.4-2026-11-23">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -319,22 +319,23 @@
     .slide .tile:has(.tag){gap:.6vh}
     .slide .tile:has(.tag) .p{font-size:clamp(18px,min(8vh,3.8vw),32px)}
   }
-  #dsheet .fz{grid-column:1/-1;display:flex;flex-direction:column;gap:10px}
-  #dsheet .fz .tagbig{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:12px}
-  #dsheet .fz .tagbig.good{background:rgba(61,220,132,.1);border:1px solid rgba(61,220,132,.4)} #dsheet .fz .tagbig.good b{color:#7ef0ad}
-  #dsheet .fz .tagbig.hot{background:rgba(255,183,77,.1);border:1px solid rgba(255,183,77,.45)} #dsheet .fz .tagbig.hot b{color:#ffc977}
-  #dsheet .fz .tagbig.weak{background:rgba(100,170,255,.1);border:1px solid rgba(100,170,255,.4)} #dsheet .fz .tagbig.weak b{color:#9cc8ff}
-  #dsheet .fz .tagbig.mid{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15)}
-  #dsheet .fz .tagbig i{font-style:normal;font-size:22px;line-height:1}
-  #dsheet .fz .tagbig b{display:block;font-size:16px;margin-bottom:2px} #dsheet .fz .tagbig span{font-size:14px;opacity:.85}
-  #dsheet .fz h4{margin:2px 0 0;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;opacity:.55}
-  #dsheet .fz .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-  #dsheet .fz .kv div{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 10px;min-width:0}
-  #dsheet .fz .kv small{display:block;font-size:11px;opacity:.6} #dsheet .fz .kv b{font-size:17px}
-  #dsheet .fz .kv em{display:block;font-style:normal;font-size:11px;opacity:.65;margin-top:1px}
-  #dsheet .fz .ok{color:#7ef0ad} #dsheet .fz .hi{color:#ffc977}
-  #dsheet .fz .src{font-size:11px;opacity:.5;white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
-  @media (orientation:portrait){ #dsheet .fz .kv{grid-template-columns:repeat(2,1fr)} }
+  #dsheet .gl{grid-column:1/-1;display:flex;flex-direction:column;gap:10px}
+  #dsheet .gl .zone{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:12px}
+  #dsheet .gl .zone.good{background:rgba(61,220,132,.1);border:1px solid rgba(61,220,132,.4)} #dsheet .gl .zone.good b{color:#7ef0ad}
+  #dsheet .gl .zone.hot{background:rgba(255,183,77,.1);border:1px solid rgba(255,183,77,.45)} #dsheet .gl .zone.hot b{color:#ffc977}
+  #dsheet .gl .zone.weak{background:rgba(100,170,255,.1);border:1px solid rgba(100,170,255,.4)} #dsheet .gl .zone.weak b{color:#9cc8ff}
+  #dsheet .gl .zone.mid{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15)}
+  #dsheet .gl .zone i{font-style:normal;font-size:22px} #dsheet .gl .zone b{font-size:17px;display:block} #dsheet .gl .zone span{font-size:14px;opacity:.85}
+  #dsheet .gl .rows{display:flex;flex-direction:column;border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden}
+  #dsheet .gl .row{display:grid;grid-template-columns:110px 140px 1fr;gap:12px;align-items:baseline;padding:11px 14px;border-top:1px solid rgba(255,255,255,.08)}
+  #dsheet .gl .row:first-child{border-top:0}
+  #dsheet .gl .row .k{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;opacity:.6}
+  #dsheet .gl .row .v{font-size:17px;font-weight:800}
+  #dsheet .gl .row .d{font-size:14px;opacity:.9;line-height:1.35;min-width:0}
+  #dsheet .gl .row .d small{display:block;opacity:.6;font-size:12px;margin-top:2px}
+  #dsheet .gl .g{color:#7ef0ad} #dsheet .gl .a{color:#ffc977} #dsheet .gl .r{color:#ff8a8a} #dsheet .gl .n{color:#c9d1e6}
+  #dsheet .gl .src{font-size:11px;opacity:.5;white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+  @media (orientation:portrait){ #dsheet .gl .row{grid-template-columns:1fr auto;gap:2px 10px} #dsheet .gl .row .d{grid-column:1/-1} }
   #dsheet{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(5,8,18,.55);
     backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .25s;font-family:Inter,"Space Grotesk",-apple-system,sans-serif;
     padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
@@ -1584,31 +1585,49 @@ function renderSignals() {
 }
 function sigBlock(sym) {
   const g = timingFor(sym); if (!g) return '';
-  const t = g.t, f = t.f || {}, cur = f.cur === 'INR' || /^(NSE|BSE|BOM):/.test(sym) ? '₹' : '$';
-  const box = (k, v, note, cls) => v == null ? '' : '<div><small>' + k + '</small><b' + (cls ? ' class="' + cls + '"' : '') + '>' + v + '</b><em>' + (note || '') + '</em></div>';
-  const pct = (x, d = 0) => (x * 100).toFixed(d) + '%', sgn = x => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(1) + '%';
-  const cap = m => { if (m == null) return null; if (cur === '₹') { const cr = m / 1e7; return cr >= 1e5 ? '₹' + (cr / 1e5).toFixed(1) + 'L cr' : '₹' + Math.round(cr).toLocaleString('en-IN') + ' cr'; }
-    return m >= 1e12 ? '$' + (m / 1e12).toFixed(2) + 'T' : '$' + (m / 1e9).toFixed(1) + 'B'; };
-  const size = m => m == null ? '' : cur === '₹' ? (m >= 2e11 ? 'large cap' : m >= 5e10 ? 'mid cap' : 'small cap') : (m >= 1e10 ? 'large cap' : m >= 2e9 ? 'mid cap' : 'small cap');
-  const fund = [
-    box('P/E', f.pe != null ? f.pe.toFixed(1) : null, f.pe == null ? '' : f.pe < 15 ? 'low' : f.pe < 30 ? 'moderate' : f.pe < 50 ? 'high' : 'very high', f.pe >= 40 ? 'hi' : ''),
-    box('Return on equity', f.roe != null ? pct(f.roe) : null, f.roe == null ? '' : f.roe >= 0.15 ? 'strong' : f.roe >= 0.10 ? 'fair' : 'weak', f.roe >= 0.15 ? 'ok' : f.roe < 0.10 ? 'hi' : ''),
-    box('Debt / equity', f.de != null ? f.de.toFixed(2) : null, f.de == null ? '' : f.de < 0.1 ? 'almost no debt' : f.de < 1 ? 'moderate' : 'high', f.de < 0.5 ? 'ok' : f.de >= 1 ? 'hi' : ''),
-    box('Revenue growth', f.rev != null ? (f.rev >= 0 ? '+' : '−') + pct(Math.abs(f.rev)) : null, 'last 12 months', f.rev >= 0.10 ? 'ok' : f.rev < 0 ? 'hi' : ''),
-    box('Profit margin', f.margin != null ? pct(f.margin) : null, 'net'),
-    box('Market cap', cap(f.mcap), size(f.mcap))].join('');
-  const fromHi = t.hi ? (g.p / t.hi - 1) * 100 : null, d200 = t.sma200 ? (g.p / t.sma200 - 1) * 100 : null;
-  const price = [
-    box('vs 50-day avg', sgn(g.d50), Math.abs(g.d50) <= TIMING.near50 ? 'near usual' : g.d50 > 0 ? 'above usual' : 'below usual', Math.abs(g.d50) <= TIMING.near50 ? 'ok' : ''),
-    box('vs 200-day avg', d200 != null ? sgn(d200) : null, d200 == null ? '' : d200 >= 0 ? 'uptrend' : 'downtrend', d200 >= 0 ? 'ok' : 'hi'),
-    box('RSI (14-day)', String(Math.round(t.rsi)), t.rsi > TIMING.rsiHot ? 'running hot' : t.rsi < TIMING.rsiLo ? 'weak' : 'calm', t.rsi > TIMING.rsiHot ? 'hi' : t.rsi <= TIMING.rsiHi && t.rsi >= TIMING.rsiLo ? 'ok' : ''),
-    box('Last 5 days', t.chg5 != null ? sgn(t.chg5) : null, t.chg5 > TIMING.spike5 ? 'sharp run-up' : 'no spike', t.chg5 > TIMING.spike5 ? 'hi' : ''),
-    box('From 1-yr high', fromHi != null ? sgn(fromHi) : null, ''),
-    box('Dividend yield', f.div != null ? pct(f.div, 1) : null, '')].join('');
-  return '<div class="fz"><div class="tagbig ' + g.cls + '"><i>' + g.icon + '</i><div><b>' + esc(g.label) + '</b><span>' + esc(g.sentence) + '</span></div></div>' +
-    (fund ? '<h4>Fundamentals</h4><div class="kv">' + fund + '</div>' : '') +
-    '<h4>Price</h4><div class="kv">' + price + '</div>' +
-    '<div class="src">From Yahoo Finance, updated daily' + (f.at ? ' (fundamentals ' + new Date(f.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ')' : '') + ' · the price zone is a mechanical rule on price, not advice or a forecast</div></div>';
+  const t = g.t, f = t.f, cur = (f && f.cur === 'USD') || !/^(NSE|BSE|BOM):/.test(sym) ? '$' : '₹';
+  const row = (k, v, cls, d, small) => '<div class="row"><span class="k">' + k + '</span><span class="v ' + cls + '">' + v + '</span><span class="d">' + d + (small ? '<small>' + small + '</small>' : '') + '</span></div>';
+  const pct = (x, dp = 0) => (x * 100).toFixed(dp) + '%';
+  const cap = m => m == null ? '' : cur === '₹' ? (m / 1e7 >= 1e5 ? '₹' + (m / 1e12).toFixed(1) + ' lakh cr' : '₹' + Math.round(m / 1e7).toLocaleString('en-IN') + ' cr') : (m >= 1e12 ? '$' + (m / 1e12).toFixed(2) + ' trillion' : '$' + (m / 1e9).toFixed(1) + ' billion');
+  const size = m => m == null ? '' : cur === '₹' ? (m >= 1e12 ? 'large cap' : m >= 3e11 ? 'mid cap' : 'small cap') : (m >= 1e10 ? 'large cap' : m >= 2e9 ? 'mid cap' : 'small cap');
+  let rows = '';
+  if (!f) {
+    const wait = 'Loading: fundamentals arrive within the hour';
+    rows += row('Valuation', '…', 'n', wait) + row('Quality', '…', 'n', wait) + row('Growth', '…', 'n', wait);
+  } else {
+    // valuation from P/E
+    if (f.pe != null && f.pe > 0) {
+      const v = f.pe < 15 ? ['Cheap', 'g'] : f.pe < 30 ? ['Fair', 'g'] : f.pe < 50 ? ['Expensive', 'a'] : ['Very expensive', 'r'];
+      rows += row('Valuation', v[0], v[1], 'P/E ' + f.pe.toFixed(0) + ': you pay ' + cur + f.pe.toFixed(0) + ' for every ' + cur + '1 of yearly profit.' +
+        (f.pe >= 30 ? ' Above 30 is pricey for most companies.' : f.pe < 15 ? ' Below 15 is low for most companies.' : ''), f.pb != null ? 'Price to book ' + f.pb.toFixed(1) : '');
+    } else rows += row('Valuation', 'No P/E', 'n', (f.margin != null && f.margin < 0) || (f.pe != null && f.pe <= 0) ? 'The company made a loss over the last year, so there is no P/E.' : 'P/E not available for this stock.', f.pb != null ? 'Price to book ' + f.pb.toFixed(1) : '');
+    // quality from ROE and debt
+    if (f.roe != null) {
+      const debt = f.de == null ? '' : f.de < 0.1 ? 'almost no debt' : f.de < 1 ? 'moderate debt' : 'high debt';
+      const strong = f.roe >= 0.15 && (f.de == null || f.de < 1), weak = f.roe < 0.10 || (f.de != null && f.de >= 2);
+      rows += row('Quality', strong ? 'Strong' : weak ? 'Weak' : 'Fair', strong ? 'g' : weak ? 'r' : 'a',
+        (f.roe < 0 ? 'Loses ' + pct(-f.roe) : 'Earns ' + pct(f.roe)) + ' on shareholders\' money' + (debt ? ', ' + (strong ? 'and has ' : 'with ') + debt : '') + '.',
+        ['ROE ' + pct(f.roe), f.de != null ? 'debt/equity ' + f.de.toFixed(2) : '', f.margin != null ? 'net margin ' + pct(f.margin) : ''].filter(Boolean).join(' · '));
+    } else rows += row('Quality', 'n/a', 'n', 'Return on equity not available for this stock.', f.margin != null ? 'net margin ' + pct(f.margin) : '');
+    // growth from revenue
+    if (f.rev != null) {
+      const v = f.rev > 0.15 ? ['Fast', 'g'] : f.rev >= 0.05 ? ['Steady', 'g'] : f.rev >= 0 ? ['Slow', 'a'] : ['Shrinking', 'r'];
+      rows += row('Growth', v[0], v[1], 'Revenue ' + (f.rev >= 0 ? 'up ' : 'down ') + pct(Math.abs(f.rev)) + ' over the last year.', [cap(f.mcap) && 'Market cap ' + cap(f.mcap), size(f.mcap)].filter(Boolean).join(' · '));
+    } else rows += row('Growth', 'n/a', 'n', 'Revenue growth not available for this stock.', cap(f.mcap) ? 'Market cap ' + cap(f.mcap) + ' · ' + size(f.mcap) : '');
+  }
+  // price trend
+  const d200 = t.sma200 ? (g.p / t.sma200 - 1) * 100 : null, fromHi = t.hi ? (1 - g.p / t.hi) * 100 : null, T = TIMING;
+  const up = d200 == null || d200 >= 0;
+  const near = Math.abs(g.d50) <= T.near50 ? 'near its 50-day average' : Math.abs(g.d50).toFixed(0) + '% ' + (g.d50 > 0 ? 'above' : 'below') + ' its 50-day average';
+  const mood = t.rsi > T.rsiHot ? 'running hot' : t.rsi < T.rsiLo ? 'weak' : 'calm';
+  rows += row('Price trend', up ? 'Uptrend' : 'Downtrend', up ? 'g' : 'r',
+    (d200 != null ? Math.abs(d200).toFixed(0) + '% ' + (d200 >= 0 ? 'above' : 'below') + ' its 200-day average, ' : '') + near + ', ' + mood + ' (RSI ' + Math.round(t.rsi) + ').',
+    [t.chg5 != null ? (t.chg5 >= 0 ? '+' : '−') + Math.abs(t.chg5).toFixed(1) + '% in 5 days' : '', fromHi != null ? (fromHi < 0.5 ? 'at its 1-year high' : fromHi.toFixed(0) + '% below its 1-year high') : '',
+     f && f.div ? 'dividend ' + pct(f.div, 1) : ''].filter(Boolean).join(' · '));
+  return '<div class="gl"><div class="zone ' + g.cls + '"><i>' + g.icon + '</i><div><b>' + esc(g.label) + '</b><span>' + esc(g.sentence) + '</span></div></div>' +
+    '<div class="rows">' + rows + '</div>' +
+    '<div class="src">From Yahoo Finance, updated daily' + (f && f.at ? ' (fundamentals ' + new Date(f.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ')' : '') +
+    '. The plain-word reads use fixed rules on these numbers; they are not advice or a forecast.</div></div>';
 }
 function tileCard(st) {
   const card = document.createElement('div'); card.className = 'card tile';
