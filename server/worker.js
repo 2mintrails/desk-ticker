@@ -712,13 +712,14 @@ async function jobMetals(env) {
 
 /* ---------------- the timer ---------------- */
 async function runJob(env, job) {
-  try { const note = job === 'news:Local' ? await jobLocal(env) : job === 'news:Watch' ? await jobWatch(env) : job === 'news:WatchUS' ? await jobWatch(env, true) : job === 'news:Bullion' ? await jobBullion(env) : job === 'news:Mood' ? await jobMood(env) : job.startsWith('news:') ? await jobNews(env, job.slice(5)) : job === 'env' ? await jobEnv(env) : job === 'metals' ? await jobMetals(env) : await jobPrices(env); await logRun(env, job, true, note); return note; }
+  try { const note = job === 'news:Local' ? await jobLocal(env) : job === 'news:Watch' ? await jobWatch(env) : job === 'news:WatchUS' ? await jobWatch(env, true) : job === 'news:Bullion' ? await jobBullion(env) : job === 'tech' ? await jobTech(env) : job === 'news:Mood' ? await jobMood(env) : job.startsWith('news:') ? await jobNews(env, job.slice(5)) : job === 'env' ? await jobEnv(env) : job === 'metals' ? await jobMetals(env) : await jobPrices(env); await logRun(env, job, true, note); return note; }
   catch (e) { await logRun(env, job, false, e.message || e); return 'failed: ' + (e.message || e); }
 }
 async function tick(env, t = Date.now()) {
   const p = istParts(t), m = p.mi, jobs = [];
   if (marketWindow(t) || m % 20 === 0) jobs.push('prices');
   if (m % 10 === 0) jobs.push('env');
+  if (m % 30 === 13) jobs.push('tech');                 // signal maths: only refetches stocks whose figures are over 10 hours old
   if (m % 10 === 5 && (p.h >= 6 && p.h <= 19 || m === 5)) jobs.push('metals');   // every 10 min from 6 am to 7 pm, else hourly
   const sec = { 1: 'Local', 2: 'India', 3: 'Watch', 4: 'World', 6: 'Markets', 7: 'WatchUS', 8: 'USMarkets', 9: 'Bullion', 0: 'Mood' }[m % 10];   // one news section every 2 minutes
   if (sec) jobs.push('news:' + sec);
@@ -767,6 +768,54 @@ async function allTabs(env) {
 const DEFAULT_WATCH = {"in": [{"sym": "NSE:M&M", "name": "Mahindra & Mahindra", "tick": "M&M", "dom": "mahindra.com"}, {"sym": "NSE:SONACOMS", "name": "Sona BLW Precision", "tick": "SONACOMS", "dom": "sonacomstar.com"}, {"sym": "NSE:BAJFINANCE", "name": "Bajaj Finance", "tick": "BAJFINANCE", "dom": "bajajfinserv.in"}, {"sym": "NSE:BHARTIARTL", "name": "Bharti Airtel", "tick": "BHARTIARTL", "dom": "airtel.in"}, {"sym": "NSE:HDFCBANK", "name": "HDFC Bank", "tick": "HDFCBANK", "dom": "hdfcbank.com"}, {"sym": "NSE:TCS", "name": "TCS", "tick": "TCS", "dom": "tcs.com"}, {"sym": "NSE:INOXINDIA", "name": "INOX India", "tick": "INOXINDIA", "dom": "inoxindia.com"}, {"sym": "NSE:TITAN", "name": "Titan Company", "tick": "TITAN", "dom": "titancompany.in"}, {"sym": "NSE:POLYMED", "name": "Poly Medicure", "tick": "POLYMED", "dom": "polymedicure.com"}, {"sym": "NSE:ITC", "name": "ITC", "tick": "ITC", "dom": "itcportal.com"}, {"sym": "NSE:ABREL", "name": "Aditya Birla Real Estate", "tick": "ABREL", "dom": "adityabirlarealestate.com"}, {"sym": "NSE:TATACONSUM", "name": "Tata Consumer", "tick": "TATACONSUM", "dom": "tataconsumer.com"}], "large": [{"sym": "NSE:RELIANCE", "name": "Reliance", "tick": "RELIANCE", "dom": "ril.com"}, {"sym": "NSE:LT", "name": "Larsen & Toubro", "tick": "LT", "dom": "larsentoubro.com"}, {"sym": "NSE:ICICIBANK", "name": "ICICI Bank", "tick": "ICICIBANK", "dom": "icicibank.com"}, {"sym": "NSE:INFY", "name": "Infosys", "tick": "INFY", "dom": "infosys.com"}, {"sym": "NSE:HINDUNILVR", "name": "Hindustan Unilever", "tick": "HINDUNILVR", "dom": "hul.co.in"}, {"sym": "NSE:SUNPHARMA", "name": "Sun Pharma", "tick": "SUNPHARMA", "dom": "sunpharma.com"}, {"sym": "NSE:TMCV", "name": "Tata Motors", "tick": "TMCV", "dom": "tatamotors.com"}, {"sym": "NSE:TATASTEEL", "name": "Tata Steel", "tick": "TATASTEEL", "dom": "tatasteel.com"}, {"sym": "NSE:TATAPOWER", "name": "Tata Power", "tick": "TATAPOWER", "dom": "tatapower.com"}, {"sym": "NSE:INDIGO", "name": "IndiGo", "tick": "INDIGO", "dom": "goindigo.in"}, {"sym": "NSE:BEL", "name": "Bharat Electronics", "tick": "BEL", "dom": "bel-india.in"}, {"sym": "NSE:RECLTD", "name": "REC", "tick": "RECLTD", "dom": "recindia.nic.in"}, {"sym": "NSE:CIPLA", "name": "Cipla", "tick": "CIPLA", "dom": "cipla.com"}, {"sym": "NSE:DRREDDY", "name": "Dr. Reddy's", "tick": "DRREDDY", "dom": "drreddys.com"}, {"sym": "NSE:VBL", "name": "Varun Beverages", "tick": "VBL", "dom": "varunbeverages.com"}, {"sym": "NSE:AMBUJACEM", "name": "Ambuja Cements", "tick": "AMBUJACEM", "dom": "ambujacement.com"}], "us": [{"sym": "NYSE:TSM", "name": "TSMC", "tick": "TSM", "dom": "tsmc.com"}, {"sym": "NASDAQ:NVDA", "name": "Nvidia", "tick": "NVDA", "dom": "nvidia.com"}, {"sym": "NYSE:CRM", "name": "Salesforce", "tick": "CRM", "dom": "salesforce.com"}, {"sym": "NASDAQ:MSFT", "name": "Microsoft", "tick": "MSFT", "dom": "microsoft.com"}, {"sym": "NASDAQ:AAPL", "name": "Apple", "tick": "AAPL", "dom": "apple.com"}, {"sym": "NASDAQ:GOOGL", "name": "Alphabet (Google)", "tick": "GOOGL", "dom": "google.com"}, {"sym": "NASDAQ:AMZN", "name": "Amazon", "tick": "AMZN", "dom": "amazon.com"}]};
 const SALT = 'desk-ticker:v1:';
 async function sha(t) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(SALT + t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+/* ---------------- entry signals: your review records (pasted) + daily price maths (server) ---------------- */
+const tickKey = s => String(s || '').toUpperCase().replace(/^(NSE|BSE|BOM|NASDAQ|NYSE|NYSEARCA):/, '').replace(/\.(NS|BO)$/, '').replace(/[^A-Z0-9&\-]/g, '').slice(0, 20);
+const VERDICTS = ['BUILD', 'HOLD', 'WATCH', 'EXIT'];
+function parseReview(text) {
+  let j; try { j = typeof text === 'string' ? JSON.parse(String(text).replace(/^[\s\S]*?(\{)/, '$1').replace(/\}[^}]*$/, '}')) : text; } catch (e) { return { error: 'That isn’t valid review text. Paste the whole block Claude gave you, from { to }.' }; }
+  const list = Array.isArray(j) ? j : Array.isArray(j.stocks) ? j.stocks : null;
+  if (!list || !list.length) return { error: 'No stocks found in the review block.' };
+  const str = (v, n) => v == null ? '' : String(v).replace(/\s+/g, ' ').trim().slice(0, n);
+  const day = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : '';
+  const records = {}, bad = [];
+  for (const x of list) {
+    const k = tickKey(x.symbol || x.sym || x.ticker), v = String(x.verdict || '').toUpperCase();
+    if (!k || !VERDICTS.includes(v)) { bad.push(str(x.symbol || x.sym || '?', 20)); continue; }
+    const sc = x.scorecard || x.score || {};
+    records[k] = { verdict: v, reason: str(x.reason, 160), plan: str(x.plan, 120), target: x.target_weight != null ? Math.max(0, Math.min(100, +x.target_weight || 0)) : null,
+      rule: str(x.rule, 160), sector: str(x.sector, 30), score: { roe: str(sc.roe, 12), de: str(sc.debt_to_equity ?? sc.de, 12), growth: str(sc.growth, 20), pe: str(sc.pe, 20), flags: str(sc.flags, 60) },
+      next_results: day(x.next_results), reviewed_on: day(x.reviewed_on || j.reviewed_on) || new Date().toISOString().slice(0, 10) };
+  }
+  if (!Object.keys(records).length) return { error: 'None of the stocks had a symbol and a verdict (BUILD, HOLD, WATCH or EXIT).' };
+  const t = j.thresholds || {}, thr = {};
+  [['near50', 1, 15], ['rsiLo', 10, 50], ['rsiHi', 40, 80], ['rsiHot', 55, 90], ['spike5', 2, 30], ['resultsDays', 0, 30]].forEach(([k, lo, hi]) => { if (t[k] != null && isFinite(+t[k])) thr[k] = Math.max(lo, Math.min(hi, +t[k])); });
+  return { records, thr, bad };
+}
+// daily: 50-day and 200-day averages, 14-day RSI, 5-session move, from a year of daily closes (Yahoo), for stocks you're building
+async function jobTech(env) {
+  const cfg = await getCfg(env), recs = (cfg.review || {}).records || {}, done = cfg.done || {};
+  const all = [...((cfg.watch || {}).in || []), ...((cfg.watch || {}).us || [])].filter(x => !/^INDEX/.test(x.sym));
+  const want = all.filter(x => { const r = recs[tickKey(x.sym)]; return r && r.verdict === 'BUILD' && !done[tickKey(x.sym)]; });
+  const old = (await dbGet(env, ['tech'])).tech?.v || {}, out = { ...old }, now = Date.now(), notes = [];
+  const stale = want.filter(x => !old[tickKey(x.sym)] || now - old[tickKey(x.sym)].at > 10 * 3600e3).slice(0, 12);
+  for (const x of stale) {
+    const k = tickKey(x.sym), ys = yahooSym(x.sym);
+    try {
+      const r = (await get('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ys) + '?range=1y&interval=1d', { json: true })).chart.result[0];
+      const c = ((r.indicators.quote[0] || {}).close || []).filter(v => v != null && isFinite(v));
+      if (c.length < 60) throw new Error('only ' + c.length + ' days');
+      const avg = n => c.length >= n ? c.slice(-n).reduce((a, b) => a + b, 0) / n : null;
+      let g = 0, l = 0; for (let i = 1; i <= 14; i++) { const d = c[i] - c[i - 1]; if (d > 0) g += d; else l -= d; } g /= 14; l /= 14;
+      for (let i = 15; i < c.length; i++) { const d = c[i] - c[i - 1]; g = (g * 13 + Math.max(d, 0)) / 14; l = (l * 13 + Math.max(-d, 0)) / 14; }
+      const last = c[c.length - 1];
+      out[k] = { sma50: avg(50), sma200: avg(200), rsi: l === 0 ? 100 : 100 - 100 / (1 + g / l), chg5: c.length > 5 ? (last / c[c.length - 6] - 1) * 100 : null, hi: Math.max(...c), last, days: c.length, at: now };
+      notes.push(k + ' ok');
+    } catch (e) { notes.push(k + ' failed: ' + String(e.message || e).slice(0, 40)); }
+  }
+  Object.keys(out).forEach(k => { if (!want.some(x => tickKey(x.sym) === k)) delete out[k]; });   // drop stocks no longer being built
+  await dbPut(env, 'tech', out);
+  return want.length + ' building, ' + stale.length + ' refreshed' + (notes.length ? ': ' + notes.join(', ') : '');
+}
 async function getCfg(env) {
   const d = await dbGet(env, ['cfg', 'env']);
   if (d.cfg) {
@@ -805,9 +854,22 @@ async function saveSettings(env, body) {
     if (v === null) delete cfg.settings[k]; else cfg.settings[k] = String(v).slice(0, 60);
   });
   if (body.watch) cfg.watch = cleanWatch(body.watch);
+  let changes = null;
+  if (body.review != null) {                         // a pasted review block from Claude: replaces the records for the stocks it names
+    const r = parseReview(body.review);
+    if (r.error) return [400, { error: r.error }];
+    const old = (cfg.review || {}).records || {};
+    changes = (r.bad && r.bad.length ? ['skipped (no symbol or verdict): ' + r.bad.join(', ')] : []).concat(Object.keys(r.records).map(k => (old[k] ? (old[k].verdict !== r.records[k].verdict ? k + ' ' + old[k].verdict + '→' + r.records[k].verdict : k + ' updated') : k + ' new ' + r.records[k].verdict)));
+    cfg.review = { records: { ...old, ...r.records }, thr: { ...((cfg.review || {}).thr || {}), ...r.thr }, at: Date.now() };
+    cfg.done = cfg.done || {}; Object.keys(r.records).forEach(k => delete cfg.done[k]);   // a new review starts the plan afresh
+  }
+  if (body.done && typeof body.done === 'object') {  // "Target reached" switches
+    cfg.done = cfg.done || {};
+    Object.entries(body.done).forEach(([k, v]) => { k = tickKey(k); if (!k) return; if (v) cfg.done[k] = Date.now(); else delete cfg.done[k]; });
+  }
   cfg.at = Date.now();
   await dbPut(env, 'cfg', cfg);
-  return [200, { ok: true, settings: cfg.settings, watch: cfg.watch, at: cfg.at }];
+  return [200, { ok: true, settings: cfg.settings, watch: cfg.watch, review: cfg.review || null, done: cfg.done || {}, changes, at: cfg.at }];
 }
 // find a stock by its ticker: NSE (then BSE) for India, US exchanges for the US
 async function lookup(q, mkt) {
@@ -862,7 +924,7 @@ async function watchText(env) {
 }
 async function feed(env) {
   const cfg = await getCfg(env);
-  const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'ibja', 'gr_silver', 'gr_gold', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets', 'news_Local', 'news_Watch', 'news_WatchUS', 'news_Bullion', 'mood'];
+  const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'ibja', 'gr_silver', 'gr_gold', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets', 'news_Local', 'news_Watch', 'news_WatchUS', 'news_Bullion', 'mood', 'tech'];
   const d = await dbGet(env, keys), E = d.env?.v || {}, rows = (d.sheet1?.v || []).slice(1);
   const quotes = {};
   rows.forEach(r => {
@@ -919,6 +981,7 @@ async function feed(env) {
     metar: E.metar || [],
     airports: (E.airports || []).map(x => ({ code: x[0], lat: num(x[1]), lon: num(x[2]), name: x[3], raw: x[4] })),
     settings: cfg.settings, watchlist: cfg.watch, settingsAt: cfg.at, pinSet: !!cfg.pin,
+    review: cfg.review || null, done: cfg.done || {}, tech: d.tech?.v || {},
     health: { ages, runs: d.log?.v || {}, pricesAt: d.sheet1?.at || null },
   };
 }
@@ -948,7 +1011,7 @@ export default {
       }
       if (u.pathname === '/v1/run') {                 // run one job now (used once after each deploy); at most once a minute per job
         const job = u.searchParams.get('job') || 'prices';
-        if (!/^(prices|env|metals|news:(India|World|Markets|USMarkets|Local|Watch|WatchUS|Bullion|Mood))$/.test(job)) return new Response('unknown job', { status: 400 });
+        if (!/^(prices|env|metals|tech|news:(India|World|Markets|USMarkets|Local|Watch|WatchUS|Bullion|Mood))$/.test(job)) return new Response('unknown job', { status: 400 });
         const last = (await dbGet(env, ['log'])).log?.v?.[job];
         if (last && last.at === istStamp().slice(0, 16) + last.at.slice(16)) return new Response(JSON.stringify({ job, note: 'ran this minute already', last }), { headers: CORS });
         return new Response(JSON.stringify({ job, note: await runJob(env, job) }), { headers: CORS });
