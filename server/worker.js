@@ -434,13 +434,25 @@ function sessionOpen(mkt, t) {
   if (mkt === 'in') { const p = istParts(t), m = p.h * 60 + p.mi; return p.wd >= 1 && p.wd <= 5 && m >= 555 && m < 930; }
   const p = nyParts(t); return p.wd >= 1 && p.wd <= 5 && p.m >= 570 && p.m < 960;
 }
-async function moodSummary(env, mkt, heads, move) {
+// the summary stays "live" until 45 min after the close, so the final version is written once the closing-wrap articles are out
+function summaryLive(mkt, t) {
+  if (mkt === 'in') { const p = istParts(t), m = p.h * 60 + p.mi; return p.wd >= 1 && p.wd <= 5 && m >= 555 && m < 975; }
+  const p = nyParts(t); return p.wd >= 1 && p.wd <= 5 && p.m >= 570 && p.m < 1005;
+}
+// headlines count only from the morning of the current session day (8 am India / 7 am New York), so last week's stories can't explain today
+function sessionCutoff(mkt, t) {
+  if (mkt === 'in') { const p = istParts(t); return t - ((p.h * 60 + p.mi) * 60 + p.s) * 1e3 + 8 * 3600e3; }
+  const p = nyParts(t); return t - p.m * 60e3 + 7 * 3600e3;
+}
+const MOOD_UP = /\b(inflows?|buying|easing (oil|crude|inflation|yields?)|rate[- ]cut hopes?|rall(y|ies)|gains?|optimism|upgrade|strong earnings|record high|recover(y|s|ing)?|rebound)/i;
+const MOOD_DN = /\b(outflows?|selling|sell-?off|profit[- ]taking|rising (oil|crude|yields?)|fears?|worries|concerns?|weak|slump|tariffs?|hawkish|losses|slide|plunge|tumble|decline|caution|jitters|risk-off|pressure|drag)/i;
+async function moodSummary(env, mkt, heads, move, dir) {
   if (!env.AI) throw new Error('no AI binding');
   const name = mkt === 'in' ? 'the Indian stock market (Nifty 50 / Sensex)' : 'the US stock market (S&P 500, Nasdaq, Dow)';
   const prompt = 'Latest market headlines about ' + name + ':\n' + heads.map(h => '- ' + h).join('\n') + '\n\n' + (move ? 'Fact: ' + move + '\n\n' : '') +
     'Write two short lines in plain English for someone glancing at a desk display:\n' +
-    '"trend": max 12 words on what the market is doing, specific not generic (direction, how long the run has gone on, which sectors lead or lag), as the headlines describe it. Example: "Third straight day of gains; banks lead, IT lags".\n' +
-    '"why": max 14 words on the main reasons the market moved today, as the market-wrap headlines explain them (ignore single-company stories unless headlines say they are moving or holding back the whole market). Be specific: name the event or factor the headlines point to (a big IPO, the Fed, earnings, oil, foreign investors); never vague phrases like "investors await news" or "market is down". Example: "Foreign investors are buying again on rate-cut hopes; easing crude helps".\n' +
+    '"trend": max 12 words. Start with the WHOLE market\'s direction (e.g. "' + (mkt === 'in' ? 'Indian shares slip' : 'Wall Street falls') + '..."), then, if the headlines say so, which sectors lead or lag or how long the run has gone on. Never describe only one sector or one company. It must agree with the Fact above. Example: "Third straight day of gains; banks lead, IT lags".\n' +
+    '"why": max 14 words on the main reasons the market moved today, as the market-wrap headlines explain them (ignore single-company stories unless headlines say they are moving or holding back the whole market). Be specific: name the event or factor the headlines point to (a big IPO, the Fed, earnings, oil, foreign investors); never vague phrases like "investors await news" or "market is down". Example: "Foreign investors are buying again on rate-cut hopes; easing crude helps". The reasons MUST explain the direction in the Fact: if the market is down, give reasons for a fall; if up, reasons for a rise. If no headline explains that direction, "why" is an empty string.\n' +
     'Rules: NO digits or numbers of any kind (no index levels, points, percentages, prices, amounts); words like "third" or "week" are fine. No predictions or advice. If the headlines give no reason, "why" is an empty string.\n' +
     'Reply with JSON only: {"trend":"","why":""}';
   let r;
@@ -454,6 +466,9 @@ async function moodSummary(env, mkt, heads, move) {
   const clean = x => { const t = String(x || '').replace(/\s+/g, ' ').replace(/^["'\s]+|["'.\s]+$/g, '').trim(); return t.length > 6 && t.length < 110 && !/\d/.test(t) ? t[0].toUpperCase() + t.slice(1) : ''; };
   const out = { trend: clean(j.trend), why: clean(j.why) };
   if (!out.trend) throw new Error('no usable trend line: ' + txt.slice(0, 80));
+  // safety check: a "why" that only gives reasons for the opposite move is dropped rather than shown
+  if (out.why && dir < 0 && MOOD_UP.test(out.why) && !MOOD_DN.test(out.why)) out.why = '';
+  if (out.why && dir > 0 && MOOD_DN.test(out.why) && !MOOD_UP.test(out.why)) out.why = '';
   return out;
 }
 async function jobMood(env) {
@@ -461,21 +476,27 @@ async function jobMood(env) {
   const pct = sym => { const r = (d.sheet1?.v || []).find(x => String(x[0] || '').trim() === sym); const p = r && parseFloat(r[1]), c = r && parseFloat(r[2]);
     return p && isFinite(c) && p !== c ? c / (p - c) * 100 : null; };
   for (const [mkt, key, sym, lab] of [['in', 'news_Markets', 'INDEXNSE:NIFTY_50', 'Nifty 50'], ['us', 'news_USMarkets', 'INDEXSP:.INX', 'S&P 500']]) {
-    const cur = old[mkt], open = sessionOpen(mkt, now);
+    const cur = old[mkt], open = summaryLive(mkt, now), trading = sessionOpen(mkt, now);
     // while the market is open: refresh every 30 min; once it closes: one final version, then hold until the next session
-    const MOOD_V = 4, due = !cur || cur.v !== MOOD_V || (open ? now - cur.at > 30 * 60e3 || cur.final : !cur.final);
+    const MOOD_V = 5, due = !cur || cur.v !== MOOD_V || (open ? now - cur.at > 30 * 60e3 || cur.final : !cur.final);
     if (!due) { notes.push(mkt + ' kept (' + (cur.final ? 'final' : 'live') + ')'); continue; }
     // market-wrap headlines straight from the market feeds: ones that talk about the index or the market as a whole, newest first
     const feeds = mkt === 'in' ? FEEDS.Markets : FEEDS.USMarkets;
-    const raw = (await Promise.all(feeds.map(([u, s]) => readFeed(u, s)))).flat().filter(x => x.t && now - x.t < 12 * 3600e3).sort((a, b) => b.t - a.t);
+    const raw = (await Promise.all(feeds.map(([u, s]) => readFeed(u, s)))).flat().filter(x => x.t && x.t >= Math.min(sessionCutoff(mkt, now), now - 2 * 3600e3) && now - x.t < 20 * 3600e3).sort((a, b) => b.t - a.t);
     const WRAP = mkt === 'in' ? /\b(sensex|nifty|dalal street|d-street|indian (stock |equity |share )?markets?|stock market|market (today|close|closing|wrap)|closing bell|opening bell|benchmarks?|fii|fpi|foreign investors?)\b/i
                               : /\b(wall street|s&p( 500)?|nasdaq|dow( jones)?|us stocks|stock market|stocks (rise|fall|rally|slip|close|end|open|gain|drop)|market (today|close|wrap)|closing bell|treasur(y|ies) yields?|fed\b)/i;
     const seenT = new Set(), heads = raw.filter(x => WRAP.test(x.title) && (mkt === 'in' || (!US_JUNK.test(x.title) && (US_STRONG.test(x.title) || !FOREIGN.test(x.title)) && !/\bvs\.? |better buy\b/i.test(x.title))) && !seenT.has(x.title.toLowerCase().slice(0, 50)) && seenT.add(x.title.toLowerCase().slice(0, 50)))
       .slice(0, 16).map(x => x.title);
-    if (heads.length < 3) heads.push(...(d[key]?.v || []).map(x => String(x.text || '')).filter(Boolean).slice(0, 10));
-    if (heads.length < 3) { notes.push(mkt + ' too few headlines'); continue; }
-    const pc = pct(sym), move = pc == null ? '' : lab + ' is ' + (Math.abs(pc) < 0.15 ? 'roughly flat' : pc > 0 ? 'up' : 'down') + ' today' + (open ? ' so far' : ' at the close') + '.';
-    try { const s = await moodSummary(env, mkt, heads, move); out[mkt] = { ...s, at: now, final: !open, v: MOOD_V }; notes.push(mkt + (open ? ' live' : ' final') + ' (' + heads.length + ' headlines): ' + s.trend + ' | ' + (s.why || '-') + ' || ' + heads.slice(0, 6).map(h => h.slice(0, 60)).join(' ~ ')); }
+    const pc = pct(sym), dir = pc == null || Math.abs(pc) < 0.15 ? 0 : Math.sign(pc);
+    const move = pc == null ? '' : lab + ' is ' + (dir === 0 ? 'roughly flat' : dir > 0 ? 'up' : 'down') + ' today' + (trading ? ' so far' : ' at the close') + '.';
+    if (heads.length < 2) {
+      // too little fresh news to explain the day (often early on a Monday): say only the direction, no reason, rather than borrow old stories
+      if (pc == null) { notes.push(mkt + ' too few fresh headlines'); continue; }
+      const who = mkt === 'in' ? 'Indian shares' : 'Wall Street';
+      out[mkt] = { trend: who + (dir === 0 ? ' are steady' : dir > 0 ? ' are higher' : ' are lower') + (trading ? ' so far today' : ' today'), why: '', at: now, final: !open, v: MOOD_V };
+      notes.push(mkt + ' direction only (' + heads.length + ' fresh headlines)'); continue;
+    }
+    try { const s = await moodSummary(env, mkt, heads, move, dir); out[mkt] = { ...s, at: now, final: !open, v: MOOD_V }; notes.push(mkt + (open ? ' live' : ' final') + ' (' + heads.length + ' headlines): ' + s.trend + ' | ' + (s.why || '-') + ' || ' + heads.slice(0, 6).map(h => h.slice(0, 60)).join(' ~ ')); }
     catch (e) { notes.push(mkt + ' AI failed: ' + String(e.message || e).slice(0, 80)); }
   }
   await dbPut(env, 'mood', out);
