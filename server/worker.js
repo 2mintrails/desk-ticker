@@ -301,7 +301,8 @@ async function readFeed(url, src, anyLang) {
     }).filter(x => x.title && isNews(x.title, anyLang) && !BLOCK.some(b => (x.source || '').toLowerCase().startsWith(b.toLowerCase())));
   } catch (e) { return []; }
 }
-const STOP = new Set('a an the of to in on for at by with and or is are was were be as from after over into its his her their this that says said amid new news'.split(' '));
+const STOP = new Set(('a an the of to in on for at by with and or is are was were be as from after over into its his her their this that says said amid new news ' +
+  'का के की में से को पर है हैं ने और भी एक लिए तो हुआ हुई गया गई किया कर करने रहा रही रहे था थी थे यह वह इस उस जा जो कि नहीं बाद साथ दौरान तक अब न्यूज़ news: अलीगढ़').split(' '));
 const words = t => new Set(t.toLowerCase().replace(/[^a-z0-9\u0900-\u097F ]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !STOP.has(w)));
 const sameStory = (a, b) => { let n = 0; a.forEach(w => { if (b.has(w)) n++; }); return n >= 3 && n / Math.min(a.size, b.size) >= 0.5; };
 function pickTop(items, o = {}) {
@@ -423,7 +424,7 @@ async function jobLocal(env) {
 async function localHere(env, lat, lon, cityName) {
   if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return { city: '', items: [] };
   const plan = localPlan(lat, lon, cityName); if (!plan) return { city: '', items: [] };
-  const key = 'local5_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
+  const key = 'local6_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
   if (c && Date.now() - c.at < 15 * 60e3) return { ...c.v, at: c.at };
   const { top } = await localNews(plan, env);
   if (!top.length && c && c.v.items.length && Date.now() - c.at < 6 * 3600e3) return { ...c.v, at: c.at };   // feeds failed: keep the last list for a while
