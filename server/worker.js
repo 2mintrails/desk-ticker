@@ -967,6 +967,31 @@ export default {
       if (u.pathname === '/v2/hist') return new Response(JSON.stringify(await hist(env, String(u.searchParams.get('sym') || '').slice(0, 40), u.searchParams.get('r'))), { headers: CORS });
       if (u.pathname === '/v2/lookup') return new Response(JSON.stringify(await lookup(u.searchParams.get('q'), u.searchParams.get('mkt'))), { headers: CORS });
       if (u.pathname === '/v2/local') return new Response(JSON.stringify(await localHere(env, +u.searchParams.get('lat'), +u.searchParams.get('lon'), u.searchParams.get('city'))), { headers: CORS });
+      if (u.pathname === '/v1/probe2') {        // temporary: can the server read fundamentals?
+        const out = [], sym = 'TCS.NS';
+        try {
+          const r1 = await fetch('https://fc.yahoo.com/', { headers: { 'User-Agent': UA }, redirect: 'manual' });
+          const ck = (r1.headers.get('set-cookie') || '').split(/,(?=\s*\w+=)/).map(c => c.split(';')[0].trim()).filter(Boolean).join('; ');
+          out.push('cookie: ' + r1.status + ' ' + (ck ? ck.slice(0, 20) + '…' : 'none'));
+          const r2 = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', { headers: { 'User-Agent': UA, Cookie: ck } });
+          const crumb = (await r2.text()).trim(); out.push('crumb: ' + r2.status + ' ' + crumb.slice(0, 20));
+          const r3 = await fetch('https://query2.finance.yahoo.com/v10/finance/quoteSummary/' + sym + '?modules=summaryDetail,financialData,defaultKeyStatistics,price&crumb=' + encodeURIComponent(crumb), { headers: { 'User-Agent': UA, Cookie: ck } });
+          const t3 = await r3.text(); out.push('quoteSummary: ' + r3.status + ' ' + t3.length + ' bytes');
+          try { const j = JSON.parse(t3).quoteSummary.result[0], f = j.financialData || {}, sd = j.summaryDetail || {}, ks = j.defaultKeyStatistics || {};
+            const v = x => x && (x.fmt || x.raw);
+            out.push('  PE ' + v(sd.trailingPE) + ' | fwdPE ' + v(sd.forwardPE) + ' | ROE ' + v(f.returnOnEquity) + ' | D/E ' + v(f.debtToEquity) + ' | revGrowth ' + v(f.revenueGrowth) + ' | margin ' + v(f.profitMargins) + ' | mcap ' + v(sd.marketCap) + ' | div ' + v(sd.dividendYield) + ' | P/B ' + v(ks.priceToBook));
+          } catch (e) { out.push('  parse: ' + t3.slice(0, 120)); }
+          const r4 = await fetch('https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + sym + ',BEL.NS,AAPL&crumb=' + encodeURIComponent(crumb), { headers: { 'User-Agent': UA, Cookie: ck } });
+          const t4 = await r4.text(); out.push('v7 quote: ' + r4.status + ' ' + t4.length + ' bytes');
+          try { (JSON.parse(t4).quoteResponse.result || []).forEach(q => out.push('  ' + q.symbol + ' PE ' + q.trailingPE + ' P/B ' + q.priceToBook + ' mcap ' + q.marketCap + ' div ' + q.trailingAnnualDividendYield)); } catch (e) { out.push('  parse: ' + t4.slice(0, 120)); }
+        } catch (e) { out.push('yahoo error: ' + e.message); }
+        try {
+          const r5 = await fetch('https://www.google.com/finance/quote/TCS:NSE', { headers: { 'User-Agent': UA } }); const t5 = await r5.text();
+          const m = t5.match(/P\/E ratio[\s\S]{0,400}?<div class="P6K39c">([^<]+)</);
+          out.push('google finance: ' + r5.status + ' ' + t5.length + ' bytes, PE ' + (m ? m[1] : 'not found'));
+        } catch (e) { out.push('google error: ' + e.message); }
+        return new Response(out.join('\n'), { headers: { ...CORS, 'content-type': 'text/plain; charset=utf-8' } });
+      }
       if (u.pathname === '/v2/watch') return new Response(await watchText(env), { headers: { ...CORS, 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
       if (u.pathname === '/v2/feed') return new Response(JSON.stringify(await feed(env)), { headers: CORS });
       if (u.pathname === '/v1/all') return new Response(JSON.stringify(await allTabs(env)), { headers: CORS });
