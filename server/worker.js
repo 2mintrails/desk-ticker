@@ -386,7 +386,7 @@ const LH_STATES = ['uttar-pradesh', 'bihar', 'uttarakhand', 'jharkhand', 'madhya
 async function cityFeeds(env, slug) {
   const out = [['https://www.amarujala.com/rss/' + slug + '.xml', 'Amar Ujala']];
   if (!env) return out;
-  const key = 'lhstate_' + slug.replace(/-/g, ''), c = (await dbGet(env, [key]))[key];
+  const key = 'lhstate2_' + slug.replace(/-/g, ''), c = (await dbGet(env, [key]))[key];
   let st = c && Date.now() - c.at < 7 * 864e5 ? c.v.state : undefined;
   if (st === undefined) {
     const tries = await Promise.all(LH_STATES.map(async x => (await readFeed('https://api.livehindustan.com/feeds/rss/' + x + '/' + slug + '/rssfeed.xml', 'Live Hindustan', true)).length ? x : ''));
@@ -423,7 +423,7 @@ async function jobLocal(env) {
 async function localHere(env, lat, lon, cityName) {
   if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return { city: '', items: [] };
   const plan = localPlan(lat, lon, cityName); if (!plan) return { city: '', items: [] };
-  const key = 'local4_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
+  const key = 'local5_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
   if (c && Date.now() - c.at < 15 * 60e3) return { ...c.v, at: c.at };
   const { top } = await localNews(plan, env);
   if (!top.length && c && c.v.items.length && Date.now() - c.at < 6 * 3600e3) return { ...c.v, at: c.at };   // feeds failed: keep the last list for a while
