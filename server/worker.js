@@ -297,7 +297,7 @@ async function readFeed(url, src, anyLang) {
       if (!source) { const k = title.lastIndexOf(' - '); if (k > 20) { source = title.slice(k + 3); title = title.slice(0, k); } }
       if (source && title.endsWith(' - ' + source)) title = title.slice(0, -(source.length + 3));
       title = title.replace(/\s*\|\s*Latest News.*$/i, '');
-      return { title, source, link: decode(tag(it, 'link')), t: Date.parse(decode(tag(it, 'pubDate'))) || 0 };
+      return { title, source, link: decode(tag(it, 'link')), t: Date.parse(decode(tag(it, 'pubDate'))) || 0, ...(anyLang ? { desc: decode(tag(it, 'description')).replace(/\s+/g, ' ').trim().slice(0, 260) } : {}) };
     }).filter(x => x.title && isNews(x.title, anyLang) && !BLOCK.some(b => (x.source || '').toLowerCase().startsWith(b.toLowerCase())));
   } catch (e) { return []; }
 }
@@ -312,7 +312,7 @@ function pickTop(items, o = {}) {
     const key = x.title.toLowerCase().replace(/[^a-z0-9\u0900-\u097F]/g, '').slice(0, 50), ws = words(x.title);
     if (seen.has(key) || out.length >= KEEP_N || (per[x.source] || 0) >= PER || (o.skip && o.skip(x)) || kept.some(k => sameStory(k, ws))) return;
     seen.add(key); kept.push(ws); per[x.source] = (per[x.source] || 0) + 1;
-    out.push({ text: x.source ? x.title + ' - ' + x.source : x.title, link: /^https?:\/\//.test(x.link) ? x.link : '', ...(x.sym ? { sym: x.sym, tick: x.tick } : {}) });
+    out.push({ text: x.source ? x.title + ' - ' + x.source : x.title, link: /^https?:\/\//.test(x.link) ? x.link : '', ...(x.sym ? { sym: x.sym, tick: x.tick } : {}), ...(x.desc ? { desc: x.desc, src: x.source } : {}) });
   });
   return out;
 }
@@ -399,17 +399,20 @@ async function cityFeeds(env, slug) {
 // Hindi (Devanagari) headlines are translated to short plain English by the AI; if that fails, they stay in Hindi
 async function toEnglish(env, top) {
   const idx = top.map((x, i) => /[\u0900-\u097F]/.test(x.text) ? i : -1).filter(i => i >= 0);
-  if (!idx.length || !env.AI) return top;
+  if (!idx.length || !env.AI) return top.map(({ desc, src, ...x }) => x);
   try {
-    const list = idx.map((i, k) => (k + 1) + '. ' + top[i].text).join('\n');
+    const list = idx.map((i, k) => (k + 1) + '. HEADLINE: ' + top[i].text.replace(/ - [^-]+$/, '') + (top[i].desc ? '\n   SUMMARY: ' + top[i].desc : '')).join('\n');
     const r = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', { messages: [
-      { role: 'system', content: 'You translate Hindi news headlines into short, natural English headlines. Keep names and places. Do not add anything.' },
-      { role: 'user', content: 'Translate each headline to English (max 16 words each). Reply with a JSON array of strings, same order, nothing else.\n\n' + list }], max_tokens: 700, temperature: 0.1 });
+      { role: 'system', content: 'You turn Hindi local news into clear English headlines. You are faithful: you never add facts that are not in the headline or summary.' },
+      { role: 'user', content: 'For each item, write ONE clear English headline (10 to 20 words) that tells a reader what actually happened, who was involved and where, using the Hindi headline and its summary. ' +
+        'Do not shorten it into fragments like "Buses prepared for fog"; write it so it makes sense on its own, e.g. "Roadways adds extra checks and fog lights on buses as dense fog season begins in Aligarh". ' +
+        'Keep names and places. Do not start with the city name. Reply with a JSON array of strings, same order, nothing else.\n\n' + list }], max_tokens: 1200, temperature: 0.1 });
     const txt = typeof r.response === 'string' ? r.response : JSON.stringify(r.response || '');
     const arr = JSON.parse((txt.match(/\[[\s\S]*\]/) || ['[]'])[0]);
-    if (Array.isArray(arr) && arr.length === idx.length) idx.forEach((i, k) => { const t = String(arr[k] || '').trim(); if (t.length > 8 && !/[\u0900-\u097F]/.test(t)) top[i] = { ...top[i], text: t, hi: top[i].text }; });
+    if (Array.isArray(arr) && arr.length === idx.length) idx.forEach((i, k) => { const t = String(arr[k] || '').trim().replace(/^["']|["']$/g, '');
+      if (t.split(/\s+/).length >= 6 && !/[\u0900-\u097F]/.test(t)) top[i] = { ...top[i], text: t + (top[i].src ? ' - ' + top[i].src : ''), hi: top[i].text }; });
   } catch (e) {}
-  return top;
+  return top.map(({ desc, src, ...x }) => x);              // whatever didn't translate well stays in Hindi
 }
 async function jobLocal(env) {
   const set = (await getCfg(env)).settings || {};
@@ -424,7 +427,7 @@ async function jobLocal(env) {
 async function localHere(env, lat, lon, cityName) {
   if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return { city: '', items: [] };
   const plan = localPlan(lat, lon, cityName); if (!plan) return { city: '', items: [] };
-  const key = 'local7_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
+  const key = 'local8_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
   if (c && Date.now() - c.at < 15 * 60e3) return { ...c.v, at: c.at };
   const { top } = await localNews(plan, env);
   if (!top.length && c && c.v.items.length && Date.now() - c.at < 6 * 3600e3) return { ...c.v, at: c.at };   // feeds failed: keep the last list for a while
