@@ -1,0 +1,23 @@
+name: probe
+on:
+  push:
+    paths: ['server/probe.txt']
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Market P/E sources on Yahoo
+        run: |
+          python3 - <<'PY'
+          import urllib.request, http.cookiejar, json
+          cj=http.cookiejar.CookieJar(); op=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj)); UA={'User-Agent':'Mozilla/5.0'}
+          try: op.open(urllib.request.Request('https://fc.yahoo.com/',headers=UA))
+          except Exception as e: pass
+          crumb=op.open(urllib.request.Request('https://query1.finance.yahoo.com/v1/test/getcrumb',headers=UA)).read().decode()
+          for s in ['NIFTYBEES.NS','SETFNIF50.NS','^NSEI','SPY','VOO','^GSPC']:
+            try:
+              j=json.load(op.open(urllib.request.Request('https://query2.finance.yahoo.com/v10/finance/quoteSummary/'+urllib.parse.quote(s)+'?modules=summaryDetail,defaultKeyStatistics&crumb='+crumb,headers=UA)))
+              r=j['quoteSummary']['result'][0]; sd=r.get('summaryDetail',{}); ks=r.get('defaultKeyStatistics',{})
+              print(s,'trailingPE',sd.get('trailingPE',{}).get('raw'),'forwardPE',sd.get('forwardPE',{}).get('raw'),'pb',ks.get('priceToBook',{}).get('raw'))
+            except Exception as e: print(s,'ERR',e)
+          PY
