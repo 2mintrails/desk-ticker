@@ -583,7 +583,8 @@ async function bullionSummary(env, recent, views, dirs = {}) {
   // safety check: a why line pointing the opposite way to today's rate is dropped
   for (const m of ['gold', 'silver']) { const d = dirs[m], w = out[m].why;
     if (w && (!METAL_DRIVERS.test(w) || METAL_OFFTOPIC.test(w) || (d < 0 && /^rising\b/i.test(w)) || (d > 0 && /^falling\b/i.test(w)) || /no (clear )?reason|not (given|stated|mentioned|specified)|unclear|unknown/i.test(w))) out[m].why = ''; }
-  if (!out.gold.why && !out.silver.why) throw new Error('empty summary');
+  // if nothing survives the checks, the lines are left blank (and hidden) rather than keeping an older, possibly wrong summary
+  out.blank = !out.gold.why && !out.silver.why;
   return out;
 }
 async function jobBullion(env) {
@@ -606,7 +607,7 @@ async function jobBullion(env) {
   const gr = await dbGet(env, ['gr_gold', 'gr_silver']), dirs = {};
   for (const [m, k] of [['gold', 'gr_gold'], ['silver', 'gr_silver']]) { const v = gr[k]?.v || {}, ks = Object.keys(v).filter(x => /^\d{4}-/.test(x)).sort();
     if (ks.length >= 2) { const a = v[ks[ks.length - 1]], b = v[ks[ks.length - 2]]; dirs[m] = Math.abs(a - b) / b < 0.001 ? 0 : Math.sign(a - b); } }
-  const sig = 'p6' + JSON.stringify(dirs) + JSON.stringify([recent, views].map(o => [o.gold.map(x => x.title), o.silver.map(x => x.title)]));
+  const sig = 'p7' + JSON.stringify(dirs) + JSON.stringify([recent, views].map(o => [o.gold.map(x => x.title), o.silver.map(x => x.title)]));
   const old = (await dbGet(env, ['news_Bullion'])).news_Bullion;
   let sum = old && old.v && old.v.sum, aiNote = 'kept';
   if (!sum || !String(old.v.sig || '').startsWith(sig.slice(0, 2)) || (old.v.sig !== sig && now - (sum.at || 0) > 25 * 60e3) || now - (sum.at || 0) > 6 * 3600e3) {
