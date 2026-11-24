@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v20.6-2026-11-24">
+<meta name="ticker-version" content="v21.0-2026-11-24">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1198,6 +1198,74 @@
   body.anime footer span.on{background:#ffe36e;transform:scale(1.45)}
   /* late-night clock: soft pink title-card numerals on black */
   body.anime .n-box{color:#ff9ad0}
+  /* ===== WINTER THEMES — Snowy Santa / Christmas market (Ambient underneath). Offered until 6 Jan 2027, then archived. ===== */
+  .xdeco, .xspot, .xperch, .xfw{display:none}
+  body.xmas .xdeco{display:block;position:fixed;inset:0;z-index:1;pointer-events:none;overflow:hidden}
+  body.xmas.night .xdeco, body.xmas.night .xspot{display:none}
+  body.xmas .vignette{display:none}
+  .xf{position:absolute;top:-14px;border-radius:50%;background:#fff;opacity:.85;animation:xfall linear infinite}
+  @keyframes xfall{to{transform:translate(18px,112vh)}}
+  .xsun{position:absolute;right:-18px;top:-18px;width:78px;height:78px;border-radius:50%}
+  .xm-morning .xsun{background:#FAC775;opacity:.85} .xm-day .xsun{background:#fff;opacity:.9} .xm-evening .xsun{background:#E6F1FB;opacity:.8}
+  body.xmarket .xsun{display:none}
+  .xaur{position:absolute;left:-30%;width:160%;height:18vh;top:6vh;background:radial-gradient(ellipse at center,rgba(93,202,165,.32),transparent 65%);animation:xaur 18s ease-in-out infinite alternate}
+  .xaur.b{top:13vh;background:radial-gradient(ellipse at center,rgba(127,119,221,.26),transparent 65%);animation-duration:24s;animation-direction:alternate-reverse}
+  @keyframes xaur{from{transform:translateX(-12%) scaleY(.8)}to{transform:translateX(12%) scaleY(1.15)}}
+  .xwire{position:absolute;left:0;top:0;width:100%;height:30px}
+  .xl{position:absolute;width:8px;height:10px;margin-left:-4px;border-radius:50% 50% 45% 45%}
+  .xm-morning .xl{opacity:.25} .xm-day .xl{opacity:.55}
+  .xm-evening .xl{animation:xtw 1.6s ease-in-out infinite} .xm-evening .xl:nth-child(odd){animation-delay:-.8s} .xm-evening .xl:nth-child(3n){animation-duration:2.1s}
+  @keyframes xtw{0%,100%{opacity:1}50%{opacity:.3}}
+  .xgr{position:absolute;left:0;right:0;bottom:0;height:min(8vh,54px);background-repeat:repeat-x;background-position:left bottom;background-size:auto 100%}   /* a small strip that repeats sideways, never stretched */
+  .xsl{position:absolute;left:0;top:7vh;width:96px;display:none;opacity:0;animation:xsl 24s linear infinite}
+  body.xsnow.xnews .xsl, body.xsnow.xeve .xsl{display:block}
+  body.xsnow.xeve .xsl{animation-duration:9s}
+  @keyframes xsl{0%{opacity:1;transform:translate(-120px,4vh)}34%{opacity:1;transform:translate(calc(100vw + 20px),-2vh)}35%,100%{opacity:0;transform:translate(calc(100vw + 20px),-2vh)}}
+  /* cards: opaque enough to read on any sky; snow drift (snowy) or a striped awning (market) along the top */
+  body.amb.xsnow .card{background-color:rgba(255,255,255,.94)!important;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'%3E%3Cpath d='M0 0H200V5Q190 11 178 7Q160 12 140 6Q120 11 100 7Q80 12 60 6Q40 11 20 7Q8 11 0 5Z' fill='%23E6F1FB'/%3E%3Cpath d='M0 5Q8 11 20 7Q40 11 60 6Q80 12 100 7Q120 11 140 6Q160 12 178 7Q190 11 200 5' fill='none' stroke='%2385B7EB' stroke-width='1'/%3E%3C/svg%3E")!important;
+    background-repeat:no-repeat!important;background-size:100% 12px!important;background-position:top!important;backdrop-filter:none;-webkit-backdrop-filter:none}
+  body.amb.xmarket .card{background-color:rgba(250,238,218,.97)!important;background-image:repeating-linear-gradient(90deg,#A32D2D 0 18px,#FAEEDA 18px 36px)!important;
+    background-repeat:no-repeat!important;background-size:100% 8px!important;background-position:top!important;backdrop-filter:none;-webkit-backdrop-filter:none}
+  body.amb.xmarket .tile:nth-child(even){background-image:repeating-linear-gradient(90deg,#0F6E56 0 14px,#FAEEDA 14px 28px)!important}
+  body.amb.xmas .metal::before{display:none}
+  body.amb.xmas .stat, body.amb.xmas .hr{background:rgba(15,23,42,.05)}
+  body.amb.xmarket .gold .price{color:#854F0B}
+  /* evening sky is dark: header text turns light (cards stay light) */
+  body.xmas.xm-evening .time, body.xmas.xm-evening .hwx{color:#fff!important}
+  body.xmas.xm-evening .time .sec, body.xmas.xm-evening .date, body.xmas.xm-evening .mkt, body.xmas.xm-evening .pill, body.xmas.xm-evening .pan, body.xmas.xm-evening .pfest{color:rgba(255,255,255,.85)!important}
+  body.xmas.xm-evening .pan b, body.xmas.xm-evening .pfest b{color:#FAC775!important}
+  body.xmas.xm-evening .pill i{background:#fff}
+  body.xmas.xm-evening footer span{background:rgba(255,255,255,.3)!important} body.xmas.xm-evening footer span b{background:#fff!important}
+  body.xmas.xm-evening .gearbtn{color:#fff;opacity:.75}
+  body.xmas.xm-evening .viewbtn{color:#fff;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3)}
+  body.xmas .pan b, body.xmas .pfest b{color:#A32D2D}
+  /* characters */
+  body.xmas .xperch{display:block;position:absolute;pointer-events:none;z-index:1;width:clamp(30px,8vh,44px);height:auto}
+  body.xmas .metal.gold .xperch{top:12px;right:12px}
+  body.xmas .stat.aqi{position:relative} body.xmas .stat.aqi .xperch{bottom:6px;right:8px;width:clamp(26px,6.5vh,38px)}
+  body.xmarket .app{padding-top:max(26px,env(safe-area-inset-top))}   /* room for the fairy lights on screens without a notch */
+  .xpop{display:none} body.xmas .xpop{display:block;position:absolute;left:12px;top:-9px;width:20px;height:22px;pointer-events:none}
+  body.xmas .xspot{display:block;flex:none;position:relative;width:46px;height:20px;margin:-6px 0 -2px}
+  .xspot svg{position:absolute;left:0;bottom:-4px;width:46px;height:40px;overflow:visible}
+  .xspot .xcar{display:none} body.xmarket.xnews .xspot:not(.drop) .xcar{display:block} body.xmarket.xnews .xspot:not(.drop) .xroof{display:none}
+  .xspot .xsanta{transform:translateY(-80px)} .xspot:not(.drop) .xsanta{visibility:hidden}
+  .xspot.drop .xsanta{animation:xdrop 6.5s ease-in-out forwards}
+  @keyframes xdrop{0%{transform:translateY(-80px)}28%,52%{transform:translateY(0)}58%{transform:translateY(-4px)}80%,100%{transform:translateY(34px)}}
+  .xspot .xpuff{opacity:0} .xspot.drop .xpuff{animation:xpuff 6.5s ease-out forwards}
+  @keyframes xpuff{0%,78%{opacity:0;transform:translateY(0)}84%{opacity:.95}100%{opacity:0;transform:translateY(-16px)}}
+  .xspot .xwin{transition:fill 1s} .xspot.drop .xwin{animation:xwin 6.5s forwards} @keyframes xwin{0%,78%{fill:#FAC775}86%,100%{fill:#EF9F27}}
+  /* night (dim) screen */
+  body.night.xmas .n-scene{display:block}
+  body.night.xsnow .nightv{background:linear-gradient(180deg,#020f1f 0%,#04223f 70%,#0a3561 100%);--fc:#85B7EB}
+  body.night.xmarket .nightv{background:linear-gradient(180deg,#0d0509 0%,#1a0a12 70%,#2a1220 100%);--fc:#BA7517}
+  /* New Year's Eve fireworks (one minute at midnight) */
+  body.xmas .xfw.on{display:flex;position:fixed;inset:0;z-index:90;align-items:center;justify-content:center;flex-direction:column;pointer-events:none;background:rgba(4,34,63,.55)}
+  .xfw svg{position:absolute;inset:0;width:100%;height:100%}
+  .xfw .xny{position:relative;font:700 clamp(22px,7vw,46px)/1.2 Manrope,sans-serif;color:#FAC775;text-align:center;text-shadow:0 2px 14px rgba(0,0,0,.5)}
+  body.night .xfw.on{opacity:.5}
+  /* Calm: keep the scenery, stop the movement */
+  body.xstill .xdeco *, body.xstill .xspot *, body.xstill .xfw *{animation-play-state:paused!important}
+  body.xstill .xsl{display:none!important}
 </style>
 </head>
 <body>
@@ -1206,6 +1274,7 @@
 <div class="grain"></div><div class="vignette"></div>
 <div class="setwrap" id="setWrap" hidden><div class="setpanel" id="setPanel"></div></div>
 <div class="ani" id="ani"></div><div class="ani-fx" id="aniFx"><div class="fx-rain" id="fxRain"></div></div>
+<div class="xdeco" id="xdeco"></div><div class="xfw" id="xfw"></div>
 
 <div class="app">
   <header>
@@ -1338,7 +1407,7 @@
 
   </div>
   <div class="tape" id="tapeBox"><div class="tape-in" id="tape"></div></div>
-  <div class="footrow"><footer id="bars"></footer><button class="gearbtn" id="gearBtn" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
+  <div class="footrow"><div class="xspot" id="xSpot"></div><footer id="bars"></footer><button class="gearbtn" id="gearBtn" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1378,10 +1447,28 @@ let SLIDE_SECONDS = 15;
 // Look (each phone remembers its choice): 'pixel' LED-matrix panel like a Tidbyt/Radar, 'ambient' smart-display,
 // 'retro' green CRT terminal, 'calm' minimal dark.
 const LOOKS = { ambient: 'ambient', swiss: 'swiss', retro: 'retro', calm: 'calm', anime: 'anime' };   // 'pixel' (led) is parked for now
+const XMAS_END = '2027-01-06', XMAS_ON = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) <= XMAS_END;   // winter themes: offered until 6 Jan
+if (XMAS_ON) { LOOKS.xsnow = 'ambient'; LOOKS.xmarket = 'ambient'; }
 let LOOK = 'ambient';
 try { let l = localStorage.getItem('deskTickerLook'); if (l === 'paper') { l = 'swiss'; localStorage.setItem('deskTickerLook', l); }   // Newspaper was retired: Swiss is the light theme
   if (LOOKS[l]) LOOK = l; } catch (e) {}
 const THEME = LOOKS[LOOK];
+// Winter themes (Snowy Santa / Christmas market) sit on top of Ambient. Offered until 6 Jan 2027 (IST); after that a phone
+// still set to one falls back to Ambient by itself, and the code gets archived.
+const XM = LOOK === 'xsnow' || LOOK === 'xmarket', XSNOW = LOOK === 'xsnow';
+const XQ = new URLSearchParams(location.search);
+const XSKY = {
+  xsnow:   { morning:'linear-gradient(180deg,#f4c0d1 0%,#fbeaf0 55%,#e6f1fb 100%)', day:'linear-gradient(180deg,#85b7eb 0%,#b5d4f4 55%,#e6f1fb 100%)',
+             evening:'linear-gradient(180deg,#04223f 0%,#0c447c 60%,#185fa5 100%)' },
+  xmarket: { morning:'linear-gradient(180deg,#faeeda 0%,#fdf6e8 60%,#f5e1c0 100%)', day:'linear-gradient(180deg,#f0997b 0%,#f5c4b3 55%,#faeeda 100%)',
+             evening:'linear-gradient(180deg,#1a0a12 0%,#2a1220 60%,#4a1b2c 100%)' } };
+const X_SANTA = '<g transform="translate(-14,-22)"><path d="M2 20Q4 25 10 25H30Q34 25 34 21" fill="none" stroke="#854F0B" stroke-width="2"/><rect x="6" y="12" width="22" height="8" rx="2" fill="#A32D2D"/><circle cx="20" cy="7" r="6" fill="#E24B4A"/><circle cx="22" cy="2" r="3.2" fill="#F5C4B3"/><path d="M18-1L24-1L28-8Z" fill="#E24B4A"/><circle cx="28" cy="-8" r="1.6" fill="#fff"/><path d="M21 3q3 5 5 1" fill="#fff"/><rect x="8" y="5" width="7" height="7" rx="1" fill="#1D9E75"/></g>';
+const X_REIN = '<g transform="translate(-30,-20)"><path d="M2 18Q4 23 10 23H26Q30 23 30 19" fill="none" stroke="#854F0B" stroke-width="2"/><rect x="6" y="10" width="18" height="8" rx="2" fill="#A32D2D"/><circle cx="16" cy="6" r="5" fill="#E24B4A"/><circle cx="18" cy="1" r="3" fill="#F5C4B3"/><path d="M14-2L20-2L23-8Z" fill="#E24B4A"/><line x1="28" y1="12" x2="44" y2="10" stroke="#854F0B" stroke-width="1"/><ellipse cx="50" cy="12" rx="8" ry="4.5" fill="#854F0B"/><circle cx="58" cy="6" r="3.2" fill="#854F0B"/><circle cx="61" cy="6" r="1.4" fill="#E24B4A"/><path d="M56 3l-2-6M56 3l3-6" stroke="#633806" stroke-width="1"/><line x1="46" y1="16" x2="44" y2="22" stroke="#633806" stroke-width="1.2"><animate attributeName="x2" values="42;48;42" dur="0.5s" repeatCount="indefinite"/></line><line x1="54" y1="16" x2="56" y2="22" stroke="#633806" stroke-width="1.2"><animate attributeName="x2" values="58;52;58" dur="0.5s" repeatCount="indefinite"/></line></g>';
+const X_TRAIN = '<g transform="translate(-30,-17)"><rect x="0" y="4" width="12" height="9" rx="1" fill="#0F6E56"/><rect x="14" y="4" width="12" height="9" rx="1" fill="#EF9F27"/><rect x="28" y="0" width="14" height="13" rx="1" fill="#A32D2D"/><rect x="38" y="-4" width="4" height="5" fill="#2C2C2A"/><rect x="30" y="2" width="5" height="4" fill="#FAC775"/><g fill="#2C2C2A"><circle cx="4" cy="15" r="2"/><circle cx="10" cy="15" r="2"/><circle cx="18" cy="15" r="2"/><circle cx="24" cy="15" r="2"/><circle cx="32" cy="15" r="2"/><circle cx="39" cy="15" r="2"/></g><circle cx="40" cy="-8" r="2.5" fill="#D3D1C7"><animate attributeName="cy" values="-6;-16" dur="1s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0" dur="1s" repeatCount="indefinite"/></circle></g>';
+const X_GIFT = '<rect x="5" y="16" width="24" height="18" rx="2" fill="#E24B4A"/><rect x="15" y="16" width="4" height="18" fill="#FAC775"/><g><rect x="3" y="11" width="28" height="6" rx="2" fill="#A32D2D"/><animateTransform attributeName="transform" type="translate" values="0 0;0 -7;0 -7;0 0" keyTimes="0;0.2;0.8;1" dur="3s" repeatCount="indefinite"/></g><path d="M17 13l1.5-4 1.5 4h4l-3 2 1 4-3.5-2.5-3.5 2.5 1-4-3-2z" fill="#FAC775" opacity="0"><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.25;0.75;1" dur="3s" repeatCount="indefinite"/><animateTransform attributeName="transform" type="translate" values="0 0;0 -9;0 -9;0 0" keyTimes="0;0.25;0.75;1" dur="3s" repeatCount="indefinite"/></path>';
+const X_GINGER = '<g fill="#BA7517"><circle cx="17" cy="8" r="6"/><rect x="11" y="13" width="12" height="13" rx="4"/><rect x="12" y="25" width="4" height="10" rx="2"/><rect x="18" y="25" width="4" height="10" rx="2"/><rect x="4" y="15" width="8" height="4" rx="2"/><rect x="22" y="15" width="8" height="4" rx="2"><animateTransform attributeName="transform" type="rotate" values="0 23 17;-50 23 17;0 23 17" dur="1s" repeatCount="indefinite"/></rect></g><circle cx="15" cy="7" r="1" fill="#fff"/><circle cx="19" cy="7" r="1" fill="#fff"/><circle cx="17" cy="17" r="1.2" fill="#E24B4A"/><circle cx="17" cy="21" r="1.2" fill="#1D9E75"/>';
+if (XMAS_ON) { const b0 = document.querySelector('#viewMenu button[data-look]');
+  if (b0) b0.parentNode.insertAdjacentHTML('beforeend', '<button data-look="xsnow">❄️ Snowy Santa · till 6 Jan</button><button data-look="xmarket">🎄 Christmas market · till 6 Jan</button>'); }
 // Screen modes (IST, 24-hour). Day: Indian stocks. Evening: US stocks. Night: dim clock only.
 // Tap the screen at night to peek at the normal slides for a minute.
 const MODES = { day: '06:00', evening: '18:30', night: '23:30' };
@@ -1587,6 +1674,7 @@ function renderSignals() {
     b.innerHTML = '<i>' + g.icon + '</i><b>' + esc(g.label) + '</b><span>' + esc(g.line) + '</span>';   // the reason hides in landscape, where tiles are small
   });
   fitTiles();
+  if (XM) xPops();
 }
 // every tile checks it fits its box: first the tag drops its reason, then the price gets a little smaller (fonts differ from screen to screen)
 function fitTiles() {
@@ -2117,10 +2205,18 @@ function drawChart(c) {
       `<text x="${W - padR}" y="${Y(prev) - 6}" text-anchor="end" fill="var(--gridtxt,rgba(255,255,255,.45))" font-size="11" font-family="Manrope, Space Grotesk">Prev close ${prev.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</text>` : '') +
     (solid.length > 1 ? `<path d="${line} L${X(sl[0]).toFixed(1)} ${H - padB} L${X(pts[0][0]).toFixed(1)} ${H - padB} Z" fill="url(#${gid})"/>` : '') +
     gap + tail +
-    `<path d="${line}" fill="none" stroke="${col}" stroke-width="${THEME === 'calm' ? 1.8 : 2.5}" stroke-linejoin="round" stroke-linecap="round"/>` +
+    `<path id="xp-${c.svg}" d="${line}" fill="none" stroke="${col}" stroke-width="${THEME === 'calm' ? 1.8 : 2.5}" stroke-linejoin="round" stroke-linecap="round"/>` +
+    (XM && solid.length > 1 ? xRider(c.svg, up, prev ? Math.abs(live / prev - 1) * 100 : 0, X(sl[0]), Y(sl[1])) : '') +
     (open ? `<circle class="ring" cx="${lx}" cy="${ly}" r="5" fill="${col}"/>` : '') +
     `<circle cx="${lx}" cy="${ly}" r="5.5" fill="${col}" stroke="#0b0d12" stroke-width="2"/>` +
     c.ticks(c).map(([m, t]) => tick(m, t)).join('');
+}
+// winter themes: Santa (down days) / reindeer pulling Santa (up days) / a toy train rides the line; steeper day = faster ride
+function xRider(id, up, pct, ex, ey) {
+  const shape = XSNOW ? (up ? X_REIN : X_SANTA) : X_TRAIN;
+  if (DEV.still) return `<g transform="translate(${ex.toFixed(1)} ${ey.toFixed(1)})">${shape}</g>`;
+  const dur = Math.max(4, Math.min(10, 9 - pct * 2)).toFixed(1);
+  return `<g>${shape}<animateMotion dur="${dur}s" repeatCount="indefinite" rotate="auto"><mpath href="#xp-${id}"/></animateMotion></g>`;
 }
 function drawSpark() {           // both charts (kept under this name; many places call it)
   CHARTS.nifty.live = lastLive; CHARTS.nifty.prev = lastPrev;
@@ -2655,6 +2751,7 @@ document.body.classList.toggle('swiss', THEME === 'swiss');
 document.body.classList.toggle('amb', THEME === 'ambient');
 document.body.classList.toggle('led', THEME === 'led');
 document.body.classList.toggle('anime', THEME === 'anime');
+document.body.classList.toggle('xmas', XM); document.body.classList.toggle('xsnow', XM && XSNOW); document.body.classList.toggle('xmarket', XM && !XSNOW);
 
 /* ---------- AMBIENT SCENES: a soft full-screen colour scene per slide, cross-faded ---------- */
 const GLOSS = 'radial-gradient(90% 70% at 85% 0%,rgba(255,255,255,.16),transparent 60%),radial-gradient(70% 60% at 0% 100%,rgba(0,0,0,.35),transparent 70%),';
@@ -2687,7 +2784,7 @@ function daylightNow() {
   return now >= t.rise && now < t.set;
 }
 function applyLight(force) {
-  const want = THEME === 'ambient' && mode !== 'night' && daylightNow();
+  const want = THEME === 'ambient' && mode !== 'night' && (XM || daylightNow());   // winter themes keep light cards all day
   if (want === isLight && !force) return;
   isLight = want; document.body.classList.toggle('light', want);
   sceneNow = ''; if (slides[idx]) setScene(sceneFor(slides[idx]));
@@ -2706,10 +2803,11 @@ function sceneFor(sl) {
 }
 let sceneOn = 'A', sceneNow = '', wxKind = 'clear';
 function setScene(name) {
+  if (XM) name = 'x' + (xTodNow || xTod());       // winter themes: one sky for every slide, by time of day
   if (THEME !== 'ambient' || name === sceneNow) return;
   sceneNow = name;
   const next = document.getElementById(sceneOn === 'A' ? 'sceneB' : 'sceneA'), cur = document.getElementById('scene' + sceneOn);
-  next.style.backgroundImage = isLight ? GLOSS_LIGHT + SCENES_LIGHT[name] : GLOSS + SCENES[name];
+  next.style.backgroundImage = XM ? XSKY[LOOK][name.slice(1)] : isLight ? GLOSS_LIGHT + SCENES_LIGHT[name] : GLOSS + SCENES[name];
   next.classList.add('on'); cur.classList.remove('on');
   sceneOn = sceneOn === 'A' ? 'B' : 'A';
 }
@@ -2874,6 +2972,7 @@ function show(i) {
   document.documentElement.style.setProperty('--accent', slides[i].dataset.accent);
   if (slides[i].querySelector('#sparkSvg, #spxSvg')) requestAnimationFrame(drawSpark);
   setScene(sceneFor(slides[i]));
+  if (XM) { document.body.classList.toggle('xnews', slides[i].dataset.needs === 'news'); xPops(); }
   clearInterval(newsPageTimer);
   const here = slides[i];
   here.querySelectorAll('.nlist').forEach(ol => requestAnimationFrame(() => {
@@ -3073,6 +3172,136 @@ if (focusOn()) applyMode(true);                     // reloaded during a focus s
     x += bw + R() * 6; }
   sc.innerHTML = '<svg viewBox="0 0 1000 600" preserveAspectRatio="xMidYMax slice" style="width:100%;height:100%">' + stars + '<circle cx="820" cy="110" r="28" fill="#f4ecd0" opacity=".5"/>' + sky + '</svg>';
 })();
+/* ---------- WINTER THEMES: Snowy Santa / Christmas market (offered until 6 Jan 2027) ----------
+   The sky follows the time of day (morning → day → evening), characters ride the price line, sit on cards and pop up on big movers,
+   Santa drops down the chimney (bottom-left) at the top of each hour, fireworks at midnight on New Year's Eve. "Calm winter scenery" stops the movement. */
+var xTodNow = '', xLastDrop = '', xDropT;
+function xIst() { const p = {}; new Intl.DateTimeFormat('en-GB', { timeZone:'Asia/Kolkata', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23' })
+  .formatToParts(new Date()).forEach(x => p[x.type] = x.value); return { md: p.month + '-' + p.day, y: +p.year, h: +p.hour, mi: +p.minute, s: +p.second }; }
+function xTod() {
+  const f = XQ.get('xtod'); if (f) return f;
+  const today = new Date().toLocaleDateString('en-CA', { timeZone:'Asia/Kolkata' }), t = sunTimes(today), now = new Date();
+  if (now < t.rise || now >= t.set) return 'evening';
+  return xIst().h < 11 ? 'morning' : 'day';
+}
+function xBuild() {
+  const el = document.getElementById('xdeco'); if (!el) return;
+  const t = xTodNow, ev = t === 'evening'; let h = '';
+  if (XSNOW) {
+    if (ev) h += '<div class="xaur"></div><div class="xaur b"></div>';
+    h += '<div class="xsun"></div>';
+    const n = ev ? 26 : t === 'day' ? 18 : 12;
+    for (let i = 0; i < n; i++) { const s = 3 + (i * 7) % 4, d = 7 + (i * 5) % 6, dl = (i * 3.7) % 12;
+      h += '<i class="xf" style="left:' + ((i * 37 + 11) % 100) + '%;width:' + s + 'px;height:' + s + 'px;animation-duration:' + d + 's;animation-delay:-' + dl.toFixed(1) + 's"></i>'; }
+    h += '<svg class="xsl" viewBox="0 0 96 22"><g fill="' + (ev ? '#E6F1FB' : '#185FA5') + '"><path d="M0 14q12 6 26 0l4-6-4 10H4z"/><circle cx="32" cy="9" r="2"/><path d="M40 10h14l-2 4H42zM62 10h14l-2 4H64zM84 10h10l-2 4h-6z"/></g></svg>';
+    h += xGround('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 60"><path d="M0 60V30Q100 14 200 26Q300 12 400 30V60Z" fill="' + (ev ? '#E6F1FB' : '#fff') + '"/>' +
+      '<path d="M300 34l9-22 9 22zM324 32l7-16 7 16zM40 36l8-20 8 20z" fill="' + (ev ? '#085041' : '#0F6E56') + '"/>' +
+      '<path d="M110 44V30l14-11 14 11v14z" fill="' + (ev ? '#185FA5' : '#85B7EB') + '"/><path d="M107 31l17-13 17 13" fill="none" stroke="#fff" stroke-width="3"/>' +
+      '<rect x="120" y="33" width="8" height="7" fill="' + (ev ? '#FAC775' : '#E6F1FB') + '"/></svg>');
+  } else {
+    const N = 16, Y = x => 5 + 13 * Math.abs(Math.sin(x * Math.PI / 25));
+    let d = ''; for (let x = 0; x <= 100; x += 1) d += (x ? 'L' : 'M') + x + ' ' + Y(x).toFixed(1);
+    h += '<svg class="xwire" viewBox="0 0 100 30" preserveAspectRatio="none"><path d="' + d + '" fill="none" stroke="' + (ev ? '#5a3a2a' : '#854F0B') + '" stroke-width="1" vector-effect="non-scaling-stroke"/></svg>';
+    const C = ['#FAC775', '#E24B4A', '#5DCAA5'];
+    for (let i = 0; i < N; i++) { const x = (i + .5) * 100 / N; h += '<i class="xl" style="left:' + x.toFixed(1) + '%;top:' + (Y(x) - 1).toFixed(0) + 'px;background:' + C[i % 3] + '"></i>'; }
+    const hut = ev ? '#5a3a2a' : t === 'day' ? '#993C1D' : '#BA7517', win = ev ? '#FAC775' : '#FAEEDA';
+    h += xGround('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 60"><path d="M10 60L40 30l30 30zM80 60l40-40 40 40zM170 60l30-30 30 30zM240 60l40-38 40 38zM330 60l30-28 30 28z" fill="' + hut + '"/>' +
+      '<rect x="110" y="46" width="20" height="11" fill="' + win + '" opacity="' + (ev ? 1 : .6) + '"/><rect x="270" y="47" width="20" height="10" fill="' + win + '" opacity="' + (ev ? 1 : .6) + '"/></svg>');
+  }
+  el.innerHTML = h;
+}
+function xGround(svg) { return '<div class="xgr" style="background-image:url(&quot;data:image/svg+xml,' + encodeURIComponent(svg) + '&quot;)"></div>'; }
+function xApplyTod() {
+  const t = xTod(); if (t === xTodNow) return;
+  xTodNow = t; ['morning', 'day', 'evening'].forEach(k => document.body.classList.toggle('xm-' + k, k === t));
+  xBuild(); sceneNow = ''; if (slides[idx]) setScene(sceneFor(slides[idx]));
+}
+function xPerches() {
+  const g = document.querySelector('.metal.gold'), w = document.querySelector('#wxCard .stat.aqi');
+  const snowman = '<svg class="xperch" viewBox="0 0 50 62"><circle cx="25" cy="46" r="13" fill="#fff" stroke="#85B7EB"/><circle cx="25" cy="24" r="9" fill="#fff" stroke="#85B7EB"/><circle cx="22" cy="22" r="1.3" fill="#2C2C2A"/><circle cx="28" cy="22" r="1.3" fill="#2C2C2A"/><path d="M25 25l6 1-6 1z" fill="#EF9F27"/><path d="M17 15h16l-3-10h-10z" fill="#2C2C2A"/><rect x="15" y="14" width="20" height="3" fill="#2C2C2A"/><rect x="18" y="31" width="14" height="3" fill="#E24B4A"/><path d="M31 31q8 2 12 0l-1 4q-6 2-11 0z" fill="#E24B4A"><animateTransform attributeName="transform" type="rotate" values="0 31 32;-15 31 32;0 31 32" dur="1.5s" repeatCount="indefinite"/></path></svg>';
+  const bear = '<svg class="xperch" viewBox="0 0 64 54"><ellipse cx="34" cy="38" rx="24" ry="14" fill="#fff" stroke="#85B7EB"/><circle cx="16" cy="24" r="12" fill="#fff" stroke="#85B7EB"/><circle cx="8" cy="14" r="4" fill="#fff" stroke="#85B7EB"/><circle cx="22" cy="13" r="4" fill="#fff" stroke="#85B7EB"/><circle cx="13" cy="22" r="1.4" fill="#2C2C2A"/><circle cx="20" cy="22" r="1.4" fill="#2C2C2A"/><circle cx="16" cy="28" r="1.6" fill="#2C2C2A"/><g class="xbear-mask" style="display:none"><rect x="9" y="26" width="15" height="7" rx="2" fill="#85B7EB"/><line x1="9" y1="28" x2="4" y2="24" stroke="#85B7EB"/><line x1="24" y1="28" x2="28" y2="24" stroke="#85B7EB"/></g></svg>';
+  const gift = '<svg class="xperch" viewBox="0 0 46 46"><rect x="6" y="16" width="34" height="26" rx="3" fill="#A32D2D"/><rect x="4" y="11" width="38" height="8" rx="2" fill="#E24B4A"/><rect x="20" y="11" width="6" height="31" fill="#FAC775"/><path d="M23 11q-10-10-12-2q4 4 12 2q10-10 12-2q-4 4-12 2" fill="#FAC775"><animateTransform attributeName="transform" type="translate" values="0 0;0 -2;0 0" dur="1.8s" repeatCount="indefinite"/></path></svg>';
+  const lantern = '<svg class="xperch" viewBox="0 0 44 64"><line x1="22" y1="0" x2="22" y2="8" stroke="#854F0B"/><path d="M14 8h16l-2 6H16z" fill="#633806"/><rect x="12" y="14" width="20" height="30" rx="3" fill="#EF9F27" opacity=".3"/><rect x="12" y="14" width="20" height="30" rx="3" fill="none" stroke="#633806" stroke-width="2"/><circle class="xlamp" cx="22" cy="29" r="7" fill="#1D9E75"><animate attributeName="r" values="6;8;6" dur="1.8s" repeatCount="indefinite"/></circle><path d="M14 44h16l-3 5H17z" fill="#633806"/></svg>';
+  if (g && !g.querySelector('.xperch')) g.insertAdjacentHTML('beforeend', XSNOW ? snowman : gift);
+  if (w && !w.querySelector('.xperch')) w.insertAdjacentHTML('beforeend', XSNOW ? bear : lantern);
+}
+function xPops() {
+  if (!XM) return;
+  document.querySelectorAll('.slide .tile').forEach(t => {
+    const c = t.querySelector('.chg'), hd = t.querySelector('.hd'), old = t.querySelector('.xpop');
+    const m = c && c.textContent.match(/(\d+(?:\.\d+)?)\s*%/), big = !!(c && hd && c.classList.contains('up') && m && parseFloat(m[1]) >= 3);
+    if (!big) { if (old) old.remove(); return; }
+    if (old) return;
+    hd.style.position = 'relative';
+    hd.insertAdjacentHTML('beforeend', '<svg class="xpop" viewBox="0 0 34 36">' + (XSNOW ? X_GIFT : X_GINGER) + '</svg>');
+  });
+  const a = parseFloat((document.getElementById('wAqi') || {}).textContent), mk = document.querySelector('.xbear-mask');
+  if (mk) mk.style.display = a > 100 ? '' : 'none';
+  const lp = document.querySelector('.xlamp'); if (lp && isFinite(a)) lp.setAttribute('fill', a <= 100 ? '#1D9E75' : a <= 200 ? '#EF9F27' : '#E24B4A');
+  xPause();
+}
+function xSpotBuild() {
+  const sp = document.getElementById('xSpot'); if (!sp) return;
+  const roof = XSNOW
+    ? '<path d="M0 40L20 26L40 40Z" fill="#185FA5"/><path d="M2 39L20 27L38 39" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><rect class="xwin" x="16" y="33" width="7" height="6" fill="#FAC775"/><rect x="28" y="20" width="8" height="14" fill="#A32D2D"/><rect x="26" y="17" width="12" height="4" rx="1" fill="#fff"/>'
+    : '<path d="M2 40V32L20 22L38 32V40Z" fill="#5a3a2a"/><path d="M0 33L20 21L40 33" fill="none" stroke="#A32D2D" stroke-width="3"/><rect class="xwin" x="14" y="31" width="10" height="8" fill="#FAC775"/><rect x="28" y="16" width="8" height="14" fill="#854F0B"/><rect x="26" y="13" width="12" height="4" rx="1" fill="#633806"/>';
+  const cap = XSNOW ? 17 : 13;
+  const santa = '<g clip-path="url(#xclip)"><g class="xsanta"><rect x="27" y="' + (cap - 12) + '" width="10" height="9" rx="2" fill="#E24B4A"/><circle cx="32" cy="' + (cap - 15) + '" r="3.2" fill="#F5C4B3"/><path d="M29 ' + (cap - 15) + 'q3 5 6 0q-1 4-3 4.5q-2-.5-3-4.5" fill="#fff"/><path d="M29 ' + (cap - 18) + 'h7l-2-6-3-1z" fill="#E24B4A"/><circle cx="30" cy="' + (cap - 25) + '" r="1.3" fill="#fff"/>' +
+    (XSNOW ? '' : '<rect x="36" y="' + (cap - 10) + '" width="6" height="6" fill="#1D9E75"/><rect x="38.4" y="' + (cap - 10) + '" width="1.2" height="6" fill="#FAC775"/>') + '</g></g>';
+  const puff = '<g class="xpuff" fill="' + (XSNOW ? '#D3D1C7' : '#FAC775') + '"><circle cx="32" cy="' + (cap - 3) + '" r="' + (XSNOW ? 4 : 1.6) + '"/><circle cx="36" cy="' + (cap - 6) + '" r="' + (XSNOW ? 3 : 1.3) + '"/><circle cx="28" cy="' + (cap - 7) + '" r="' + (XSNOW ? 2.5 : 1.3) + '"/></g>';
+  const car = '<g class="xcar"><path d="M8 18L23 8L38 18Z" fill="#A32D2D"/><rect x="8" y="18" width="30" height="2.5" fill="#FAC775"/><line x1="23" y1="8" x2="23" y2="38" stroke="#EF9F27" stroke-width="1.5"/><rect x="7" y="37" width="32" height="3" rx="1" fill="#854F0B"/>' +
+    '<g><line x1="13" y1="20" x2="13" y2="29" stroke="#EF9F27"/><ellipse cx="13" cy="31" rx="4" ry="2.6" fill="#FAEEDA"/><animateTransform attributeName="transform" type="translate" values="0 0;20 -1;0 0" dur="4s" repeatCount="indefinite"/></g>' +
+    '<g><line x1="33" y1="20" x2="33" y2="31" stroke="#EF9F27"/><ellipse cx="33" cy="33" rx="4" ry="2.6" fill="#E24B4A"/><animateTransform attributeName="transform" type="translate" values="0 0;-20 1;0 0" dur="4s" repeatCount="indefinite"/></g></g>';
+  sp.innerHTML = '<svg viewBox="0 0 46 40"><defs><clipPath id="xclip"><rect x="-40" y="-200" width="140" height="' + (200 + cap) + '"/></clipPath></defs><g class="xroof">' + roof + '</g>' + santa + puff + car + '</svg>';
+}
+function xDrop() {
+  const sp = document.getElementById('xSpot'); if (!sp || DEV.still) return;
+  sp.classList.remove('drop'); void sp.offsetWidth; sp.classList.add('drop');
+  clearTimeout(xDropT); xDropT = setTimeout(() => sp.classList.remove('drop'), 7000);
+}
+function xFireworks(y) {
+  const fw = document.getElementById('xfw'); if (!fw) return;
+  const C = ['#FAC775', '#ED93B1', '#5DCAA5', '#85B7EB', '#F0997B'], P = [[70, 90], [230, 70], [150, 40], [60, 300], [240, 280]];
+  let s = '<svg viewBox="0 0 300 400" preserveAspectRatio="xMidYMid slice">';
+  P.forEach(([x, yy], k) => { let rays = ''; for (let a = 0; a < 12; a++) { const r = a * Math.PI / 6; rays += '<line x1="0" y1="0" x2="' + (26 * Math.cos(r)).toFixed(1) + '" y2="' + (26 * Math.sin(r)).toFixed(1) + '"/>'; }
+    const b = (k * .55).toFixed(2) + 's';
+    s += '<g transform="translate(' + x + ' ' + yy + ')"><g stroke="' + C[k] + '" stroke-width="2.4" stroke-linecap="round">' + rays +
+      '<animateTransform attributeName="transform" type="scale" values="0.1;1;1.15" dur="1.8s" begin="' + b + '" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;0" dur="1.8s" begin="' + b + '" repeatCount="indefinite"/></g></g>'; });
+  fw.innerHTML = s + '</svg><div class="xny">🎆 Happy New Year ' + y + '</div>';
+  fw.classList.add('on'); xPause();
+}
+function xPause() {
+  document.querySelectorAll('.xperch, .xpop, .xspot svg, .xfw svg, #nScene svg').forEach(s => { try { DEV.still ? s.pauseAnimations() : s.unpauseAnimations(); } catch (e) {} });
+}
+function xStill() { document.body.classList.toggle('xstill', !!DEV.still); xPause(); drawSpark(); }
+function xTick() {
+  const p = xIst(), test = XQ.get('xtest');
+  if (p.s === 0) xApplyTod();
+  const hr = p.md + ' ' + p.h;
+  if (p.mi === 0 && p.s < 5 && xLastDrop !== hr && mode !== 'night') { xLastDrop = hr; xDrop(); }
+  if (test === 'drop' && p.s % 12 === 0) xDrop();
+  const fw = document.getElementById('xfw'), nye = (p.md === '01-01' && p.h === 0 && p.mi === 0) || test === 'fw';
+  if (nye && !fw.classList.contains('on')) xFireworks(p.md === '01-01' ? p.y : p.y + 1);
+  if (!nye && fw.classList.contains('on')) { fw.classList.remove('on'); fw.innerHTML = ''; }
+  const eve = p.md === '12-24' || p.md === '12-25' || test === 'eve';
+  if (eve !== document.body.classList.contains('xeve')) { document.body.classList.toggle('xeve', eve); renderPan(); }
+}
+if (XM) {
+  document.getElementById('nScene').innerHTML = XSNOW
+    ? '<svg viewBox="0 0 1000 600" preserveAspectRatio="xMidYMax slice" style="width:100%;height:100%"><g fill="#E6F1FB"><circle cx="80" cy="60" r="1.6"/><circle cx="260" cy="40" r="1.4"/><circle cx="520" cy="70" r="1.8"/><circle cx="700" cy="30" r="1.4"/><circle cx="900" cy="80" r="1.6"/><circle cx="380" cy="140" r="1.2"/></g>' +
+      '<path d="M0 170Q250 90 500 150T1000 120" fill="none" stroke="#5DCAA5" stroke-width="44" opacity=".16" stroke-linecap="round"><animate attributeName="d" values="M0 170Q250 90 500 150T1000 120;M0 130Q250 200 500 120T1000 170;M0 170Q250 90 500 150T1000 120" dur="16s" repeatCount="indefinite"/></path>' +
+      '<path d="M0 220Q300 160 560 210T1000 190" fill="none" stroke="#7F77DD" stroke-width="30" opacity=".13" stroke-linecap="round"><animate attributeName="d" values="M0 220Q300 160 560 210T1000 190;M0 190Q300 250 560 180T1000 230;M0 220Q300 160 560 210T1000 190" dur="21s" repeatCount="indefinite"/></path>' +
+      '<path d="M0 600V540Q250 500 500 530Q760 495 1000 525V600Z" fill="#0C447C"/><g fill="#04223f"><ellipse cx="300" cy="532" rx="34" ry="13"/><circle cx="272" cy="522" r="10"/><path d="M268 514l-8-16M272 513l2-16" stroke="#04223f" stroke-width="3"/><ellipse cx="700" cy="526" rx="34" ry="13"/><circle cx="728" cy="516" r="10"/><path d="M732 508l8-16M728 507l-2-16" stroke="#04223f" stroke-width="3"/></g>' +
+      '<text x="330" y="500" font-size="22" fill="#378ADD" font-family="sans-serif">z<animate attributeName="opacity" values="0;1;0" dur="3s" repeatCount="indefinite"/></text></svg>'
+    : '<svg viewBox="0 0 1000 600" preserveAspectRatio="xMidYMax slice" style="width:100%;height:100%"><circle cx="830" cy="110" r="34" fill="#FAEEDA" opacity=".55"/><g fill="#FAEEDA" opacity=".7"><circle cx="120" cy="70" r="1.6"/><circle cx="330" cy="110" r="1.4"/><circle cx="560" cy="50" r="1.6"/></g>' +
+      '<g fill="#3a2028"><path d="M40 600V510L150 450L260 510V600ZM300 600V500L410 440L520 500V600ZM560 600V515L670 455L780 515V600Z"/></g>' +
+      '<g stroke="#2a1220" stroke-width="4"><path d="M70 530H230M70 552H230M70 574H230M330 522H490M330 544H490M330 566H490M590 536H750M590 558H750M590 580H750"/></g>' +
+      '<line x1="280" y1="600" x2="280" y2="400" stroke="#3a2028" stroke-width="7"/><circle cx="280" cy="392" r="12" fill="#EF9F27"><animate attributeName="opacity" values="0.4;0.75;0.4" dur="4s" repeatCount="indefinite"/></circle>' +
+      '<path d="M0 420Q250 450 500 420T1000 420" fill="none" stroke="#3a2028" stroke-width="2"/><g opacity=".45"><circle cx="120" cy="432" r="5" fill="#FAC775"/><circle cx="380" cy="433" r="5" fill="#E24B4A"/><circle cx="620" cy="432" r="5" fill="#5DCAA5"/><circle cx="880" cy="433" r="5" fill="#FAC775"/></g></svg>';
+  document.body.classList.toggle('xstill', !!DEV.still);
+  xPerches(); xSpotBuild(); xApplyTod(); xPops(); xTick(); renderPan();
+  setInterval(xTick, 1000);
+}
 // on the focus screen a tap only reminds how to end it; press and hold ends it
 var FHOLD = null;
 function focusHint() { const h = document.getElementById('nHint'); h.classList.add('on'); clearTimeout(h._t); h._t = setTimeout(() => h.classList.remove('on'), 2500); }
@@ -3228,7 +3457,8 @@ function renderSettings() {
     sec_('dev', 'This screen only', [DEV.auto && 'Auto mode', DEV.loc && 'Follows location', DEV.fx && 'Effects'].filter(Boolean).join(' · ') || 'All off', '',
       chk('data-dev', 'auto', 'Auto stock mode', DEV.auto, 'Switch to Indian / US stock slides when that market opens') +
       chk('data-dev', 'loc', 'Follow my location', DEV.loc, 'Weather and local news for where this device is') +
-      chk('data-dev', 'fx', 'Anime effects', DEV.fx, 'Rain, petals and scanlines in the Anime 90s theme')) +
+      chk('data-dev', 'fx', 'Anime effects', DEV.fx, 'Rain, petals and scanlines in the Anime 90s theme') +
+      (XMAS_ON ? chk('data-dev', 'still', 'Calm winter scenery', !!DEV.still, 'Winter themes: keep the scenery, stop the movement') : '')) +
     sec_('data', 'Data', (() => { const xs = RUN.map(([k]) => runs[k]).filter(Boolean), bad = xs.filter(x => !x.ok).length;
         return !FEED ? 'No data yet' : feedSavedAt ? '<span class="bad">Server unreachable</span>' : bad ? '<span class="bad">' + bad + ' failing</span>' : '<span class="ok">All updating</span>'; })(), ' wide',
       '<div class="runs">' +
@@ -3266,6 +3496,7 @@ function renderSettings() {
       document.body.classList.toggle('nofx', !DEV.fx);
       if (el.dataset.dev === 'auto' && DEV.auto) { lastAuto = null; autoView(); }
       if (el.dataset.dev === 'loc') checkLocation();
+      if (el.dataset.dev === 'still') xStill();
     }
   });
   panel.addEventListener('click', async e => {
@@ -3426,6 +3657,8 @@ function renderPan() {
     const bits = [];
     if (todayF.length) bits.push('<b>🪔 ' + todayF.join(' · ') + ' today</b>');
     else if (panToday.obs) bits.push('<b>🪔 ' + panToday.obs + ' today</b>');
+    if (XM && document.body.classList.contains('xeve')) { const x = '<b>🎄 ' + (xIst().md === '12-24' ? 'Christmas Eve' : 'Merry Christmas') + '</b>';
+      if (todayF.length || panToday.obs) bits[0] = x; else bits.unshift(x); }
     if (next) { const n = (next[0] - d0) / 864e5; bits.push(next[1].split(' · ')[0] + (n === 1 ? ' tomorrow' : ' in ' + n + ' days')); }
     // line 1 (next to the date): what's special today / coming up · line 2: the Hindu date
     const pf = document.getElementById("panF"); pf.innerHTML = '';
