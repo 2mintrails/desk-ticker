@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v21.0-2026-11-24">
+<meta name="ticker-version" content="v21.1-2026-11-24">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1243,7 +1243,7 @@
   body.xmas .xperch{display:block;position:absolute;pointer-events:none;z-index:1;width:clamp(30px,8vh,44px);height:auto}
   body.xmas .metal.gold .xperch{top:12px;right:12px}
   body.xmas .stat.aqi{position:relative} body.xmas .stat.aqi .xperch{bottom:6px;right:8px;width:clamp(26px,6.5vh,38px)}
-  body.xmarket .app{padding-top:max(26px,env(safe-area-inset-top))}   /* room for the fairy lights on screens without a notch */
+  @media (orientation:portrait){ body.xmarket .app{padding-top:max(26px,env(safe-area-inset-top))} }   /* room for the fairy lights on screens without a notch */
   .xpop{display:none} body.xmas .xpop{display:block;position:absolute;left:12px;top:-9px;width:20px;height:22px;pointer-events:none}
   body.xmas .xspot{display:block;flex:none;position:relative;width:46px;height:20px;margin:-6px 0 -2px}
   .xspot svg{position:absolute;left:0;bottom:-4px;width:46px;height:40px;overflow:visible}
@@ -2201,22 +2201,29 @@ function drawChart(c) {
   svg.innerHTML =
     `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity="${THEME === 'calm' ? .12 : .28}"/>` +
     `<stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>` +
-    (prev != null ? `<line x1="${padL}" x2="${W - padR}" y1="${Y(prev)}" y2="${Y(prev)}" stroke="var(--grid,rgba(255,255,255,.25))" stroke-dasharray="4 5"/>` +
-      `<text x="${W - padR}" y="${Y(prev) - 6}" text-anchor="end" fill="var(--gridtxt,rgba(255,255,255,.45))" font-size="11" font-family="Manrope, Space Grotesk">Prev close ${prev.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</text>` : '') +
+    (prev != null ? `<line x1="${padL}" x2="${W - padR}" y1="${Y(prev)}" y2="${Y(prev)}" stroke="var(--grid,rgba(255,255,255,.25))" stroke-dasharray="4 5"/>` : '') +
     (solid.length > 1 ? `<path d="${line} L${X(sl[0]).toFixed(1)} ${H - padB} L${X(pts[0][0]).toFixed(1)} ${H - padB} Z" fill="url(#${gid})"/>` : '') +
     gap + tail +
     `<path id="xp-${c.svg}" d="${line}" fill="none" stroke="${col}" stroke-width="${THEME === 'calm' ? 1.8 : 2.5}" stroke-linejoin="round" stroke-linecap="round"/>` +
-    (XM && solid.length > 1 ? xRider(c.svg, up, prev ? Math.abs(live / prev - 1) * 100 : 0, X(sl[0]), Y(sl[1])) : '') +
+    (XM && solid.length > 1 ? xRider(c.svg, up, prev ? Math.abs(live / prev - 1) * 100 : 0, solid.map(p => [X(p[0]), Y(p[1])])) : '') +
     (open ? `<circle class="ring" cx="${lx}" cy="${ly}" r="5" fill="${col}"/>` : '') +
     `<circle cx="${lx}" cy="${ly}" r="5.5" fill="${col}" stroke="#0b0d12" stroke-width="2"/>` +
+    (prev != null ? `<text x="${W - padR}" y="${Y(prev) - 6}" text-anchor="end" fill="var(--gridtxt,rgba(255,255,255,.45))" font-size="11" font-family="Manrope, Space Grotesk"${XM ? ' paint-order="stroke" stroke="rgba(255,255,255,.85)" stroke-width="3"' : ''}>Prev close ${prev.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</text>` : '') +
     c.ticks(c).map(([m, t]) => tick(m, t)).join('');
 }
 // winter themes: Santa (down days) / reindeer pulling Santa (up days) / a toy train rides the line; steeper day = faster ride
-function xRider(id, up, pct, ex, ey) {
-  const shape = XSNOW ? (up ? X_REIN : X_SANTA) : X_TRAIN;
-  if (DEV.still) return `<g transform="translate(${ex.toFixed(1)} ${ey.toFixed(1)})">${shape}</g>`;
-  const dur = Math.max(4, Math.min(10, 9 - pct * 2)).toFixed(1);
-  return `<g>${shape}<animateMotion dur="${dur}s" repeatCount="indefinite" rotate="auto"><mpath href="#xp-${id}"/></animateMotion></g>`;
+function xRider(id, up, pct, pts) {
+  const shape = XSNOW ? (up ? X_REIN : X_SANTA) : X_TRAIN, e = pts[pts.length - 1];
+  if (DEV.still) return `<g transform="translate(${e[0].toFixed(1)} ${e[1].toFixed(1)})">${shape}</g>`;
+  const n = Math.min(12, pts.length), k = [];
+  for (let b = 0; b < n; b++) { const a0 = Math.floor(b * pts.length / n), a1 = Math.max(a0 + 1, Math.floor((b + 1) * pts.length / n)), seg = pts.slice(a0, a1);
+    k.push([seg.reduce((t, p) => t + p[0], 0) / seg.length, seg.reduce((t, p) => t + p[1], 0) / seg.length]); }
+  k[0] = pts[0]; k[k.length - 1] = e;
+  let d = 'M' + k[0][0].toFixed(1) + ' ' + k[0][1].toFixed(1);
+  for (let q = 0; q < k.length - 1; q++) { const p0 = k[q - 1] || k[q], p1 = k[q], p2 = k[q + 1], p3 = k[q + 2] || p2;
+    d += 'C' + (p1[0] + (p2[0] - p0[0]) / 6).toFixed(1) + ' ' + (p1[1] + (p2[1] - p0[1]) / 6).toFixed(1) + ' ' + (p2[0] - (p3[0] - p1[0]) / 6).toFixed(1) + ' ' + (p2[1] - (p3[1] - p1[1]) / 6).toFixed(1) + ' ' + p2[0].toFixed(1) + ' ' + p2[1].toFixed(1); }
+  const dur = pct >= 2 ? 4.5 : pct >= 1 ? 6 : pct >= 0.5 ? 7.5 : 9;
+  return `<path id="xs-${id}" d="${d}" fill="none" stroke="none"/><g>${shape}<animateMotion dur="${dur}s" repeatCount="indefinite" rotate="auto"><mpath href="#xs-${id}"/></animateMotion></g>`;
 }
 function drawSpark() {           // both charts (kept under this name; many places call it)
   CHARTS.nifty.live = lastLive; CHARTS.nifty.prev = lastPrev;
