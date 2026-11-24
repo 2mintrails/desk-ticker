@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v21.1-2026-11-24">
+<meta name="ticker-version" content="v21.2-2026-11-24">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1223,9 +1223,9 @@
   @keyframes xsl{0%{opacity:1;transform:translate(-120px,4vh)}34%{opacity:1;transform:translate(calc(100vw + 20px),-2vh)}35%,100%{opacity:0;transform:translate(calc(100vw + 20px),-2vh)}}
   /* cards: opaque enough to read on any sky; snow drift (snowy) or a striped awning (market) along the top */
   body.amb.xsnow .card{background-color:rgba(255,255,255,.94)!important;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'%3E%3Cpath d='M0 0H200V5Q190 11 178 7Q160 12 140 6Q120 11 100 7Q80 12 60 6Q40 11 20 7Q8 11 0 5Z' fill='%23E6F1FB'/%3E%3Cpath d='M0 5Q8 11 20 7Q40 11 60 6Q80 12 100 7Q120 11 140 6Q160 12 178 7Q190 11 200 5' fill='none' stroke='%2385B7EB' stroke-width='1'/%3E%3C/svg%3E")!important;
-    background-repeat:no-repeat!important;background-size:100% 12px!important;background-position:top!important;backdrop-filter:none;-webkit-backdrop-filter:none}
-  body.amb.xmarket .card{background-color:rgba(250,238,218,.97)!important;background-image:repeating-linear-gradient(90deg,#A32D2D 0 18px,#FAEEDA 18px 36px)!important;
     background-repeat:no-repeat!important;background-size:100% 8px!important;background-position:top!important;backdrop-filter:none;-webkit-backdrop-filter:none}
+  body.amb.xmarket .card{background-color:rgba(250,238,218,.97)!important;background-image:repeating-linear-gradient(90deg,#A32D2D 0 18px,#FAEEDA 18px 36px)!important;
+    background-repeat:no-repeat!important;background-size:100% 5px!important;background-position:top!important;backdrop-filter:none;-webkit-backdrop-filter:none}
   body.amb.xmarket .tile:nth-child(even){background-image:repeating-linear-gradient(90deg,#0F6E56 0 14px,#FAEEDA 14px 28px)!important}
   body.amb.xmas .metal::before{display:none}
   body.amb.xmas .stat, body.amb.xmas .hr{background:rgba(15,23,42,.05)}
@@ -1245,7 +1245,7 @@
   body.xmas .stat.aqi{position:relative} body.xmas .stat.aqi .xperch{bottom:6px;right:8px;width:clamp(26px,6.5vh,38px)}
   @media (orientation:portrait){ body.xmarket .app{padding-top:max(26px,env(safe-area-inset-top))} }   /* room for the fairy lights on screens without a notch */
   .xpop{display:none} body.xmas .xpop{display:block;position:absolute;left:12px;top:-9px;width:20px;height:22px;pointer-events:none}
-  body.xmas .xspot{display:block;flex:none;position:relative;width:46px;height:20px;margin:-6px 0 -2px}
+  body.xmas .footrow{position:relative} body.xmas .xspot{display:block;position:absolute;left:0;bottom:2px;width:46px;height:20px;pointer-events:none}   /* out of the flow: takes no height from the cards */
   .xspot svg{position:absolute;left:0;bottom:-4px;width:46px;height:40px;overflow:visible}
   .xspot .xcar{display:none} body.xmarket.xnews .xspot:not(.drop) .xcar{display:block} body.xmarket.xnews .xspot:not(.drop) .xroof{display:none}
   .xspot .xsanta{transform:translateY(-80px)} .xspot:not(.drop) .xsanta{visibility:hidden}
@@ -2205,25 +2205,49 @@ function drawChart(c) {
     (solid.length > 1 ? `<path d="${line} L${X(sl[0]).toFixed(1)} ${H - padB} L${X(pts[0][0]).toFixed(1)} ${H - padB} Z" fill="url(#${gid})"/>` : '') +
     gap + tail +
     `<path id="xp-${c.svg}" d="${line}" fill="none" stroke="${col}" stroke-width="${THEME === 'calm' ? 1.8 : 2.5}" stroke-linejoin="round" stroke-linecap="round"/>` +
-    (XM && solid.length > 1 ? xRider(c.svg, up, prev ? Math.abs(live / prev - 1) * 100 : 0, solid.map(p => [X(p[0]), Y(p[1])])) : '') +
     (open ? `<circle class="ring" cx="${lx}" cy="${ly}" r="5" fill="${col}"/>` : '') +
     `<circle cx="${lx}" cy="${ly}" r="5.5" fill="${col}" stroke="#0b0d12" stroke-width="2"/>` +
     (prev != null ? `<text x="${W - padR}" y="${Y(prev) - 6}" text-anchor="end" fill="var(--gridtxt,rgba(255,255,255,.45))" font-size="11" font-family="Manrope, Space Grotesk"${XM ? ' paint-order="stroke" stroke="rgba(255,255,255,.85)" stroke-width="3"' : ''}>Prev close ${prev.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</text>` : '') +
     c.ticks(c).map(([m, t]) => tick(m, t)).join('');
+  if (XM && solid.length > 1) xRide(c.svg, up, prev ? Math.abs(live / prev - 1) * 100 : 0, solid.map(p => [X(p[0]), Y(p[1])]));
 }
 // winter themes: Santa (down days) / reindeer pulling Santa (up days) / a toy train rides the line; steeper day = faster ride
-function xRider(id, up, pct, pts) {
-  const shape = XSNOW ? (up ? X_REIN : X_SANTA) : X_TRAIN, e = pts[pts.length - 1];
-  if (DEV.still) return `<g transform="translate(${e[0].toFixed(1)} ${e[1].toFixed(1)})">${shape}</g>`;
-  const n = Math.min(12, pts.length), k = [];
+const xRides = {}; let xLoopOn = false, xLast = 0;
+function xRide(id, up, pct, pts) {
+  const svg = document.getElementById(id), line = document.getElementById('xp-' + id); if (!svg || !line) return;
+  const NS = 'http://www.w3.org/2000/svg';
+  let o = xRides[id];
+  if (!o) { o = xRides[id] = { path: document.createElementNS(NS, 'path'), g: document.createElementNS(NS, 'g'), p: 0, ang: null, shape: '', d: '' };
+    o.path.setAttribute('fill', 'none'); o.path.setAttribute('stroke', 'none'); o.g.setAttribute('opacity', '0'); }
+  const shape = XSNOW ? (up ? X_REIN : X_SANTA) : X_TRAIN;
+  if (shape !== o.shape) { o.shape = shape; o.g.innerHTML = shape; }
+  // the line averaged into ~12 points, with a soft curve through them
+  const n = Math.min(12, pts.length), k = [], e = pts[pts.length - 1];
   for (let b = 0; b < n; b++) { const a0 = Math.floor(b * pts.length / n), a1 = Math.max(a0 + 1, Math.floor((b + 1) * pts.length / n)), seg = pts.slice(a0, a1);
     k.push([seg.reduce((t, p) => t + p[0], 0) / seg.length, seg.reduce((t, p) => t + p[1], 0) / seg.length]); }
   k[0] = pts[0]; k[k.length - 1] = e;
   let d = 'M' + k[0][0].toFixed(1) + ' ' + k[0][1].toFixed(1);
   for (let q = 0; q < k.length - 1; q++) { const p0 = k[q - 1] || k[q], p1 = k[q], p2 = k[q + 1], p3 = k[q + 2] || p2;
     d += 'C' + (p1[0] + (p2[0] - p0[0]) / 6).toFixed(1) + ' ' + (p1[1] + (p2[1] - p0[1]) / 6).toFixed(1) + ' ' + (p2[0] - (p3[0] - p1[0]) / 6).toFixed(1) + ' ' + (p2[1] - (p3[1] - p1[1]) / 6).toFixed(1) + ' ' + p2[0].toFixed(1) + ' ' + p2[1].toFixed(1); }
-  const dur = pct >= 2 ? 4.5 : pct >= 1 ? 6 : pct >= 0.5 ? 7.5 : 9;
-  return `<path id="xs-${id}" d="${d}" fill="none" stroke="none"/><g>${shape}<animateMotion dur="${dur}s" repeatCount="indefinite" rotate="auto"><mpath href="#xs-${id}"/></animateMotion></g>`;
+  if (d !== o.d) { o.d = d; o.path.setAttribute('d', d); }
+  o.dur = pct >= 2 ? 4.5 : pct >= 1 ? 6 : pct >= 0.5 ? 7.5 : 9;
+  line.after(o.path, o.g);                          // back into the redrawn chart, under its labels, same position as before
+  xStep(o, 0);
+  if (!xLoopOn) { xLoopOn = true; requestAnimationFrame(xLoop); }
+}
+function xStep(o, dt) {
+  const L = o.path.getTotalLength(); if (!L) return;
+  o.p = DEV.still ? 1 : (o.p + dt / o.dur) % 1;
+  const s = Math.min(o.p * L, L - .01), a = o.path.getPointAtLength(s), f = o.path.getPointAtLength(Math.min(L, s + 10)), b = o.path.getPointAtLength(Math.max(0, s - 10));
+  const tgt = Math.atan2(f.y - b.y, f.x - b.x) * 180 / Math.PI;
+  o.ang = o.ang == null || dt === 0 && o.p < .02 ? tgt : o.ang + (tgt - o.ang) * Math.min(1, dt * 5);   // angle eases into turns
+  o.g.setAttribute('transform', 'translate(' + a.x.toFixed(1) + ' ' + a.y.toFixed(1) + ') rotate(' + o.ang.toFixed(1) + ')');
+  o.g.setAttribute('opacity', DEV.still ? '1' : Math.min(1, o.p * 25, (1 - o.p) * 25).toFixed(2));   // fades in at the start, out at the end
+}
+function xLoop(t) {
+  const dt = xLast ? Math.min(.1, (t - xLast) / 1000) : 0; xLast = t;
+  if (!document.hidden) for (const id in xRides) { const o = xRides[id]; if (o.g.isConnected && o.g.closest('.slide.active')) xStep(o, dt); }
+  requestAnimationFrame(xLoop);
 }
 function drawSpark() {           // both charts (kept under this name; many places call it)
   CHARTS.nifty.live = lastLive; CHARTS.nifty.prev = lastPrev;
@@ -3278,7 +3302,7 @@ function xFireworks(y) {
   fw.classList.add('on'); xPause();
 }
 function xPause() {
-  document.querySelectorAll('.xperch, .xpop, .xspot svg, .xfw svg, #nScene svg').forEach(s => { try { DEV.still ? s.pauseAnimations() : s.unpauseAnimations(); } catch (e) {} });
+  document.querySelectorAll('.xperch, .xpop, .xspot svg, .xfw svg, #nScene svg, #sparkSvg, #spxSvg').forEach(s => { try { DEV.still ? s.pauseAnimations() : s.unpauseAnimations(); } catch (e) {} });
 }
 function xStill() { document.body.classList.toggle('xstill', !!DEV.still); xPause(); drawSpark(); }
 function xTick() {
