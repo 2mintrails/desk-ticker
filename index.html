@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v20.5-2026-11-24">
+<meta name="ticker-version" content="v20.6-2026-11-24">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -2540,7 +2540,7 @@ function renderMood(M) {
     const t = ok ? new Date(x.at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }).replace(/\s?(am|pm)/i, m => ' ' + m.trim().toLowerCase()) : '';
     box.innerHTML = !ok ? '' : '<div class="r"><b>Trend</b><span class="t1">' + esc(x.trend) + '</span></div>' +
       (x.why ? '<div class="r"><b>Why</b><span class="t1">' + esc(x.why) + '</span></div>' : '') +
-      '<div class="foot">Summary of the day\'s market news · ' + (x.final ? 'final, after the ' + (box.dataset.mood === 'us' ? 'US ' : '') + 'close' : 'updated ' + t) + '</div>';
+      '<div class="foot">' + (x.redo ? 'Summary of the last session\'s market news' : 'Summary of the day\'s market news · ' + (x.final ? 'final, after the ' + (box.dataset.mood === 'us' ? 'US ' : '') + 'close' : 'updated ' + t)) + '</div>';
     box.hidden = !ok; if (card) card.classList.toggle('has-why', !!ok); if (sec) sec.classList.toggle('has-why', !!ok);
   });
 }

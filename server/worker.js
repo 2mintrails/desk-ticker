@@ -484,12 +484,20 @@ const OUTLOOK = /\b((gold|silver|bullion|price|prices)( price)? (outlook|forecas
 /* ---------------- market mood: the trend and the why, in words, for India (Nifty) and the US (S&P 500) ---------------- */
 function nyParts(t) { const o = {}; new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour12: false, weekday: 'short', hour: 'numeric', minute: 'numeric' })
   .formatToParts(new Date(t)).forEach(x => o[x.type] = x.value); return { wd: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(o.weekday), m: (+o.hour % 24) * 60 + +o.minute }; }
+// exchange holidays (same lists as the app): no session, so the last session's summary is kept as-is
+const NSE_HOL = new Set(['2026-01-15','2026-01-26','2026-03-03','2026-03-26','2026-03-31','2026-04-03','2026-04-14',
+  '2026-05-01','2026-05-28','2026-06-26','2026-09-14','2026-10-02','2026-10-20','2026-11-10','2026-11-24','2026-12-25']);
+const NYSE_HOL = new Set(['2026-01-01','2026-01-19','2026-02-16','2026-04-03','2026-05-25','2026-06-19','2026-07-03',
+  '2026-09-07','2026-11-26','2026-12-25']);
+const exHoliday = (mkt, t) => (mkt === 'in' ? NSE_HOL : NYSE_HOL).has(new Date(t).toLocaleDateString('en-CA', { timeZone: mkt === 'in' ? 'Asia/Kolkata' : 'America/New_York' }));
 function sessionOpen(mkt, t) {
+  if (exHoliday(mkt, t)) return false;
   if (mkt === 'in') { const p = istParts(t), m = p.h * 60 + p.mi; return p.wd >= 1 && p.wd <= 5 && m >= 555 && m < 930; }
   const p = nyParts(t); return p.wd >= 1 && p.wd <= 5 && p.m >= 570 && p.m < 960;
 }
 // the summary stays "live" until 45 min after the close, so the final version is written once the closing-wrap articles are out
 function summaryLive(mkt, t) {
+  if (exHoliday(mkt, t)) return false;
   if (mkt === 'in') { const p = istParts(t), m = p.h * 60 + p.mi; return p.wd >= 1 && p.wd <= 5 && m >= 555 && m < 975; }
   const p = nyParts(t); return p.wd >= 1 && p.wd <= 5 && p.m >= 570 && p.m < 1005;
 }
@@ -532,27 +540,31 @@ async function jobMood(env) {
   for (const [mkt, key, sym, lab] of [['in', 'news_Markets', 'INDEXNSE:NIFTY_50', 'Nifty 50'], ['us', 'news_USMarkets', 'INDEXSP:.INX', 'S&P 500']]) {
     const cur = old[mkt], open = summaryLive(mkt, now), trading = sessionOpen(mkt, now);
     // while the market is open: refresh every 30 min; once it closes: one final version, then hold until the next session
-    const MOOD_V = 6, due = !cur || cur.v !== MOOD_V || (open ? now - cur.at > 30 * 60e3 || cur.final : !cur.final);
-    if (!due) { notes.push(mkt + ' kept (' + (cur.final ? 'final' : 'live') + ')'); continue; }
+    const MOOD_V = 6, hol = exHoliday(mkt, now), dayStart = sessionCutoff(mkt, now) - 7 * 3600e3;
+    // exchange holiday: keep the last session's summary; only if one was (wrongly) written today, redo it once from the last session's news
+    const due = hol ? !cur || (!cur.redo && cur.at >= dayStart) : !cur || cur.v !== MOOD_V || (open ? now - cur.at > 30 * 60e3 || cur.final : !cur.final);
+    if (!due) { notes.push(mkt + ' kept (' + (hol ? 'holiday' : cur.final ? 'final' : 'live') + ')'); continue; }
     // market-wrap headlines straight from the market feeds: ones that talk about the index or the market as a whole, newest first
     const feeds = mkt === 'in' ? [...FEEDS.Markets, ...FEEDS.MarketsMore] : FEEDS.USMarkets;
     const lists = await Promise.all(feeds.map(([u, s]) => readFeed(u, s)));
     const diag = feeds.map(([u, s], i) => s.replace(/\s+/g, '') + ':' + lists[i].length + '/' + lists[i].filter(x => x.t && x.t >= sessionCutoff(mkt, now)).length).join(' ');
-    const raw = lists.flat().filter(x => x.t && x.t >= Math.min(sessionCutoff(mkt, now), now - 2 * 3600e3) && now - x.t < 20 * 3600e3).sort((a, b) => b.t - a.t);
+    let cut = sessionCutoff(mkt, now);
+    if (hol) { cut -= 86400e3; while (!sessionOpen(mkt, cut + 3 * 3600e3)) cut -= 86400e3; }
+    const raw = lists.flat().filter(x => x.t && (hol ? x.t >= cut && x.t < dayStart : x.t >= Math.min(cut, now - 2 * 3600e3) && now - x.t < 20 * 3600e3)).sort((a, b) => b.t - a.t);
     const WRAP = mkt === 'in' ? /\b(sensex|nifty|gift nifty|dalal street|d-street|indian (stock |equity |share )?markets?|stock markets?|share markets?|markets? (today|live|close|closing|wrap|crash|fall|rally|update)|closing bell|opening bell|pre-?open|benchmarks?|fii|fpi|foreign (investors?|funds?)|bank nifty|midcaps?|smallcaps?|india vix)\b/i
                               : /\b(wall street|s&p( 500)?|nasdaq|dow( jones)?|us stocks|stock market|stocks (rise|fall|rally|slip|close|end|open|gain|drop)|market (today|close|wrap)|closing bell|treasur(y|ies) yields?|fed\b)/i;
     const seenT = new Set(), heads = raw.filter(x => WRAP.test(x.title) && (mkt === 'in' || (!US_JUNK.test(x.title) && !FOREIGN.test(x.title) && !/\b(thai|thailand|downer|asx|nzx|philippine|indonesia|malaysia|singapore|vietnam|poland|polish|brazil|mexic)/i.test(x.title) && !/\bvs\.? |better buy|dividend stocks|stocks? to (buy|watch)|should you buy|social security\b/i.test(x.title))) && !seenT.has(x.title.toLowerCase().slice(0, 50)) && seenT.add(x.title.toLowerCase().slice(0, 50)))
       .slice(0, 16).map(x => x.title);
     const pc = pct(sym), dir = pc == null || Math.abs(pc) < 0.15 ? 0 : Math.sign(pc);
-    const move = pc == null ? '' : lab + ' is ' + (dir === 0 ? 'roughly flat' : dir > 0 ? 'up' : 'down') + ' today' + (trading ? ' so far' : ' at the close') + '.';
+    const move = pc == null ? '' : lab + ' is ' + (dir === 0 ? 'roughly flat' : dir > 0 ? 'up' : 'down') + (hol ? ' in the last session (the market is shut today for a holiday)' : ' today' + (trading ? ' so far' : ' at the close')) + '.';
     if (heads.length < 2) {
       // too little fresh news to explain the day (often early on a Monday): say only the direction, no reason, rather than borrow old stories
       if (pc == null) { notes.push(mkt + ' too few fresh headlines'); continue; }
       const who = mkt === 'in' ? 'Indian shares' : 'Wall Street';
-      out[mkt] = { trend: who + (dir === 0 ? ' are steady' : dir > 0 ? ' are higher' : ' are lower') + (trading ? ' so far today' : ' today'), why: '', at: now, final: !open, v: MOOD_V };
+      out[mkt] = { trend: who + (dir === 0 ? ' are steady' : dir > 0 ? ' are higher' : ' are lower') + (hol ? ' in the last session' : trading ? ' so far today' : ' today'), why: '', at: now, final: !open, v: MOOD_V, redo: hol || undefined };
       notes.push(mkt + ' direction only (' + heads.length + ' fresh headlines) [' + diag + ']'); continue;
     }
-    try { const s = await moodSummary(env, mkt, heads, move, dir); out[mkt] = { ...s, at: now, final: !open, v: MOOD_V }; notes.push(mkt + (open ? ' live' : ' final') + ' (' + heads.length + ' headlines): ' + s.trend + ' | ' + (s.why || '-') + ' [' + diag + '] || ' + heads.slice(0, 6).map(h => h.slice(0, 60)).join(' ~ ')); }
+    try { const s = await moodSummary(env, mkt, heads, move, dir); out[mkt] = { ...s, at: now, final: !open, v: MOOD_V, redo: hol || undefined }; notes.push(mkt + (open ? ' live' : ' final') + ' (' + heads.length + ' headlines): ' + s.trend + ' | ' + (s.why || '-') + ' [' + diag + '] || ' + heads.slice(0, 6).map(h => h.slice(0, 60)).join(' ~ ')); }
     catch (e) { notes.push(mkt + ' AI failed: ' + String(e.message || e).slice(0, 80)); }
   }
   await dbPut(env, 'mood', out);
