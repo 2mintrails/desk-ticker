@@ -838,7 +838,17 @@ async function jobTech(env) {
       notes.push(k + ' ok' + fnote);
     } catch (e) { notes.push(k + ' failed: ' + String(e.message || e).slice(0, 40)); }
   }
-  Object.keys(out).forEach(k => { if (!want.some(x => tickKey(x.sym) === k)) delete out[k]; });   // drop stocks no longer in the list
+  Object.keys(out).forEach(k => { if (k !== '_mkt' && !want.some(x => tickKey(x.sym) === k)) delete out[k]; });   // drop stocks no longer in the list
+  // each market's own P/E, so a stock's P/E is judged against its market (Nifty 50 / S&P 500 index funds on Yahoo); once a day, keeps the last good value
+  const om = old._mkt || {}, mk = { ...om };
+  for (const [m, list] of [['in', ['NIFTYBEES.NS', 'SETFNIF50.NS']], ['us', ['SPY', 'VOO']]]) {
+    if (om[m] && now - om[m].at < 24 * 3600e3) continue;
+    for (const ys of list) {
+      try { const f = await fundamentals(env, ys); if (f.pe > 5 && f.pe < 80) { mk[m] = { pe: +f.pe.toFixed(2), at: now, src: ys }; break; } notes.push('mkt ' + ys + ' no P/E'); }
+      catch (e) { notes.push('mkt ' + ys + ': ' + String(e.message || e).slice(0, 30)); }
+    }
+  }
+  out._mkt = mk; notes.push('market P/E in ' + (mk.in ? mk.in.pe : '-') + ' us ' + (mk.us ? mk.us.pe : '-'));
   await dbPut(env, 'tech', out);
   return want.length + ' stocks, ' + stale.length + ' refreshed' + (notes.length ? ': ' + notes.join(', ') : '');
 }

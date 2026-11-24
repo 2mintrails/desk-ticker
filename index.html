@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v21.3-2026-11-24">
+<meta name="ticker-version" content="v21.4-2026-11-24">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -311,6 +311,9 @@
   .tag.hot{background:rgba(255,183,77,.15);color:#ffc977;border:1px solid rgba(255,183,77,.5)}
   .tag.weak{background:rgba(100,170,255,.14);color:#9cc8ff;border:1px solid rgba(100,170,255,.45)}
   .tag.mid{background:rgba(255,255,255,.06);color:#c9d1e6;border:1px solid rgba(255,255,255,.15)}
+  .tag.high{background:rgba(167,139,250,.15);color:#c4b5fd;border:1px solid rgba(167,139,250,.45)}
+  .tag.pricey{background:rgba(250,204,21,.12);color:#fde68a;border:1px solid rgba(250,204,21,.4)}
+  body.amb.light .tag.high{color:#5b21b6;background:rgba(139,92,246,.1)} body.amb.light .tag.pricey{color:#854d0e;background:rgba(234,179,8,.14)}
   body.amb.light .tag.good{color:#047857;background:rgba(16,185,129,.12)} body.amb.light .tag.hot{color:#b45309;background:rgba(245,158,11,.12)}
   body.amb.light .tag.weak{color:#1d4ed8;background:rgba(59,130,246,.1)} body.amb.light .tag.mid{color:#334155;background:rgba(15,23,42,.05);border-color:rgba(15,23,42,.15)}
   @media (min-aspect-ratio: 13/10){
@@ -329,6 +332,8 @@
   #dsheet .gl .zone.hot{background:rgba(255,183,77,.1);border:1px solid rgba(255,183,77,.45)} #dsheet .gl .zone.hot b{color:#ffc977}
   #dsheet .gl .zone.weak{background:rgba(100,170,255,.1);border:1px solid rgba(100,170,255,.4)} #dsheet .gl .zone.weak b{color:#9cc8ff}
   #dsheet .gl .zone.mid{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15)}
+  #dsheet .gl .zone.high{background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.4)} #dsheet .gl .zone.high b{color:#c4b5fd}
+  #dsheet .gl .zone.pricey{background:rgba(250,204,21,.08);border:1px solid rgba(250,204,21,.35)} #dsheet .gl .zone.pricey b{color:#fde68a}
   #dsheet .gl .zone i{font-style:normal;font-size:22px} #dsheet .gl .zone b{font-size:17px;display:block} #dsheet .gl .zone span{font-size:14px;opacity:.85}
   #dsheet .gl .rows{display:flex;flex-direction:column;border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden}
   #dsheet .gl .row{display:grid;grid-template-columns:110px 140px 1fr;gap:12px;align-items:baseline;padding:11px 14px;border-top:1px solid rgba(255,255,255,.08)}
@@ -1652,24 +1657,42 @@ function buildStockSlides(list, title, accent, mode) {
 /* ---------- price timing (general): from price figures only, for every stock; no personal review, no "buy" calls ----------
    Good timing = near its usual (50-day) price, calm RSI, no sudden spike, above its 200-day average. A mechanical rule, not advice. */
 const sigKey = s => String(s || '').toUpperCase().replace(/^(NSE|BSE|BOM|NASDAQ|NYSE|NYSEARCA):/, '').replace(/\.(NS|BO)$/, '').replace(/[^A-Z0-9&\-]/g, '');
-const TIMING = { near50: 3, rsiLo: 35, rsiHi: 60, rsiHot: 70, spike5: 8 };
+// tags for a long-term, buy-on-dips value investor: a real dip (size-scaled) in a stock whose long-run trend still holds, judged on P/E against its own market
+const TIMING = { near50: 3, rsiLo: 30, rsiHi: 55, rsiHot: 70, spike5: 8, stretch50: 10, atHigh: 5, fall200: 5 };
+const MKTPE_DEF = { in: 21, us: 23 };   // used only until the server's first daily market P/E arrives
+function mktOf(sym) { return /^(NSE|BSE|BOM):/.test(sym) ? 'in' : 'us'; }
+function mktPE(m) { const x = (((FEED && FEED.tech) || {})._mkt || {})[m]; return x && x.pe ? x : { pe: MKTPE_DEF[m], at: null }; }
+function dipNeed(m, f) { const c = f && f.mcap; return m === 'us' || !c ? 10 : c >= 1e12 ? 10 : c >= 3e11 ? 15 : 20; }   // large / mid / small cap (SEBI-like bands)
+function valueOf(m, f) {
+  if (!f || !(f.pe > 0)) return null;
+  const M = mktPE(m), r = f.pe / M.pe;
+  return { r, M, name: r < 0.8 ? 'Cheap' : r <= 1.5 ? 'Fair' : r <= 2.5 ? 'Pricey' : 'Very pricey', ok: r <= 1.5 };
+}
 function timingFor(sym) {
   const t = ((FEED && FEED.tech) || {})[sigKey(sym)], q = ((FEED && FEED.quotes) || {})[sym], p = q && q.p;
   if (!t || !t.sma50 || !p) return null;
-  const T = TIMING, d50 = (p / t.sma50 - 1) * 100, below200 = t.sma200 != null && p < t.sma200;
-  const near = Math.abs(d50) <= T.near50, calm = t.rsi >= T.rsiLo && t.rsi <= T.rsiHi, spike = t.chg5 != null && t.chg5 > T.spike5, hot = t.rsi > T.rsiHot;
-  const where = Math.abs(d50) < 0.1 ? 'at its 50-day avg' : Math.abs(d50).toFixed(1) + '% ' + (d50 < 0 ? 'below' : 'above') + ' 50-day avg';
-  const parts = [near ? 'Near its 50-day average' : Math.abs(d50).toFixed(1) + '% ' + (d50 > 0 ? 'above' : 'below') + ' its 50-day average',
-    t.sma200 == null ? '' : (below200 ? 'below' : 'above') + ' its 200-day average',
-    'RSI ' + Math.round(t.rsi) + (hot ? ' (running hot)' : t.rsi < T.rsiLo ? ' (weak)' : ' (calm)'),
-    t.chg5 == null ? '' : (t.chg5 >= 0 ? '+' : '') + t.chg5.toFixed(1) + '% over 5 sessions'].filter(Boolean);
-  const base = { t, p, d50, parts };
-  if (below200) return { ...base, cls: 'weak', icon: '↘', label: 'Downtrend', line: 'below 200-day avg', sentence: 'The price is under its long-run (200-day) average, so the longer trend is down.' };
-  if (hot || spike) return { ...base, cls: 'hot', icon: '🔥', label: 'Overheated', line: spike ? 'up ' + t.chg5.toFixed(0) + '% in 5 days' : 'RSI ' + Math.round(t.rsi) + ', ran up fast',
-    sentence: spike ? 'Up ' + t.chg5.toFixed(0) + '% in the last five sessions. It has run up fast.' : 'It has run up hard lately (RSI ' + Math.round(t.rsi) + ' is above ' + T.rsiHot + ').' };
-  if (near && calm) return { ...base, cls: 'good', icon: '✓', label: 'Good price zone', line: Math.abs(d50) < 1 ? 'near usual price, calm' : Math.abs(d50).toFixed(0) + '% ' + (d50 > 0 ? 'above' : 'below') + ' usual, calm',
-    sentence: 'Near its usual (50-day) price, not overheated, no sudden spike, and in a long-term uptrend.' };
-  return { ...base, cls: 'mid', icon: '•', label: 'Neutral', line: 'no clear signal', sentence: 'In between: no clear price signal today.' };
+  const T = TIMING, m = mktOf(sym), f = t.f, d50 = (p / t.sma50 - 1) * 100, d200 = t.sma200 ? (p / t.sma200 - 1) * 100 : null;
+  const offHi = t.hi ? Math.max(0, (1 - p / t.hi) * 100) : null, need = dipNeed(m, f), val = valueOf(m, f);
+  const base = { t, p, d50, d200, offHi, need, val, m, parts: [] };
+  if (d200 != null && d200 < -T.fall200) return { ...base, cls: 'weak', icon: '↘', label: 'Falling', line: Math.abs(d200).toFixed(0) + '% under 200-day avg',
+    sentence: 'It has been sliding for months (' + Math.abs(d200).toFixed(0) + '% under its 200-day average). Only for buyers who know why it fell and think the reason is temporary.' };
+  const spike = t.chg5 != null && t.chg5 > T.spike5, stretched = d50 > T.stretch50;
+  if (t.rsi > T.rsiHot || spike || stretched) return { ...base, cls: 'hot', icon: '🔥', label: 'Overheated',
+    line: spike ? 'up ' + t.chg5.toFixed(0) + '% in 5 days' : stretched ? d50.toFixed(0) + '% over 50-day avg' : 'RSI ' + Math.round(t.rsi) + ', ran up fast',
+    sentence: (spike ? 'Up ' + t.chg5.toFixed(0) + '% in the last five sessions.' : stretched ? d50.toFixed(0) + '% above its 50-day average.' : 'RSI ' + Math.round(t.rsi) + ' is above ' + T.rsiHot + '.') + ' It has run up fast; a dip buyer waits for it to cool.' };
+  if (offHi != null && offHi <= T.atHigh) return { ...base, cls: 'high', icon: '⛰', label: 'At highs', line: offHi < 0.5 ? 'at its 1-year high' : offHi.toFixed(0) + '% from 1-year high',
+    sentence: (offHi < 0.5 ? 'At its 1-year high.' : 'Within ' + Math.ceil(offHi) + '% of its 1-year high.') + ' A strong trend, but not a dip.' };
+  if (offHi != null && offHi >= need && t.rsi >= T.rsiLo && t.rsi <= T.rsiHi) {
+    const dip = Math.round(offHi) + '% below its 1-year high';
+    if (!val) return { ...base, cls: 'good', icon: '✓', label: 'Dip', line: Math.round(offHi) + '% off · no P/E',
+      sentence: dip + ', long-run trend intact. No P/E to judge the price (loss-making or not reported), so check the business first.' };
+    if (val.ok) return { ...base, cls: 'good', icon: '✓', label: 'Value dip', line: Math.round(offHi) + '% off · ' + val.name.toLowerCase() + ' P/E',
+      sentence: dip + ', long-run trend intact, and priced ' + (val.name === 'Cheap' ? 'below' : 'about in line with') + ' the market (P/E ' + val.r.toFixed(1) + '× the ' + (m === 'in' ? 'Nifty' : 'S&P 500') + ').' };
+    return { ...base, cls: 'pricey', icon: '🏷', label: 'Dip, but pricey', line: Math.round(offHi) + '% off · pricey P/E',
+      sentence: dip + ', but still ' + val.r.toFixed(1) + '× the ' + (m === 'in' ? 'Nifty' : 'S&P 500') + "'s P/E. Cheaper than it was, not cheap." };
+  }
+  return { ...base, cls: 'mid', icon: '•', label: 'Neutral', line: offHi != null ? Math.round(offHi) + '% below 1-year high' : 'no clear signal',
+    sentence: 'No clear signal: ' + (offHi != null && offHi < need ? 'not a deep enough dip yet (' + Math.round(offHi) + '% below its 1-year high; a dip here starts at ' + need + '%).' : 'between the zones today.') };
 }
 function renderSignals() {
   document.querySelectorAll('.tile').forEach(tile => {
@@ -1711,11 +1734,11 @@ function sigBlock(sym) {
     const wait = 'Loading: fundamentals arrive within the hour';
     rows += row('Valuation', '…', 'n', wait) + row('Quality', '…', 'n', wait) + row('Growth', '…', 'n', wait);
   } else {
-    // valuation from P/E
-    if (f.pe != null && f.pe > 0) {
-      const v = f.pe < 15 ? ['Cheap', 'g'] : f.pe < 30 ? ['Fair', 'g'] : f.pe < 50 ? ['Expensive', 'a'] : ['Very expensive', 'r'];
-      rows += row('Valuation', v[0], v[1], 'P/E ' + f.pe.toFixed(0) + ': you pay ' + cur + f.pe.toFixed(0) + ' for every ' + cur + '1 of yearly profit.' +
-        (f.pe >= 30 ? ' Above 30 is pricey for most companies.' : f.pe < 15 ? ' Below 15 is low for most companies.' : ''), f.pb != null ? 'Price to book ' + f.pb.toFixed(1) : '');
+    // valuation: P/E against the stock's own market (Nifty 50 or S&P 500)
+    if (g.val) {
+      const v = g.val, mn = g.m === 'in' ? 'Nifty' : 'S&P 500', cls = v.name === 'Cheap' || v.name === 'Fair' ? 'g' : v.name === 'Pricey' ? 'a' : 'r';
+      rows += row('Valuation', v.name, cls, 'P/E ' + f.pe.toFixed(0) + ', ' + v.r.toFixed(1) + '× the ' + mn + ' (' + v.M.pe.toFixed(1) + (v.M.at ? ', ' + new Date(v.M.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '') + ').',
+        'Compared with the whole market, not its sector: banks often look cheap and consumer brands pricey' + (f.pb != null ? ' · price to book ' + f.pb.toFixed(1) : ''));
     } else rows += row('Valuation', 'No P/E', 'n', (f.margin != null && f.margin < 0) || (f.pe != null && f.pe <= 0) ? 'The company made a loss over the last year, so there is no P/E.' : 'P/E not available for this stock.', f.pb != null ? 'Price to book ' + f.pb.toFixed(1) : '');
     // quality from ROE and debt
     if (f.roe != null) {
@@ -1731,6 +1754,9 @@ function sigBlock(sym) {
       rows += row('Growth', v[0], v[1], 'Revenue ' + (f.rev >= 0 ? 'up ' : 'down ') + pct(Math.abs(f.rev)) + ' over the last year.', [cap(f.mcap) && 'Market cap ' + cap(f.mcap), size(f.mcap)].filter(Boolean).join(' · '));
     } else rows += row('Growth', 'n/a', 'n', 'Revenue growth not available for this stock.', cap(f.mcap) ? 'Market cap ' + cap(f.mcap) + ' · ' + size(f.mcap) : '');
   }
+  // how deep the dip is, against the size-based bar
+  if (g.offHi != null) rows += row('Dip', g.offHi < 0.5 ? 'At high' : Math.round(g.offHi) + '% off', g.offHi >= g.need ? 'g' : 'n',
+    (g.offHi < 0.5 ? 'At its 1-year high.' : Math.round(g.offHi) + '% below its 1-year high.') + ' For ' + (g.m === 'us' ? 'US stocks' : g.need === 10 ? 'a large cap' : g.need === 15 ? 'a mid cap' : 'a small cap') + ' a dip counts from ' + g.need + '%.', '');
   // price trend
   const d200 = t.sma200 ? (g.p / t.sma200 - 1) * 100 : null, fromHi = t.hi ? (1 - g.p / t.hi) * 100 : null, T = TIMING;
   const up = d200 == null || d200 >= 0;
