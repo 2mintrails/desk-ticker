@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v21.2-2026-11-24">
+<meta name="ticker-version" content="v21.3-2026-11-24">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -613,6 +613,13 @@
   .viewmenu.open{display:block}
   .viewmenu .looks{display:grid;grid-template-columns:1fr 1fr;gap:2px;min-width:290px}
   .viewmenu .looks button{white-space:nowrap}
+  /* themes as one row of colour dots; the label above names the current (or hovered) one */
+  .viewmenu .swatches{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;padding:6px 12px 10px;min-width:290px}
+  .viewmenu .swatches button{flex:none;width:28px!important;height:28px;margin:0!important;padding:0!important;border-radius:50%!important;background:var(--sw)!important;border:2px solid rgba(255,255,255,.22);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);cursor:pointer}
+  .viewmenu .swatches button.on{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.35)}
+  body.light .viewmenu .swatches button, body.swiss .viewmenu .swatches button{border-color:rgba(0,0,0,.15)}
+  body.light .viewmenu .swatches button.on, body.swiss .viewmenu .swatches button.on{border-color:#1d2230;box-shadow:0 0 0 2px rgba(0,0,0,.15)}
+  .viewmenu .swatches .ssep{width:1px;height:22px;background:currentColor;opacity:.25}
   .viewmenu .devs{grid-template-columns:1fr 1fr 1fr} .viewmenu .devs button{padding:7px 6px;font-size:12px;text-align:center}
   @media (max-height:520px){ .viewmenu button{padding:6px 12px} .viewmenu .sep{margin:2px 0} }
   .viewmenu .diag{font-size:10px;opacity:.55;padding:6px 12px 4px;max-width:290px;line-height:1.35}
@@ -1284,7 +1291,7 @@
       <div class="mkt" id="mkt"></div>
       <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
       <div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
-        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Focus</div><div class="looks"><button data-focus="15">🎯 15 min</button><button data-focus="30">🎯 30 min</button><button data-focus="45">🎯 45 min</button></div><div class="sep"></div><div class="mh">Theme</div><div class="looks"><button data-look="ambient">✨ Ambient</button><button data-look="swiss">🔴 Swiss</button><button data-look="retro">📟 Retro</button><button data-look="calm">🌑 Calm dark</button><button data-look="anime">🌸 Anime 90s</button></div><div class="dataline" id="dataLine"></div><div class="diag" id="diag"></div></div></div>
+        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Focus</div><div class="looks"><button data-focus="15">🎯 15 min</button><button data-focus="30">🎯 30 min</button><button data-focus="45">🎯 45 min</button></div><div class="sep"></div><div class="mh" id="lookName">Theme</div><div class="swatches"><button data-look="ambient" title="✨ Ambient" aria-label="✨ Ambient" style="--sw:linear-gradient(135deg,#7fb4e6,#c7a7f0)"></button><button data-look="swiss" title="🔴 Swiss" aria-label="🔴 Swiss" style="--sw:linear-gradient(135deg,#f3eee6 55%,#e63946 55%)"></button><button data-look="retro" title="📟 Retro" aria-label="📟 Retro" style="--sw:radial-gradient(circle,#39ff6a 30%,#0a0a0a 34%)"></button><button data-look="calm" title="🌑 Calm dark" aria-label="🌑 Calm dark" style="--sw:linear-gradient(135deg,#2a3142,#10131a)"></button><button data-look="anime" title="🌸 Anime 90s" aria-label="🌸 Anime 90s" style="--sw:linear-gradient(135deg,#ff9ad0,#8ec5ff)"></button></div><div class="dataline" id="dataLine"></div><div class="diag" id="diag"></div></div></div>
     </div>
   </header>
 
@@ -1468,7 +1475,8 @@ const X_TRAIN = '<g transform="translate(-30,-17)"><rect x="0" y="4" width="12" 
 const X_GIFT = '<rect x="5" y="16" width="24" height="18" rx="2" fill="#E24B4A"/><rect x="15" y="16" width="4" height="18" fill="#FAC775"/><g><rect x="3" y="11" width="28" height="6" rx="2" fill="#A32D2D"/><animateTransform attributeName="transform" type="translate" values="0 0;0 -7;0 -7;0 0" keyTimes="0;0.2;0.8;1" dur="3s" repeatCount="indefinite"/></g><path d="M17 13l1.5-4 1.5 4h4l-3 2 1 4-3.5-2.5-3.5 2.5 1-4-3-2z" fill="#FAC775" opacity="0"><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.25;0.75;1" dur="3s" repeatCount="indefinite"/><animateTransform attributeName="transform" type="translate" values="0 0;0 -9;0 -9;0 0" keyTimes="0;0.25;0.75;1" dur="3s" repeatCount="indefinite"/></path>';
 const X_GINGER = '<g fill="#BA7517"><circle cx="17" cy="8" r="6"/><rect x="11" y="13" width="12" height="13" rx="4"/><rect x="12" y="25" width="4" height="10" rx="2"/><rect x="18" y="25" width="4" height="10" rx="2"/><rect x="4" y="15" width="8" height="4" rx="2"/><rect x="22" y="15" width="8" height="4" rx="2"><animateTransform attributeName="transform" type="rotate" values="0 23 17;-50 23 17;0 23 17" dur="1s" repeatCount="indefinite"/></rect></g><circle cx="15" cy="7" r="1" fill="#fff"/><circle cx="19" cy="7" r="1" fill="#fff"/><circle cx="17" cy="17" r="1.2" fill="#E24B4A"/><circle cx="17" cy="21" r="1.2" fill="#1D9E75"/>';
 if (XMAS_ON) { const b0 = document.querySelector('#viewMenu button[data-look]');
-  if (b0) b0.parentNode.insertAdjacentHTML('beforeend', '<button data-look="xsnow">❄️ Snowy Santa · till 6 Jan</button><button data-look="xmarket">🎄 Christmas market · till 6 Jan</button>'); }
+  if (b0) b0.parentNode.insertAdjacentHTML('beforeend', '<span class="ssep"></span><button data-look="xsnow" title="❄️ Snowy Santa · till 6 Jan" aria-label="Snowy Santa, till 6 Jan" style="--sw:linear-gradient(180deg,#85b7eb,#e6f1fb 60%,#fff 60%)"></button>' +
+    '<button data-look="xmarket" title="🎄 Christmas market · till 6 Jan" aria-label="Christmas market, till 6 Jan" style="--sw:repeating-linear-gradient(90deg,#a32d2d 0 6px,#faeeda 6px 12px)"></button>'); }
 // Screen modes (IST, 24-hour). Day: Indian stocks. Evening: US stocks. Night: dim clock only.
 // Tap the screen at night to peek at the normal slides for a minute.
 const MODES = { day: '06:00', evening: '18:30', night: '23:30' };
@@ -3386,8 +3394,13 @@ document.getElementById('viewBtn').addEventListener('click', e => {
 document.querySelectorAll('#viewMenu button[data-v]').forEach(b => b.addEventListener('click', e => {
   e.stopPropagation(); document.getElementById('viewMenu').classList.remove('open'); setView(b.dataset.v);
 }));
+const lookLabel = document.getElementById('lookName'), lookCur = (document.querySelector('#viewMenu button[data-look="' + LOOK + '"]') || {}).title || '';
+if (lookLabel) lookLabel.textContent = 'Theme · ' + lookCur;
 document.querySelectorAll('#viewMenu button[data-look]').forEach(b => {
   b.classList.toggle('on', b.dataset.look === LOOK);
+  const say = t => { if (lookLabel) lookLabel.textContent = 'Theme · ' + t; };
+  b.addEventListener('mouseenter', () => say(b.title)); b.addEventListener('focus', () => say(b.title));
+  b.addEventListener('mouseleave', () => say(lookCur)); b.addEventListener('touchstart', () => say(b.title), { passive: true });
   b.addEventListener('click', e => {
     e.stopPropagation();
     if (b.dataset.look === LOOK) return document.getElementById('viewMenu').classList.remove('open');
