@@ -472,6 +472,11 @@ const BULLION_FEEDS = [['https://economictimes.indiatimes.com/markets/commoditie
   ['https://www.goodreturns.in/rss/personal-finance-fb.xml', 'GoodReturns'], ['https://www.hindustantimes.com/feeds/rss/business/rssfeed.xml', 'Hindustan Times'],
   ['https://indianexpress.com/section/business/feed/', 'Indian Express'], ['https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms', 'Economic Times']];
 const METAL_RE = { gold: /\bgold\b/i, silver: /\bsilver\b/i };
+// headlines about tech/AI companies only borrow the word ("the new gold rush") unless they are plainly about the metal's price
+const METAL_OFFTOPIC = /\b(nvidia|apple|microsoft|google|alphabet|amazon|meta|tesla|openai|anthropic|jensen huang|ceo|chip|chips|semiconductor|\bai\b|artificial intelligence|smartphone|iphone|crypto|bitcoin)\b/i;
+const METAL_PRICE_TALK = /\b(gold|silver) (price|prices|rate|rates|futures)\b|\b(mcx|comex|bullion)\b|per 10 ?g|per kg|\/oz|an ounce/i;
+// real reasons gold and silver move; a "why" line must name at least one of them
+const METAL_DRIVERS = /\b(dollar|greenback|usd|rupee|fed|federal reserve|rate|rates|yield|yields|inflation|cpi|safe[- ]haven|haven|geopolitic|war|conflict|tension|tensions|central bank|central banks|rbi|pboc|demand|buying|selling|profit[- ]taking|festive|festival|wedding|jewell?ery|diwali|dhanteras|akshaya|etf|etfs|tariff|tariffs|trade|import duty|duty|industrial|solar|supply|economy|economic|recession|jobs|payroll|stocks|equities|risk|uncertainty|stimulus|debt|budget|crude|oil|china|global cues|weak|strong|cut|cuts|hike|hikes)\b/i;
 const METAL_NOT = { gold: /goldman|golden|gold medal|gold coast|gold loan|gold card|goldilocks|black gold|green gold|white gold|gold standard of/i,
   silver: /silver lining|silver medal|silver jubilee|silver screen|silverline|silver lake|quicksilver|silverware|silver fox/i };
 const PRICE_WORDS = /\b(price|prices|rate|rates|bullion|mcx|comex|ounce|oz|per 10 ?g(ram)?|per kg|rall(y|ies)|surges?|jumps?|soars?|climbs?|gains?|rises?|slips?|falls?|drops?|dips?|plunges?|tumbles?|slides?|eases?|steady|flat|record|all-time high|lifetime high|lows?|highs?|outlook|forecast|target|support|resistance|demand|hedge|safe[- ]haven)\b/i;
@@ -560,7 +565,7 @@ async function bullionSummary(env, recent, views, dirs = {}) {
   const facts = ['gold', 'silver'].filter(m => dirs[m] != null).map(m => 'Fact: today\'s ' + m + ' rate in India is ' + word(dirs[m]) + ' versus yesterday.').join('\n');
   const prompt = (facts ? facts + '\n\n' : '') + 'Headlines from Indian business news in the last day or so.\n\nGOLD:\n' + fmt(recent.gold) + '\n\nGOLD analyst/outlook headlines (last 5 days):\n' + fmt(views.gold) +
     '\n\nSILVER:\n' + fmt(recent.silver) + '\n\nSILVER analyst/outlook headlines (last 5 days):\n' + fmt(views.silver) +
-    '\n\nFor gold and for silver separately, write:\n"why": one plain sentence, max 9 words. It MUST start with "Falling on", "Rising on", "Steady as" or "Mixed as", matching the Fact for that metal (UP = "Rising on", DOWN = "Falling on"), then reasons the headlines give for THAT direction. If no headline explains that direction, use an empty string. Example: "Falling on a strong dollar and Fed rate-hike bets". No numbers unless in the headlines. Empty string if the headlines give no reason.\n' +
+    '\n\nFor gold and for silver separately, write:\n"why": one plain sentence, max 9 words. It MUST start with "Falling on", "Rising on", "Steady as" or "Mixed as", matching the Fact for that metal (UP = "Rising on", DOWN = "Falling on"), then reasons the headlines give for THAT direction. Only real drivers of the metal price count (the dollar, interest rates or the Fed, inflation, safe-haven or geopolitical tension, central-bank buying, the rupee, festive or jewellery demand, ETF flows, tariffs, industrial demand for silver). News about a company or its CEO is NOT a reason. If no headline explains that direction with a real driver, use an empty string. Example: "Falling on a strong dollar and Fed rate-hike bets". No numbers unless in the headlines. Empty string if the headlines give no reason.\n' +
     '"experts": max 9 words stating what analysts/experts in these headlines expect next: a direction, range, target or support/resistance level that a headline actually states (e.g. "Weak near term; support near 1.28 lakh"). A headline that only asks a question ("more fall ahead or bounce back?") or says "what experts say" without the view is NOT a view: ignore it. Empty string if no headline states a view. Never add your own prediction.\n"n": how many headlines the experts line is based on.\n' +
     'Reply with JSON only: {"gold":{"why":"","experts":"","n":0},"silver":{"why":"","experts":"","n":0}}';
   let r;
@@ -577,7 +582,7 @@ async function bullionSummary(env, recent, views, dirs = {}) {
     out[m] = { why: clean(o.why, recent[m].length > 0), experts: clean(o.experts, views[m].length + recent[m].length > 0), n: Math.min(+o.n || 0, views[m].length + recent[m].length) }; }
   // safety check: a why line pointing the opposite way to today's rate is dropped
   for (const m of ['gold', 'silver']) { const d = dirs[m], w = out[m].why;
-    if (w && ((d < 0 && /^rising\b/i.test(w)) || (d > 0 && /^falling\b/i.test(w)) || /no (clear )?reason|not (given|stated|mentioned|specified)|unclear|unknown/i.test(w))) out[m].why = ''; }
+    if (w && (!METAL_DRIVERS.test(w) || METAL_OFFTOPIC.test(w) || (d < 0 && /^rising\b/i.test(w)) || (d > 0 && /^falling\b/i.test(w)) || /no (clear )?reason|not (given|stated|mentioned|specified)|unclear|unknown/i.test(w))) out[m].why = ''; }
   if (!out.gold.why && !out.silver.why) throw new Error('empty summary');
   return out;
 }
@@ -585,7 +590,7 @@ async function jobBullion(env) {
   const lists = await Promise.all(BULLION_FEEDS.map(([u, s]) => readFeed(u, s)));
   const all = lists.flat().filter(x => x.t).sort((a, b) => b.t - a.t), now = Date.now(), seen = new Set(), out = {};
   for (const m of ['gold', 'silver']) {
-    const hits = all.filter(x => METAL_RE[m].test(x.title) && !METAL_NOT[m].test(x.title) && PRICE_WORDS.test(x.title) && !/^(gold|silver) (rate|price)s? today:?\s*(check|in )/i.test(x.title))
+    const hits = all.filter(x => METAL_RE[m].test(x.title) && !METAL_NOT[m].test(x.title) && PRICE_WORDS.test(x.title) && (!METAL_OFFTOPIC.test(x.title) || METAL_PRICE_TALK.test(x.title)) && !/^(gold|silver) (rate|price)s? today:?\s*(check|in )/i.test(x.title))
       .filter(x => { const k = x.title.toLowerCase().slice(0, 60); if (seen.has(m + k)) return false; seen.add(m + k); return true; });
     const pick = x => x && { t: x.title, src: x.source || '', at: x.t, u: /^https?:\/\//.test(x.link) ? x.link : '' };
     // a headline naming only the other metal belongs there; one naming both counts for both
@@ -594,14 +599,14 @@ async function jobBullion(env) {
   }
   // Option B: an AI summary of what the reports say — why it moved, and what experts expect (never our own forecast)
   const recent = { gold: [], silver: [] };
-  for (const m of ['gold', 'silver']) recent[m] = all.filter(x => now - x.t < 36 * 3600e3 && METAL_RE[m].test(x.title) && !METAL_NOT[m].test(x.title) && PRICE_WORDS.test(x.title))
+  for (const m of ['gold', 'silver']) recent[m] = all.filter(x => now - x.t < 36 * 3600e3 && METAL_RE[m].test(x.title) && !METAL_NOT[m].test(x.title) && PRICE_WORDS.test(x.title) && (!METAL_OFFTOPIC.test(x.title) || METAL_PRICE_TALK.test(x.title)))
     .filter((x, i, l) => l.findIndex(y => y.title.toLowerCase().slice(0, 50) === x.title.toLowerCase().slice(0, 50)) === i).slice(0, 14);
   const views = { gold: all.filter(x => now - x.t < 5 * 86400e3 && /\bgold\b/i.test(x.title) && OUTLOOK.test(x.title)).slice(0, 6),
                   silver: all.filter(x => now - x.t < 5 * 86400e3 && /\bsilver\b/i.test(x.title) && OUTLOOK.test(x.title)).slice(0, 6) };
   const gr = await dbGet(env, ['gr_gold', 'gr_silver']), dirs = {};
   for (const [m, k] of [['gold', 'gr_gold'], ['silver', 'gr_silver']]) { const v = gr[k]?.v || {}, ks = Object.keys(v).filter(x => /^\d{4}-/.test(x)).sort();
     if (ks.length >= 2) { const a = v[ks[ks.length - 1]], b = v[ks[ks.length - 2]]; dirs[m] = Math.abs(a - b) / b < 0.001 ? 0 : Math.sign(a - b); } }
-  const sig = 'p5' + JSON.stringify(dirs) + JSON.stringify([recent, views].map(o => [o.gold.map(x => x.title), o.silver.map(x => x.title)]));
+  const sig = 'p6' + JSON.stringify(dirs) + JSON.stringify([recent, views].map(o => [o.gold.map(x => x.title), o.silver.map(x => x.title)]));
   const old = (await dbGet(env, ['news_Bullion'])).news_Bullion;
   let sum = old && old.v && old.v.sum, aiNote = 'kept';
   if (!sum || !String(old.v.sig || '').startsWith(sig.slice(0, 2)) || (old.v.sig !== sig && now - (sum.at || 0) > 25 * 60e3) || now - (sum.at || 0) > 6 * 3600e3) {
