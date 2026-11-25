@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v21.6-2026-11-25">
+<meta name="ticker-version" content="v21.7-2026-11-25">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -1002,6 +1002,30 @@
   body.swiss .pill i{background:#d6452f!important}
   body.swiss .hr .rn{color:#151515} body.swiss .gold .price, body.swiss .silver .price{color:#151515}
   body.swiss .w52.hi{color:#151515} body.swiss .w52.lo{color:#d6452f}
+  /* ===== E-INK (replaces Swiss; keeps the 'swiss' key so phones already on Swiss move over): ink on paper, no colour, no motion ===== */
+  body.swiss{background:#ecebe6;--fg:#111;--dim:#555;--line:rgba(17,17,17,.18);--up:#111;--down:#111;--grid:rgba(17,17,17,.3);--gridtxt:#555;--accent:#333}
+  body.swiss .app, body.swiss .viewmenu{filter:grayscale(1)}                  /* logos, emoji and icons in greys too */
+  body.swiss *, body.swiss *::before, body.swiss *::after{animation:none!important;transition:none!important}   /* page-turn cuts, nothing moves */
+  body.swiss .scene, body.swiss .vignette, body.swiss .gloss{display:none!important}
+  body.swiss .time, body.swiss .p, body.swiss .ix-p, body.swiss .fx-p, body.swiss .wx-temp, body.swiss .metal .price, body.swiss .spx-p, body.swiss .mood-k, body.swiss .n-time{font-family:"Space Grotesk",Helvetica,Arial,sans-serif;font-weight:500;letter-spacing:-1px}
+  body.swiss .nlist .tt, body.swiss .why, body.swiss .mood-why{font-family:Georgia,"Times New Roman",serif}
+  body.swiss .card{border-top:1.5px solid #111;box-shadow:none!important}
+  body.swiss .pill i, body.swiss .pill i.open, body.swiss .pill i.shut{background:#111!important}
+  body.swiss footer span{background:rgba(17,17,17,.15)} body.swiss footer span b{background:#111}
+  body.swiss .pan b, body.swiss .pfest b, body.swiss .w52.lo, body.swiss .w52.hi, body.swiss .tev, body.swiss .gold .price, body.swiss .silver .price{color:#111!important}
+  body.swiss .gauge .z-fear{stroke:#555} body.swiss .mood-leg .z-fear{background:#555!important} body.swiss #vixMood[data-zone=fear]{color:#111!important}
+  /* portfolio: ink grid, ruled cells instead of boxes */
+  body.swiss .grid6{gap:0;border-top:1.5px solid #111;clip-path:inset(0 1px 1px 0)}
+  body.swiss .grid6 .tile{border:0!important;border-right:1px solid #c9c7bf!important;border-bottom:1px solid #c9c7bf!important;border-radius:0!important;background:transparent!important;padding-left:12px;padding-right:12px}
+  body.swiss .tag, body.swiss .tag.good, body.swiss .tag.hot, body.swiss .tag.weak, body.swiss .tag.mid, body.swiss .tag.high, body.swiss .tag.pricey{background:transparent!important;border:1px solid #111!important;border-radius:3px;color:#111!important}
+  body.swiss .tag *, body.swiss .tag .anb{color:#111!important} body.swiss .tag span, body.swiss .tag .anb{color:#555!important}
+  body.swiss .badge{background:#111;color:#ecebe6}
+  body.swiss #wAqi, body.swiss #wAqi *, body.swiss .stat .v, body.swiss .stat .v *{color:#111!important}   /* coloured readings (AQI) stay dark ink */
+  /* tap-open card: the same paper and ink */
+  body.swiss #dsheet{background:rgba(236,235,230,.75)}
+  body.swiss #dsheet .box{filter:invert(.92) grayscale(1);box-shadow:none} body.swiss #dsheet .box img{filter:invert(1)}
+  /* night: just the clock, grey on darker paper */
+  body.swiss.night .nightv, body.swiss .nightv{background:#23221f;--fc:#a8a49a}
   /* pixel look: the newer parts of the display */
   body.led .viewbtn{font-family:Silkscreen,monospace;text-transform:uppercase;border-radius:0;background:transparent;border:1px solid var(--cyan);color:var(--cyan)}
   body.led .viewmenu{border-radius:0;background:#000;border:1px solid var(--cyan);box-shadow:none}
@@ -1042,6 +1066,13 @@
     /* stock boards: one tile per row, the full height used */
     .grid6, .grid6.g4{grid-template-columns:1fr;grid-template-rows:none;grid-auto-rows:minmax(0,1fr);gap:10px}
     .grid6 > .tile{grid-column:auto!important}   /* one column here: nothing to stretch */
+    /* e-ink: two columns of ruled cells on the phone too (the ink-grid layout) */
+    body.swiss .grid6, body.swiss .grid6.g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+    body.swiss .grid6 .tile, body.swiss .grid6.g56 .tile{display:flex!important;flex-direction:column;justify-content:center;align-items:flex-start;gap:.5vh;padding:1.2vh 3.5vw!important;min-width:0}
+    body.swiss .grid6 .tile .hd{width:100%;min-width:0} body.swiss .grid6 .tile .nm{font-size:clamp(12px,3.6vw,15px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    body.swiss .grid6 .tile .p{font-size:clamp(18px,6vw,24px);text-align:left} body.swiss .grid6 .tile .chg{font-size:clamp(11px,3.4vw,14px);justify-self:start}
+    body.swiss .grid6 .tile .tag{align-self:flex-start;max-width:100%} body.swiss .grid6 .tile .tag span{display:none}
+    body.swiss .grid6.g4 > .tile:nth-child(3):last-child, body.swiss .grid6.g4 > .tile:only-child, body.swiss .grid6:not(.g4) > .tile:nth-child(5):last-child{grid-column:span 2!important}
     .grid6 .tile{padding:1.4vh 5vw;gap:.6vh}
     .tile .p{font-size:clamp(22px,8vw,34px)} .tile .nm{font-size:clamp(14px,4.4vw,18px)} .tile .chg{font-size:clamp(13px,4vw,17px)}
     /* five or six stocks on a slide: each tile is one compact row (name left, price and move right) so nothing is cut */
@@ -1312,7 +1343,7 @@
       <div class="mkt" id="mkt"></div>
       <div class="pill" id="pill"><i></i><span id="lockIc"></span><span id="title">Nifty 50</span></div>
       <div class="viewsel"><button class="viewbtn" id="viewBtn">All ▾</button>
-        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Focus</div><div class="looks"><button data-focus="15">🎯 15 min</button><button data-focus="30">🎯 30 min</button><button data-focus="45">🎯 45 min</button></div><div class="sep"></div><div class="mh" id="lookName">Theme</div><div class="swatches"><button data-look="ambient" title="✨ Ambient" aria-label="✨ Ambient" style="--sw:linear-gradient(135deg,#7fb4e6,#c7a7f0)"></button><button data-look="swiss" title="🔴 Swiss" aria-label="🔴 Swiss" style="--sw:linear-gradient(135deg,#f3eee6 55%,#e63946 55%)"></button><button data-look="retro" title="📟 Retro" aria-label="📟 Retro" style="--sw:radial-gradient(circle,#39ff6a 30%,#0a0a0a 34%)"></button><button data-look="calm" title="🌑 Calm dark" aria-label="🌑 Calm dark" style="--sw:linear-gradient(135deg,#2a3142,#10131a)"></button><button data-look="anime" title="🌸 Anime 90s" aria-label="🌸 Anime 90s" style="--sw:linear-gradient(135deg,#ff9ad0,#8ec5ff)"></button></div><div class="dataline" id="dataLine"></div><div class="diag" id="diag"></div></div></div>
+        <div class="viewmenu" id="viewMenu"><div class="mh">Slides</div><button data-v="all">All</button><button data-v="in">🇮🇳 Indian stock mode</button><button data-v="us">🇺🇸 US stock mode</button><div class="sep"></div><div class="mh">Focus</div><div class="looks"><button data-focus="15">🎯 15 min</button><button data-focus="30">🎯 30 min</button><button data-focus="45">🎯 45 min</button></div><div class="sep"></div><div class="mh" id="lookName">Theme</div><div class="swatches"><button data-look="ambient" title="✨ Ambient" aria-label="✨ Ambient" style="--sw:linear-gradient(135deg,#7fb4e6,#c7a7f0)"></button><button data-look="swiss" title="📄 E-ink" aria-label="📄 E-ink" style="--sw:linear-gradient(135deg,#ecebe6 55%,#111 55%)"></button><button data-look="retro" title="📟 Retro" aria-label="📟 Retro" style="--sw:radial-gradient(circle,#39ff6a 30%,#0a0a0a 34%)"></button><button data-look="calm" title="🌑 Calm dark" aria-label="🌑 Calm dark" style="--sw:linear-gradient(135deg,#2a3142,#10131a)"></button><button data-look="anime" title="🌸 Anime 90s" aria-label="🌸 Anime 90s" style="--sw:linear-gradient(135deg,#ff9ad0,#8ec5ff)"></button></div><div class="dataline" id="dataLine"></div><div class="diag" id="diag"></div></div></div>
     </div>
   </header>
 
@@ -1541,6 +1572,7 @@ function applyEff(init) {
   const list = [...new Set(['Currency 1', 'Currency 2', 'Currency 3'].map(k => String(map[k] || '').trim().toUpperCase()).filter(c => CUR[c]))];
   if (list.length && list.join() !== FX_LIST.join()) { FX_LIST = list; paintFxCards(); }
   const sec = parseFloat(map['Seconds per slide']); if (sec >= 5 && sec <= 120) SLIDE_SECONDS = sec;
+  if (THEME === 'swiss') SLIDE_SECONDS = Math.max(SLIDE_SECONDS, 30);   // e-ink: slower pages
   const tm = v => { const m = String(v || '').trim().match(/^(\d{1,2}):(\d{2})/); return m && +m[1] < 24 && +m[2] < 60 ? m[1].padStart(2, '0') + ':' + m[2] : null; };
   if (tm(map['Night clock starts'])) MODES.night = tm(map['Night clock starts']);
   if (tm(map['Night clock ends'])) MODES.day = tm(map['Night clock ends']);
@@ -2260,7 +2292,7 @@ function drawChart(c) {
   const line = solid.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join(' ');
   const sl = solid[solid.length - 1];
   const up = prev == null || live >= prev;
-  const col = THEME === 'swiss' ? (up ? '#2f8a5c' : '#d6452f') : THEME === 'anime' && !document.body.classList.contains('anidark') ? (up ? '#14a35a' : '#e0457b') : up ? '#3ddc84' : '#ff5a5f';   // Swiss: a calmer green, its own red
+  const col = THEME === 'swiss' ? '#111' : THEME === 'anime' && !document.body.classList.contains('anidark') ? (up ? '#14a35a' : '#e0457b') : up ? '#3ddc84' : '#ff5a5f';   // Swiss: a calmer green, its own red
   const lp = pts[pts.length - 1], lx = X(lp[0]), ly = Y(lp[1]), gid = 'sg-' + c.svg;
   // dotted link from prev close at the open to the first recorded point, if the page started late
   const gap = prev != null && pts[0][0] > 2
@@ -2849,6 +2881,7 @@ renderEvents(); renderTileEvents(); setInterval(() => { renderEvents(); renderTi
 document.body.classList.toggle('calm', true);
 document.body.classList.toggle('retro', THEME === 'retro');
 document.body.classList.toggle('swiss', THEME === 'swiss');
+if (THEME === 'swiss') SLIDE_SECONDS = Math.max(SLIDE_SECONDS, 30);
 document.body.classList.toggle('amb', THEME === 'ambient');
 document.body.classList.toggle('led', THEME === 'led');
 document.body.classList.toggle('anime', THEME === 'anime');
