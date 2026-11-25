@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v21.4-2026-11-24">
+<meta name="ticker-version" content="v21.5-2026-11-25">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -423,6 +423,8 @@
   .tile .p{font-size:clamp(18px,min(9vh,4.2vw),36px)}
   .tile .chg{font-size:clamp(11px,3.8vh,15px)}
   .grid6.g4{grid-template-columns:repeat(2,1fr)}
+  /* no empty corner: an odd last tile stretches across the gap (3 tiles in 2×2, 5 tiles in 3×2 or 2×3, a lone tile in a 2-wide row) */
+  .grid6.g4 > .tile:nth-child(3):last-child, .grid6.g4 > .tile:only-child, .grid6:not(.g4) > .tile:nth-child(5):last-child{grid-column:span 2}
   .w52{font-size:clamp(10px,3.2vh,13px);font-weight:600;letter-spacing:.3px;margin-top:.4vh} .w52:empty{display:none}
   .w52.hi{color:var(--up)} .w52.lo{color:var(--down)} .w52.near{opacity:.75;font-weight:500}
   .tev{font-size:clamp(10px,3.2vh,13px);color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9}
@@ -1026,6 +1028,7 @@
     .spark{height:auto;min-height:0}
     /* stock boards: one tile per row, the full height used */
     .grid6, .grid6.g4{grid-template-columns:1fr;grid-template-rows:none;grid-auto-rows:minmax(0,1fr);gap:10px}
+    .grid6 > .tile{grid-column:auto!important}   /* one column here: nothing to stretch */
     .grid6 .tile{padding:1.4vh 5vw;gap:.6vh}
     .tile .p{font-size:clamp(22px,8vw,34px)} .tile .nm{font-size:clamp(14px,4.4vw,18px)} .tile .chg{font-size:clamp(13px,4vw,17px)}
     /* five or six stocks on a slide: each tile is one compact row (name left, price and move right) so nothing is cut */
