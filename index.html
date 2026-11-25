@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v21.5-2026-11-25">
+<meta name="ticker-version" content="v21.6-2026-11-25">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -322,6 +322,19 @@
     .slide .tile:has(.tag){gap:.6vh}
     .slide .tile:has(.tag) .p{font-size:clamp(18px,min(8vh,3.8vw),32px)}
   }
+  .tag .anb{font-style:normal;margin-left:auto;padding-left:8px;white-space:nowrap;font-size:.88em;opacity:.9} .tag .anb.g{color:#7ee2a8} .tag .anb.a{color:#fcd34d} .tag .anb.r{color:#fca5a5}
+  body.amb.light .tag .anb.g{color:#047857} body.amb.light .tag .anb.a{color:#92400e} body.amb.light .tag .anb.r{color:#b91c1c}
+  #dsheet .anl{margin:10px 0;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03)}
+  #dsheet .anl .ah{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;opacity:.6;margin-bottom:6px}
+  #dsheet .anl .av b{font-size:18px} #dsheet .anl .av span{opacity:.65;margin-left:6px;font-size:13px}
+  #dsheet .anl .g{color:#3ddc84} #dsheet .anl .a{color:#f5a524} #dsheet .anl .r{color:#ff5a5f}
+  #dsheet .anl .abar{display:flex;height:7px;border-radius:4px;overflow:hidden;margin:8px 0 4px;background:rgba(255,255,255,.08)}
+  #dsheet .anl .abar i.g{background:#3ddc84} #dsheet .anl .abar i.a{background:#f5a524} #dsheet .anl .abar i.r{background:#ff5a5f}
+  #dsheet .anl .alg{display:flex;justify-content:space-between;font-size:12px;opacity:.75;margin-bottom:6px}
+  #dsheet .anl .ar{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:5px 0;border-top:1px solid rgba(255,255,255,.07)}
+  #dsheet .anl .ar span{opacity:.65;flex:none} #dsheet .anl .ar b{font-weight:600;text-align:right} #dsheet .anl .ar em{font-style:normal}
+  #dsheet .anl .ar.th b{font-weight:500}
+  #dsheet .anl .asrc{font-size:11px;opacity:.5;margin-top:6px}
   .tile.tight .tag span{display:none} .tile.tight .tag{padding:3px 9px;margin-top:.3vh;align-self:flex-start}
   .tile.tighter{gap:2px} .tile.tighter .p{font-size:clamp(16px,min(6.5vh,7vw),30px)!important} .tile.tighter .tag{font-size:12px}
   .tile.tightest{position:relative} .tile.tightest .tag{position:absolute;top:8px;right:8px;margin:0;padding:2px 8px;font-size:11px}
@@ -1671,6 +1684,15 @@ function valueOf(m, f) {
   const M = mktPE(m), r = f.pe / M.pe;
   return { r, M, name: r < 0.8 ? 'Cheap' : r <= 1.5 ? 'Fair' : r <= 2.5 ? 'Pricey' : 'Very pricey', ok: r <= 1.5 };
 }
+// analysts' view (Yahoo Finance consensus): shown when at least 3 analysts cover the stock
+function analystOf(sym) {
+  const t = ((FEED && FEED.tech) || {})[sigKey(sym)], a = t && t.f && t.f.an, q = ((FEED && FEED.quotes) || {})[sym], p = q && q.p;
+  if (!a || a.n < 3) return null;
+  const [sb, b, h, s, ss] = a.c, n = a.n, score = a.mean > 0 ? a.mean : (sb + 2 * b + 3 * h + 4 * s + 5 * ss) / n;   // Yahoo's own consensus score when it has one
+  const label = score <= 1.5 ? 'Strong buy' : score <= 2.5 ? 'Buy' : score <= 3.5 ? 'Hold' : score <= 4.5 ? 'Sell' : 'Strong sell';
+  return { label, cls: score <= 2.5 ? 'g' : score <= 3.5 ? 'a' : 'r', n, buy: (sb + b) / n * 100, hold: h / n * 100, sell: (s + ss) / n * 100,
+    tm: a.tm, th: a.th, tl: a.tl, up: a.tm && p ? (a.tm / p - 1) * 100 : null, calls: a.calls || [], theme: t.th && t.th.text || '', cur: mktOf(sym) === 'in' ? '₹' : '$' };
+}
 function timingFor(sym) {
   const t = ((FEED && FEED.tech) || {})[sigKey(sym)], q = ((FEED && FEED.quotes) || {})[sym], p = q && q.p;
   if (!t || !t.sma50 || !p) return null;
@@ -1705,7 +1727,9 @@ function renderSignals() {
     if (!g) { if (b) b.remove(); return; }
     if (!b) { b = document.createElement('div'); tile.appendChild(b); }
     b.className = 'tag ' + g.cls;
-    b.innerHTML = '<i>' + g.icon + '</i><b>' + esc(g.label) + '</b><span>' + esc(g.line) + '</span>';   // the reason hides in landscape, where tiles are small
+    const an = analystOf(p.dataset.sym);
+    b.innerHTML = '<i>' + g.icon + '</i><b>' + esc(g.label) + '</b><span>' + esc(g.line) + '</span>' +   // the reason hides in landscape, where tiles are small
+      (an ? '<em class="anb ' + an.cls + '">★ ' + an.label + (an.up != null ? ' · ' + (an.up >= 0 ? '+' : '−') + Math.abs(an.up).toFixed(0) + '%' : '') + '</em>' : '');
   });
   fitTiles();
   if (XM) xPops();
@@ -1769,7 +1793,16 @@ function sigBlock(sym) {
     (d200 != null ? Math.abs(d200).toFixed(0) + '% ' + (d200 >= 0 ? 'above' : 'below') + ' its 200-day average, ' : '') + near + ', ' + mood + ' (RSI ' + Math.round(t.rsi) + ').',
     [t.chg5 != null ? (t.chg5 >= 0 ? '+' : '−') + Math.abs(t.chg5).toFixed(1) + '% in 5 days' : '', fromHi != null ? (fromHi < 0.5 ? 'at its 1-year high' : fromHi.toFixed(0) + '% below its 1-year high') : '',
      f && f.div ? 'dividend ' + pct(f.div, 1) : ''].filter(Boolean).join(' · '));
-  return '<div class="gl"><div class="zone ' + g.cls + '"><i>' + g.icon + '</i><div><b>' + esc(g.label) + '</b><span>' + esc(g.sentence) + '</span></div></div>' +
+  const A = analystOf(sym), fmt = v => A.cur + (v >= 1000 ? Math.round(v).toLocaleString(A.cur === '₹' ? 'en-IN' : 'en-US') : v.toFixed(v < 100 ? 2 : 0));
+  const anl = !A ? '' : '<div class="anl"><div class="ah">Analysts</div><div class="av"><b class="' + A.cls + '">' + A.label + '</b><span>· ' + A.n + ' analysts</span></div>' +
+    '<div class="abar"><i style="width:' + A.buy.toFixed(1) + '%" class="g"></i><i style="width:' + A.hold.toFixed(1) + '%" class="a"></i><i style="width:' + A.sell.toFixed(1) + '%" class="r"></i></div>' +
+    '<div class="alg"><span>Buy ' + Math.round(A.buy) + '%</span><span>Hold ' + Math.round(A.hold) + '%</span><span>Sell ' + Math.round(A.sell) + '%</span></div>' +
+    (A.tm ? '<div class="ar"><span>Average target</span><b>' + fmt(A.tm) + (A.up != null ? ' <em class="' + (A.up >= 0 ? 'g' : 'r') + '">(' + (A.up >= 0 ? '+' : '−') + Math.abs(A.up).toFixed(0) + '%)</em>' : '') + '</b></div>' : '') +
+    (A.tl && A.th ? '<div class="ar"><span>Target range</span><b>' + fmt(A.tl) + ' – ' + fmt(A.th) + '</b></div>' : '') +
+    (A.theme ? '<div class="ar th"><span>Theme</span><b>' + esc(A.theme) + '</b></div>' : '') +
+    (A.calls.length ? '<div class="ah" style="margin-top:10px">Recent calls</div>' + A.calls.map(c => '<div class="ar"><span>' + esc(c.f) + ' · ' + new Date(c.t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + '</span><b>' + esc(c.g) + (c.pt ? ' · ' + fmt(c.pt) : '') + '</b></div>').join('') : '') +
+    '<div class="asrc">Broker consensus via Yahoo Finance' + (A.calls.length ? '; recent calls by firm' : '; individual brokers not named for this stock') + '. Theme written by AI from recent headlines.</div></div>';
+  return '<div class="gl"><div class="zone ' + g.cls + '"><i>' + g.icon + '</i><div><b>' + esc(g.label) + '</b><span>' + esc(g.sentence) + '</span></div></div>' + anl +
     '<div class="rows">' + rows + '</div>' +
     '<div class="src">From Yahoo Finance, updated daily' + (f && f.at ? ' (fundamentals ' + new Date(f.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ')' : '') +
     '. The plain-word reads use fixed rules on these numbers; they are not advice or a forecast.</div></div>';

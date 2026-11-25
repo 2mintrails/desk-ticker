@@ -651,6 +651,12 @@ async function jobWatch(env, us) {
     hits.push({ ...it, sym: m[0].sym, tick: m[0].tick });
   });
   const top = pickTop(hits, { keep: 8, per: 3, ageH: 48, skip: x => { if ((count[x.sym] || 0) >= 2) return true; count[x.sym] = (count[x.sym] || 0) + 1; return false; } });
+  // remember each stock's headlines for a week (the daily theme line is written from these)
+  try { const mk = us ? 'heads_us' : 'heads_in', mem = (await dbGet(env, [mk]))[mk]?.v || {}, cut = Date.now() - 7 * 864e5;
+    hits.forEach(h => { const tx = String(h.title || h.text || '').replace(/\s+-\s+[^-]{2,40}$/, '').trim(); if (!tx || !(h.t > cut)) return;
+      const a = mem[h.sym] = (mem[h.sym] || []).filter(x => x.t > cut); if (!a.some(x => x.text === tx)) a.push({ t: h.t, text: tx }); a.sort((x, y) => y.t - x.t); a.splice(10); });
+    Object.keys(mem).forEach(k => { mem[k] = mem[k].filter(x => x.t > cut); if (!mem[k].length) delete mem[k]; });
+    await dbPut(env, mk, mem); } catch (e) {}
   await dbPut(env, us ? 'news_WatchUS' : 'news_Watch', top);      // an empty list is fine: the slide hides itself
   return top.length + ' headlines for ' + new Set(top.map(x => x.tick)).size + ' stocks, from ' + hits.length + ' matches (' + Object.entries(perFeed).map(([n, c]) => n + ' ' + c).join(', ') + ')' +
     (top[0] ? ' · newest: [' + top[0].tick + '] ' + top[0].text.slice(0, 60) : '');
@@ -802,26 +808,51 @@ async function yahooSession(env, fresh) {
   if (!r2.ok || !crumb || crumb.length > 40) throw new Error('no Yahoo session (' + r2.status + ')');
   const v = { cookie, crumb }; await dbPut(env, 'ysess', v); return v;
 }
+// what the brokers covering a stock say (Yahoo Finance: consensus counts and targets; recent calls by firm, mostly for US stocks)
+function analysts(j, f, n) {
+  const rt = ((j.recommendationTrend || {}).trend || []).find(x => x.period === '0m') || {};
+  const c = ['strongBuy', 'buy', 'hold', 'sell', 'strongSell'].map(k => +rt[k] || 0), N = c.reduce((a, b) => a + b, 0);
+  if (!N) return null;
+  const calls = ((j.upgradeDowngradeHistory || {}).history || []).filter(h => h.firm && h.epochGradeDate * 1000 > Date.now() - 120 * 864e5).slice(0, 3)
+    .map(h => ({ f: h.firm, g: h.toGrade || '', a: h.action || '', pt: isFinite(h.currentPriceTarget) && h.currentPriceTarget > 0 ? h.currentPriceTarget : null, t: h.epochGradeDate * 1000 }));
+  return { c, n: N, mean: n(f.recommendationMean), tm: n(f.targetMeanPrice), th: n(f.targetHighPrice), tl: n(f.targetLowPrice), calls };
+}
 async function fundamentals(env, ys) {
   for (let k = 0; k < 2; k++) {
     const S = await yahooSession(env, k > 0);
-    const r = await fetch('https://query2.finance.yahoo.com/v10/finance/quoteSummary/' + encodeURIComponent(ys) + '?modules=summaryDetail,financialData,defaultKeyStatistics,price&crumb=' + encodeURIComponent(S.crumb), { headers: { 'User-Agent': UA, Cookie: S.cookie } });
+    const r = await fetch('https://query2.finance.yahoo.com/v10/finance/quoteSummary/' + encodeURIComponent(ys) + '?modules=summaryDetail,financialData,defaultKeyStatistics,price,recommendationTrend,upgradeDowngradeHistory&crumb=' + encodeURIComponent(S.crumb), { headers: { 'User-Agent': UA, Cookie: S.cookie } });
     if (r.status === 401 || r.status === 403) continue;            // session expired: get a new one and try once more
     if (!r.ok) throw new Error('fundamentals ' + r.status);
     const j = (await r.json()).quoteSummary.result[0], f = j.financialData || {}, sd = j.summaryDetail || {}, ks = j.defaultKeyStatistics || {}, pr = j.price || {};
     const n = x => x && x.raw != null && isFinite(x.raw) ? x.raw : null;
     return { pe: n(sd.trailingPE), fpe: n(sd.forwardPE), pb: n(ks.priceToBook), roe: n(f.returnOnEquity), de: n(f.debtToEquity) != null ? n(f.debtToEquity) / 100 : null,
-      rev: n(f.revenueGrowth), margin: n(f.profitMargins), mcap: n(sd.marketCap) ?? n(pr.marketCap), div: n(sd.dividendYield), cur: pr.currency || sd.currency || '', at: Date.now() };
+      rev: n(f.revenueGrowth), margin: n(f.profitMargins), mcap: n(sd.marketCap) ?? n(pr.marketCap), div: n(sd.dividendYield), cur: pr.currency || sd.currency || '', an: analysts(j, f, n), at: Date.now() };
   }
   throw new Error('Yahoo session refused');
 }
 // daily: 50-day and 200-day averages, 14-day RSI, 5-session move, from a year of daily closes (Yahoo), for every stock in the list
+// one short line on what is driving how the market sees a company, written from its own recent headlines (blank when there's no clear theme)
+async function stockTheme(env, name, hl) {
+  const prompt = 'Recent news headlines about ' + name + ':\n' + hl.map(h => '- ' + h.text).join('\n') +
+    '\n\nIn at most 12 plain words, state the main theme in these headlines that is shaping how investors see ' + name + ' right now (e.g. "AI chip demand keeps orders strong"). ' +
+    'Use only what the headlines say. No numbers, no prices, no advice, and do not say buy, sell or hold. If there is no clear theme, reply NONE. Reply with the line only.';
+  let r;
+  for (const model of ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct']) {
+    try { r = await env.AI.run(model, { messages: [{ role: 'system', content: 'You summarise news headlines faithfully. You never invent facts.' }, { role: 'user', content: prompt }], max_tokens: 40, temperature: 0.1 }); break; }
+    catch (e) { r = null; }
+  }
+  if (!r) throw new Error('AI unavailable');
+  const t = String(typeof r.response === 'string' ? r.response : '').split('\n')[0].replace(/^["'\s-]+|["'.\s]+$/g, '').replace(/\s+/g, ' ').trim();
+  if (!t || /\bNONE\b/i.test(t) || /\b(buy|sell|hold|recommend)\b/i.test(t) || t.length < 8 || t.length > 90 || t.split(' ').length > 14) return '';
+  return t[0].toUpperCase() + t.slice(1);
+}
 async function jobTech(env) {
   const cfg = await getCfg(env);
   const all = [...((cfg.watch || {}).in || []), ...((cfg.watch || {}).us || [])].filter(x => !/^INDEX/.test(x.sym));
   const want = all;
   const old = (await dbGet(env, ['tech'])).tech?.v || {}, out = { ...old }, now = Date.now(), notes = [];
-  const stale = want.filter(x => { const o = old[tickKey(x.sym)]; return !o || now - o.at > 10 * 3600e3 || !o.f || now - (o.f.at || 0) > 24 * 3600e3; }).slice(0, 6);
+  const stale = want.filter(x => { const o = old[tickKey(x.sym)]; return !o || now - o.at > 10 * 3600e3 || !o.f || now - (o.f.at || 0) > 24 * 3600e3 || o.f.an === undefined; }).slice(0, 6);
+  const hm = await dbGet(env, ['heads_in', 'heads_us']), heads = { ...(hm.heads_in?.v || {}), ...(hm.heads_us?.v || {}) };
   for (const x of stale) {
     const k = tickKey(x.sym), ys = yahooSym(x.sym);
     try {
@@ -832,9 +863,12 @@ async function jobTech(env) {
       let g = 0, l = 0; for (let i = 1; i <= 14; i++) { const d = c[i] - c[i - 1]; if (d > 0) g += d; else l -= d; } g /= 14; l /= 14;
       for (let i = 15; i < c.length; i++) { const d = c[i] - c[i - 1]; g = (g * 13 + Math.max(d, 0)) / 14; l = (l * 13 + Math.max(-d, 0)) / 14; }
       const last = c[c.length - 1];
-      let fz = old[k] && old[k].f && now - (old[k].f.at || 0) < 24 * 3600e3 ? old[k].f : null, fnote = '';
+      let fz = old[k] && old[k].f && old[k].f.an !== undefined && now - (old[k].f.at || 0) < 24 * 3600e3 ? old[k].f : null, fnote = '';
       if (!fz) { try { fz = await fundamentals(env, ys); } catch (e) { fz = (old[k] && old[k].f) || null; fnote = ' (fundamentals: ' + String(e.message || e).slice(0, 30) + ')'; } }
-      out[k] = { sma50: avg(50), sma200: avg(200), rsi: l === 0 ? 100 : 100 - 100 / (1 + g / l), chg5: c.length > 5 ? (last / c[c.length - 6] - 1) * 100 : null, hi: Math.max(...c), last, days: c.length, at: now, f: fz };
+      let th = old[k] && old[k].th && now - old[k].th.at < 24 * 3600e3 ? old[k].th : null;
+      if (!th) { th = { text: '', at: now }; const hl = (heads[x.sym] || []).slice(0, 8);
+        if (hl.length >= 2) try { th.text = await stockTheme(env, x.name || x.tick || x.sym, hl); } catch (e) { fnote += ' (theme: ' + String(e.message || e).slice(0, 20) + ')'; } }
+      out[k] = { sma50: avg(50), sma200: avg(200), rsi: l === 0 ? 100 : 100 - 100 / (1 + g / l), chg5: c.length > 5 ? (last / c[c.length - 6] - 1) * 100 : null, hi: Math.max(...c), last, days: c.length, at: now, f: fz, th };
       notes.push(k + ' ok' + fnote);
     } catch (e) { notes.push(k + ' failed: ' + String(e.message || e).slice(0, 40)); }
   }
