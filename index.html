@@ -213,10 +213,10 @@
   .bull .metal.has-wk .wk.dipv .plot{flex:0 1 clamp(22px,9vh,64px);height:auto!important;min-height:14px}
   .bull .metal.has-wk .wk.dipv .dv, .bull .metal.has-wk .wk.dipv .ends, .bull .metal.has-wk .wk.dipv .mo{flex:none}
   .bull .metal > *{flex-shrink:0} .bull .metal > .wk{flex-shrink:1}
+  .bull .metal.mt1 .per{display:none} html body .bull .metal.mt2 .price{font-size:clamp(26px,8.5vh,46px)} .bull .metal.mt3 .dchg{display:none}
   .dipv .mo2{display:none} .dipv .mo2.down{color:var(--down,#ff5a5f)} .dipv .mo2.up{color:var(--up,#3ddc84)}
   @media (orientation:portrait) and (max-height:760px){ .bull .dipv .mo{display:none} .bull .dipv .mo2{display:inline} .bull .dipv .dv{margin-bottom:.4vh}
-    .bull .dipv .e1p{display:none} .bull .dipv .mo2::before{content:'to today '} .bull .metal .price, html body.anime .bull .metal .price{font-size:clamp(30px,10vh,54px)}
-    body.anime .bull .metal .per{display:none} }   /* Anime's framed cards are the shortest: per-gram goes on small iPhones */   /* small iPhones: the big price already says today's rate */   /* small iPhones: the month change joins the "today" label */
+    .bull .dipv .e1p{display:none} .bull .dipv .mo2::before{content:'to today '} .bull .metal .price, html body.anime .bull .metal .price{font-size:clamp(30px,10vh,54px)} }   /* small iPhones: the big price already says today's rate */   /* small iPhones: the month change joins the "today" label */
   .slide.active > .mevl{animation:none} .mev.now .mt, .mev.soon .mt{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
   .wk.dipv.pricey{--wkc:#f5b84a;--wkbg:rgba(245,184,74,.14)}
   .dipv .dv{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:.8vh}
@@ -2524,7 +2524,7 @@ function renderGR() {
                                                                                   // (IBJA publishes on working days only)
   const lng = (L, h) => L && L.length >= 10 ? L.map(([iso, v]) => ({ iso, d: dayLbl(iso), v })) : (h || []);
   dipLine('goldW', lng(GR.goldLong, GR.goldHist), 10); dipLine('silverW', lng(GR.silverLong, GR.silverHist), 1);
-  renderEvent();
+  renderEvent(); fitMetals();
   const ibja = /IBJA/.test(GR.src || ''), gs = GR.gsrc || GR.src || '', ss = GR.ssrc || GR.src || '';
   const name = x => /IBJA/.test(x) ? 'IBJA (official, before GST)' : 'GoodReturns Bangalore';
   document.getElementById('mNote').textContent = gs && ss && gs !== ss
@@ -2587,6 +2587,19 @@ document.getElementById('mRange').addEventListener('click', e => {
 // and a tag when today is the week's low or high
 // dip view (26 Nov 2026): where today's rate sits against its 30-day average and its 3-month range, and the 30-day line with
 // the average dashed across it. Worked out from the rates alone, so it never goes blank the way the AI "why" did.
+// the bullion cards fit themselves: when anything spills out of a card (small iPhone, big theme fonts), drop the least
+// important line first: per-gram, then a smaller price, then "vs yesterday". Both cards get the same level so they match.
+function fitMetals() {
+  const cards = [...document.querySelectorAll('.bull .metal')]; if (!cards.length) return;
+  const spills = () => cards.some(c => { const q = c.getBoundingClientRect(); if (!q.height) return false;
+    for (const el of c.querySelectorAll('.price, .per, .dchg, .vchip, .plot, .ends, .mo, .k, .lbl, .chip')) { const r = el.getBoundingClientRect();
+      if (r.height && (r.top < q.top - 1 || r.bottom > q.bottom + 1)) return true; }
+    const w = c.querySelector('.dipv'); return !!(w && w.scrollHeight > w.clientHeight + 1); });
+  cards.forEach(c => c.classList.remove('mt1', 'mt2', 'mt3'));
+  for (const lv of ['mt1', 'mt2', 'mt3']) { if (!spills()) break; cards.forEach(c => c.classList.add(lv)); }
+}
+addEventListener('resize', () => setTimeout(fitMetals, 200));
+try { document.fonts && document.fonts.ready.then(() => fitMetals()); } catch (e) {}   // theme fonts arrive late and are bigger
 function dipLine(id, all, mult) {
   const box = document.getElementById(id), card = box && box.closest('.metal');
   if (!box) return;
@@ -3337,7 +3350,7 @@ function noteRestart(why) {          // a short log of self-restarts, shown at t
   } catch (e) {}
 }
 function show(i) {
-  lastShowAt = Date.now(); setTimeout(fitTiles, 60);
+  lastShowAt = Date.now(); setTimeout(fitTiles, 60); setTimeout(fitMetals, 80);
   try { sessionStorage.setItem('deskTickerSlide', JSON.stringify({ t: slides[i].dataset.title, at: Date.now(), v: VIEW || 'all' })); } catch (e) {}
   allSlides.forEach(s => s.classList.toggle('active', s === slides[i]));
   [...bars.children].forEach((b, k) => {
