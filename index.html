@@ -213,6 +213,8 @@
   .bull .metal.has-wk .wk.dipv .plot{flex:0 1 clamp(22px,9vh,64px);height:auto!important;min-height:14px}
   .bull .metal.has-wk .wk.dipv .dv, .bull .metal.has-wk .wk.dipv .ends, .bull .metal.has-wk .wk.dipv .mo{flex:none}
   .bull .metal > *{flex-shrink:0} .bull .metal > .wk{flex-shrink:1}
+  .dipv .mo2{display:none} .dipv .mo2.down{color:var(--down,#ff5a5f)} .dipv .mo2.up{color:var(--up,#3ddc84)}
+  @media (orientation:portrait) and (max-height:760px){ .bull .dipv .mo{display:none} .bull .dipv .mo2{display:inline} .bull .dipv .dv{margin-bottom:.4vh} }   /* small iPhones: the month change joins the "today" label */
   .slide.active > .mevl{animation:none} .mev.now .mt, .mev.soon .mt{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
   .wk.dipv.pricey{--wkc:#f5b84a;--wkbg:rgba(245,184,74,.14)}
   .dipv .dv{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:.8vh}
@@ -2609,7 +2611,7 @@ function dipLine(id, all, mult) {
     `<path d="${line}" fill="none" stroke="var(--wkc)" stroke-width="2.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>` +
     `<line class="sx" y1="0" y2="${H}" stroke="currentColor" stroke-opacity=".6" stroke-width="1.2" vector-effect="non-scaling-stroke" style="display:none"/></svg>` +
     `<i class="dot" style="top:${(Y(last) / H * 100).toFixed(1)}%"></i><i class="sdot" style="display:none"></i></div>` +
-    `<div class="ends"><span class="e0">${m30[0].d} · ${inr(first)}</span><span class="e1">today · ${inr(last)}</span></div>` +
+    `<div class="ends"><span class="e0">${m30[0].d} · ${inr(first)}</span><span class="e1">today · ${inr(last)}<b class="mo2 ${mo < 0 ? 'down' : 'up'}"> ${mo < 0 ? '▼' : '▲'}${Math.abs(mo).toFixed(0)}%</b></span></div>` +
     `<div class="mo ${mo < 0 ? 'down' : 'up'}">${mo < 0 ? '▼' : '▲'} ${Math.abs(mo).toFixed(1)}% in a month</div>`;
   card.classList.add('has-wk');
 }

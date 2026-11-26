@@ -1,6 +1,9 @@
 name: UI check
 on:
   workflow_dispatch:
+    inputs:
+      looks: { description: 'themes (comma list, blank = all)', default: '' }
+      sizes: { description: 'sizes (e.g. 375x667, blank = all)', default: '' }
   push:
     branches: [main, preview]
     paths: ['index.html', 'tools/ui-check.mjs', '.github/workflows/ui-check.yml']
@@ -12,6 +15,7 @@ jobs:
       - run: npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install --with-deps webkit chromium >/dev/null 2>&1
       - run: (python3 -m http.server 8080 >/dev/null 2>&1 &) && sleep 2
       - run: node tools/ui-check.mjs http://localhost:8080/index.html
+        env: { LOOKS: '${{ inputs.looks }}', SIZES: '${{ inputs.sizes }}' }
       - if: always()
         uses: actions/upload-artifact@v4
         with: { name: ui-shots, path: shots/ }

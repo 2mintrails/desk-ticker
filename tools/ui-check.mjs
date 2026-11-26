@@ -4,8 +4,9 @@
 import { chromium, webkit } from 'playwright';
 import fs from 'fs';
 const URL = process.argv[2] || 'http://localhost:8080/index.html';
-const LOOKS = ['ambient', 'swiss', 'retro', 'calm', 'anime', 'xsnow', 'xmarket'];
-const SIZES = [['iphone-396x859', 396, 859], ['iphone-375x667', 375, 667], ['iphone-430x932', 430, 932], ['landscape-859x396', 859, 396]];
+const LOOKS = process.env.LOOKS ? process.env.LOOKS.split(',') : ['ambient', 'swiss', 'retro', 'calm', 'anime', 'xsnow', 'xmarket'];
+const SIZES_ALL = [['iphone-396x859', 396, 859], ['iphone-375x667', 375, 667], ['iphone-430x932', 430, 932], ['landscape-859x396', 859, 396]];
+const SIZES = process.env.SIZES ? SIZES_ALL.filter(x => process.env.SIZES.split(',').some(k => x[0].includes(k))) : SIZES_ALL;
 const ENGINES = (process.env.ENGINES || 'webkit,chromium').split(',');
 fs.mkdirSync('shots', { recursive: true });
 const problems = [];
@@ -16,7 +17,7 @@ for (const eng of ENGINES) {
     var ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: eng !== 'webkit' ? true : undefined, hasTouch: true, timezoneId: 'Asia/Kolkata' });
     await ctx.addInitScript(l => { try { localStorage.setItem('deskTickerLook', l); } catch (e) {} }, look);
     const pg = await ctx.newPage(); const errs = [];
-    pg.on('pageerror', e => errs.push(e.message));
+    pg.on('pageerror', e => { if (!/access control|Load failed|Failed to fetch|NetworkError/i.test(e.message)) errs.push(e.message); });   // other sites refusing the test machine is not an app fault
     await pg.goto(URL + (URL.includes('?') ? '&' : '?') + '_=' + Date.now()); await pg.waitForTimeout(7000);
     const n = await pg.evaluate(() => { clearInterval(timer); return slides.length; });
     for (let k = 0; k < n; k++) {
