@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install --with-deps webkit >/dev/null 2>&1
+      - run: npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install --with-deps webkit chromium >/dev/null 2>&1
       - run: (python3 -m http.server 8080 >/dev/null 2>&1 &) && sleep 2
       - run: node tools/ui-check.mjs http://localhost:8080/index.html
       - if: always()

@@ -6,13 +6,14 @@ import fs from 'fs';
 const URL = process.argv[2] || 'http://localhost:8080/index.html';
 const LOOKS = ['ambient', 'swiss', 'retro', 'calm', 'anime', 'xsnow', 'xmarket'];
 const SIZES = [['iphone-396x859', 396, 859], ['iphone-375x667', 375, 667], ['iphone-430x932', 430, 932], ['landscape-859x396', 859, 396]];
-const ENGINES = (process.env.ENGINES || 'webkit').split(',');
+const ENGINES = (process.env.ENGINES || 'webkit,chromium').split(',');
 fs.mkdirSync('shots', { recursive: true });
 const problems = [];
 for (const eng of ENGINES) {
   const b = await (eng === 'webkit' ? webkit : chromium).launch();
   for (const look of LOOKS) for (const [sz, w, h] of SIZES) {
-    const ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: eng !== 'webkit' ? true : undefined, hasTouch: true, timezoneId: 'Asia/Kolkata' });
+   for (let attempt = 1; attempt <= 2; attempt++) { try {
+    var ctx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: eng !== 'webkit' ? true : undefined, hasTouch: true, timezoneId: 'Asia/Kolkata' });
     await ctx.addInitScript(l => { try { localStorage.setItem('deskTickerLook', l); } catch (e) {} }, look);
     const pg = await ctx.newPage(); const errs = [];
     pg.on('pageerror', e => errs.push(e.message));
@@ -42,7 +43,11 @@ for (const eng of ENGINES) {
       if (bad.length) problems.push({ eng, look, sz, slide: title, bad, shot: f });
     }
     if (errs.length) problems.push({ eng, look, sz, slide: '(page)', bad: errs.slice(0, 5).map(e => 'script error: ' + e) });
-    await ctx.close();
+    await ctx.close(); break;
+   } catch (e) {
+     console.log(`CRASH ${eng} ${look} ${sz} attempt ${attempt}: ${String(e.message).split('\n')[0]}`);
+     if (attempt === 2) problems.push({ eng, look, sz, slide: '(page)', bad: ['page crashed twice: ' + String(e.message).split('\n')[0]] });
+   } }
   }
   await b.close();
 }
