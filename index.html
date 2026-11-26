@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v22.5-2026-11-26">
+<meta name="ticker-version" content="v22.6-2026-11-26">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -203,6 +203,30 @@
   .gold .chip .dot{background:var(--gold2)} .silver .chip .dot{background:var(--silver2)}
   /* gold & silver: why it moved, and an analyst view, from news headlines */
   /* the "why" lines live inside their card: under the price on the index cards, at the foot of each gold/silver card */
+  /* dip view and event line on the bullion slide (26 Nov 2026) */
+  #mRange{display:none!important}
+  .slide.bull{display:flex;flex-direction:column} .bull .metals{flex:1;min-height:0;height:auto} .bull .mev{flex:none}
+  .bull > .mnote{position:static;flex:none;margin-top:.7vh}
+  .slide.active > .mevl{animation:none} .mev.now .mt, .mev.soon .mt{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+  .wk.dipv.pricey{--wkc:#f5b84a;--wkbg:rgba(245,184,74,.14)}
+  .dipv .dv{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:.8vh}
+  .dipv .vchip{font-size:clamp(11px,3.2vh,14px);font-weight:600;padding:3px 9px;border-radius:8px;white-space:nowrap}
+  .dipv .vchip.dip{background:rgba(61,220,132,.16);color:#3ddc84} .dipv .vchip.pricey{background:rgba(245,184,74,.16);color:#f5b84a} .dipv .vchip.mid{background:rgba(255,255,255,.08);color:var(--dim,#aab)}
+  .dipv .vs{font-size:clamp(11px,3.2vh,14px);opacity:.85;white-space:nowrap}
+  .dipv .rg{margin-bottom:.9vh} .dipv .rl{font-size:clamp(10px,2.8vh,12px);opacity:.6}
+  .dipv .rb{position:relative;height:6px;border-radius:3px;background:rgba(255,255,255,.12);margin:5px 0 3px}
+  .dipv .rb i{position:absolute;top:-4px;width:4px;height:14px;margin-left:-2px;border-radius:2px;background:currentColor}
+  body.light .dipv .rb{background:rgba(0,0,0,.1)} body.light .dipv .vchip.mid{background:rgba(0,0,0,.06)}
+  body.light .dipv .vchip.dip{color:#0f7a4a} body.light .dipv .vchip.pricey{color:#9a6200}
+  .mev{display:flex;align-items:center;gap:10px;width:100%;margin-top:1.2vh;padding:9px 12px;border-radius:12px;border:1px solid var(--line,rgba(255,255,255,.12));background:rgba(255,255,255,.04);
+    color:inherit;font:inherit;font-size:clamp(12px,3.4vh,15px);text-align:left;cursor:pointer}
+  .mev[hidden]{display:none} .mev .mt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .mev .md{opacity:.7;white-space:nowrap}
+  .mev.soon{background:rgba(245,184,74,.14);border-color:rgba(245,184,74,.45);color:#f5b84a} .mev.now{background:rgba(255,90,95,.14);border-color:rgba(255,90,95,.45);color:#ff7a7e}
+  body.light .mev.soon{color:#9a6200} body.light .mev.now{color:#c0262c}
+  .mevl{position:absolute;left:4%;right:4%;bottom:12vh;z-index:6;padding:12px 14px;border-radius:14px;background:rgba(15,18,26,.96);border:1px solid rgba(255,255,255,.14);font-size:clamp(12px,3.3vh,15px)}
+  .mevl[hidden]{display:none} .mevl b{display:block;margin-bottom:6px} body.light .mevl{background:rgba(255,255,255,.97);border-color:rgba(0,0,0,.12)}
+  .mevl div{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid rgba(255,255,255,.08)} .mevl span{flex:1} .mevl em{font-style:normal;opacity:.7;white-space:nowrap}
+  .mevl i{width:8px;height:8px;border-radius:50%;background:#f5b84a;flex:none} .mevl i.big{background:#ff5a5f}
   .why{display:flex;flex-direction:column;gap:.6vh;border-top:1px solid var(--line);padding-top:1.3vh;min-width:0}
   .why[hidden]{display:none!important}
   .why .r{display:flex;align-items:baseline;gap:10px;font-size:clamp(13px,3.7vh,16px);font-weight:600;line-height:1.25}
@@ -1467,7 +1491,7 @@
     </section>
 
     <!-- 4. GOLD & SILVER -->
-    <section class="slide" data-title="Bullion · Bengaluru" data-accent="#f5c451" data-views="in">
+    <section class="slide bull" data-title="Bullion · Bengaluru" data-accent="#f5c451" data-views="in">
       <div class="metals">
         <div class="card metal gold">
           <div class="chip"><span class="dot"></span>Gold 24K <span class="u">10g</span></div>
@@ -1486,7 +1510,9 @@
           <div class="why" data-metal="silver" hidden></div>
         </div>
       </div>
-      <div class="mrange" id="mRange"><button data-r="7">7D</button><button data-r="15">15D</button><button data-r="30">1M</button></div>
+      <div class="mrange" id="mRange" hidden><button data-r="7">7D</button><button data-r="15">15D</button><button data-r="30">1M</button></div>
+      <button class="mev" id="mEvent" type="button" hidden></button>
+      <div class="mevl" id="mEvList" hidden></div>
       <div class="mnote" id="mNote">Estimated from international spot × USD/INR</div>
     </section>
 
@@ -2465,7 +2491,8 @@ function readMetals(m) {             // the server's GoodReturns rates: newest f
   const hist = list => list.slice(0, 200).reverse().map(x => ({ iso: x.date, d: dayLbl(x.date), v: x.p }));
   GR = { gold: g.p, goldChg: g.c, silver: sv.p, silverChg: sv.c, date: dayLbl(g.date), sdate: dayLbl(sv.date), src: m.source || '',
          gsrc: m.goldSource || m.source || '', ssrc: m.silverSource || m.source || '',
-         goldHist: hist(m.gold), silverHist: hist(m.silver) };
+         goldHist: hist(m.gold), silverHist: hist(m.silver),
+         goldLong: (m.long && m.long.gold) || null, silverLong: (m.long && m.long.silver) || null };
   try { localStorage.setItem('deskTickerGR', JSON.stringify({ at: Date.now(), GR })); } catch (e) {}
   renderGR();
 }
@@ -2480,7 +2507,9 @@ function renderGR() {
   const span = h => { if (!h || !h.length) return h; const end = Date.parse(h[h.length - 1].iso || ''); if (!end) return h.slice(-MRANGE);
     return MRANGE === 30 ? h.filter(x => Date.parse(x.iso) > end - 30 * 864e5) : h.slice(-MRANGE); };   // the last 7 / 15 published rates, or the last month
                                                                                   // (IBJA publishes on working days only)
-  weekLine('goldW', span(GR.goldHist || GR.goldWk), 10); weekLine('silverW', span(GR.silverHist || GR.silverWk), 1);
+  const lng = (L, h) => L && L.length >= 10 ? L.map(([iso, v]) => ({ iso, d: dayLbl(iso), v })) : (h || []);
+  dipLine('goldW', lng(GR.goldLong, GR.goldHist), 10); dipLine('silverW', lng(GR.silverLong, GR.silverHist), 1);
+  renderEvent();
   const ibja = /IBJA/.test(GR.src || ''), gs = GR.gsrc || GR.src || '', ss = GR.ssrc || GR.src || '';
   const name = x => /IBJA/.test(x) ? 'IBJA (official, before GST)' : 'GoodReturns Bangalore';
   document.getElementById('mNote').textContent = gs && ss && gs !== ss
@@ -2493,6 +2522,45 @@ function renderGR() {
   document.getElementById('mRange').classList.toggle('ready', longest >= 12);
 
 }
+// events that usually move gold and silver (official calendars: RBI, US Fed, US BLS). Times in IST. big = usually the bigger swing.
+// Refresh this list every couple of months; the line hides itself when it runs out.
+var METAL_EVENTS = [
+  ['2026-12-04T10:00+05:30', 'RBI rate decision', 0, 'the rupee and Indian gold prices react'],
+  ['2026-12-04T19:00+05:30', 'US jobs report', 1, 'strong jobs usually pull gold down, weak jobs lift it'],
+  ['2026-12-10T00:30+05:30', 'US Fed rate decision', 1, 'lands after midnight · Indian prices move next morning'],
+  ['2026-12-10T19:00+05:30', 'US inflation (CPI)', 0, 'hot inflation usually pressures gold'],
+  ['2027-01-08T19:00+05:30', 'US jobs report', 1, 'strong jobs usually pull gold down, weak jobs lift it'],
+  ['2027-01-13T19:00+05:30', 'US inflation (CPI)', 0, 'hot inflation usually pressures gold'],
+  ['2027-01-28T00:30+05:30', 'US Fed rate decision', 1, 'lands after midnight · Indian prices move next morning'],
+  ['2027-02-05T10:00+05:30', 'RBI rate decision', 0, 'the rupee and Indian gold prices react'],
+];
+function evDay(t) { return new Date(t).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' }); }
+function evTime(t) { return new Date(t).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }).replace(':00', '').toUpperCase(); }
+function evEsc(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function renderEvent() {
+  const el = document.getElementById('mEvent'); if (!el) return;
+  const now = Date.now(), up = METAL_EVENTS.map(e => ({ t: Date.parse(e[0]), name: e[1], big: e[2], hint: e[3] })).filter(e => e.t > now - 3 * 3600e3).sort((a, b) => a.t - b.t);
+  if (!up.length) { el.hidden = true; return; }
+  const e = up[0], ms = e.t - now, days = Math.ceil((new Date(e.t).setHours(0, 0, 0, 0) - new Date(now).setHours(0, 0, 0, 0)) / 864e5);
+  let cls = 'calm', txt, right = days <= 0 ? '' : days === 1 ? 'tomorrow' : days + ' days';
+  if (ms <= 0) { cls = 'now'; txt = '⚡ ' + e.name + ' just out · ' + e.hint; right = ''; }
+  else if (ms < 18 * 3600e3) { cls = 'now'; txt = '⚡ ' + (new Date(e.t).getHours() < 5 ? 'Tonight ' : 'Today ') + evTime(e.t) + ': ' + e.name + ' · ' + e.hint; right = ''; }
+  else if (ms < 48 * 3600e3) { cls = 'soon'; txt = '⚠ ' + e.name + ' ' + evDay(e.t).split(',')[0] + ' ' + evTime(e.t) + ' · gold may swing'; }
+  else txt = 'Next: ' + e.name + ' · ' + evDay(e.t);
+  el.className = 'mev ' + cls + (e.big ? ' big' : '');
+  el.innerHTML = '<span class="mt">' + evEsc(txt) + '</span>' + (right ? '<span class="md">' + right + '</span>' : '');
+  el.hidden = false;
+  document.getElementById('mEvList').innerHTML = '<b>Coming up for gold and silver</b>' + up.slice(0, 6).map(x =>
+    '<div><i class="' + (x.big ? 'big' : '') + '"></i><span>' + evEsc(x.name) + '</span><em>' + evDay(x.t) + ', ' + evTime(x.t) + '</em></div>').join('');
+}
+let evListTimer;
+document.getElementById('mEvent').addEventListener('click', ev => {
+  ev.stopPropagation();
+  const l = document.getElementById('mEvList'); l.hidden = !l.hidden; clearTimeout(evListTimer);
+  if (!l.hidden) evListTimer = setTimeout(() => l.hidden = true, 10000);
+});
+document.getElementById('mEvList').addEventListener('click', ev => { ev.stopPropagation(); ev.currentTarget.hidden = true; });
+setInterval(renderEvent, 5 * 60 * 1000);
 try { MRANGE = [7, 15, 30].includes(+localStorage.getItem('deskTickerMetalRange')) ? +localStorage.getItem('deskTickerMetalRange') : 7; } catch (e) {}
 document.getElementById('mRange').addEventListener('click', e => {
   e.stopPropagation();
@@ -2502,6 +2570,37 @@ document.getElementById('mRange').addEventListener('click', e => {
 });
 // a small line of the last days' rates, with the week's high, the change over the week, a falling/rising streak
 // and a tag when today is the week's low or high
+// dip view (26 Nov 2026): where today's rate sits against its 30-day average and its 3-month range, and the 30-day line with
+// the average dashed across it. Worked out from the rates alone, so it never goes blank the way the AI "why" did.
+function dipLine(id, all, mult) {
+  const box = document.getElementById(id), card = box && box.closest('.metal');
+  if (!box) return;
+  if (!all || all.length < 5) { card.classList.remove('has-wk'); return; }
+  const end = Date.parse(all[all.length - 1].iso);
+  const within = d => all.filter(x => Date.parse(x.iso) > end - d * 864e5);
+  const m30 = within(30), r90 = within(92);
+  const v = m30.map(x => x.v * mult), n = v.length, last = v[n - 1];
+  const avg = v.reduce((a, b) => a + b, 0) / n, vs = (last - avg) / avg * 100;
+  const rv = r90.map(x => x.v * mult), lo = Math.min(...rv), hi = Math.max(...rv), pos = hi > lo ? (last - lo) / (hi - lo) : .5;
+  const rDays = (end - Date.parse(r90[0].iso)) / 864e5, rName = rDays >= 80 ? '3-month' : Math.max(1, Math.round(rDays / 7)) + '-week';
+  const kind = vs <= -1.5 ? 'dip' : vs >= 1.5 ? 'pricey' : 'mid';
+  const verdict = kind === 'dip' ? 'Below average · a dip' : kind === 'pricey' ? 'Above average · pricey' : 'Near its average';
+  const near = pos <= .12 ? 'near its ' + rName + ' low' : pos >= .88 ? 'near its ' + rName + ' high' : '';
+  const plo = Math.min(...v, avg), phi = Math.max(...v, avg), pad = (phi - plo) * .15 || last * .002, W = 100, H = 40;
+  const X = i => i / Math.max(1, n - 1) * W, Y = x => H - (x - plo + pad) / (phi - plo + 2 * pad) * H;
+  const line = v.map((x, i) => (i ? 'L' : 'M') + X(i).toFixed(2) + ' ' + Y(x).toFixed(2)).join(' ');
+  box.className = 'wk dipv ' + (kind === 'pricey' ? 'pricey' : last >= v[0] ? 'up' : 'down');
+  box.innerHTML =
+    `<div class="dv"><span class="vchip ${kind}">${verdict}</span><span class="vs">${vs >= 0 ? '+' : '−'}${Math.abs(vs).toFixed(1)}% vs 30-day avg</span></div>` +
+    `<div class="rg"><span class="rl">${rName} range${near ? ' · ' + near : ''}</span><div class="rb"><i style="left:${(pos * 100).toFixed(1)}%"></i></div>` +
+    `<div class="ax"><span>low ${inr(lo)}</span><span>high ${inr(hi)}</span></div></div>` +
+    `<div class="plot"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">` +
+    `<line x1="0" x2="${W}" y1="${Y(avg).toFixed(2)}" y2="${Y(avg).toFixed(2)}" stroke="currentColor" stroke-opacity=".55" stroke-width="1.2" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>` +
+    `<path d="${line}" fill="none" stroke="var(--wkc)" stroke-width="2.4" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>` +
+    `<i class="dot" style="top:${(Y(last) / H * 100).toFixed(1)}%"></i></div>` +
+    `<div class="ax"><span>${m30[0].d}</span><span>dashed = 30-day avg</span><span>${m30[n - 1].d}</span></div>`;
+  card.classList.add('has-wk');
+}
 function weekLine(id, wk, mult) {
   const box = document.getElementById(id), card = box && box.closest('.metal');
   if (!box) return;
@@ -2845,6 +2944,8 @@ window.addEventListener('resize', () => ['newsIN', 'newsWD'].forEach(id => fitNe
 function agoTxt(ms) { const m = Math.max(1, Math.round((Date.now() - ms) / 6e4)); return m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'; }
 var WHY_B = null;   // var, not let: renderGR can run before this line
 function renderWhy(B) {
+  document.querySelectorAll('.why[data-metal]').forEach(b => { b.hidden = true; b.innerHTML = ''; const c = b.closest('.metal'); c && c.classList.remove('has-why'); });
+  return;   // the AI "why" was replaced by the dip view and event dates (26 Nov 2026)
   if (B !== undefined) WHY_B = B;
   const S = WHY_B && WHY_B.sum && Date.now() - (WHY_B.sum.at || 0) < 12 * 3600e3 ? WHY_B.sum : null;
   let any = false, sec = null;
