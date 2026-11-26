@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v22.1-2026-11-26">
+<meta name="ticker-version" content="v22.2-2026-11-26">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -322,7 +322,7 @@
     .slide .tile:has(.tag){gap:.6vh}
     .slide .tile:has(.tag) .p{font-size:clamp(18px,min(8vh,3.8vw),32px)}
   }
-  .tag .anb{font-style:normal;margin-left:auto;padding-left:8px;white-space:nowrap;font-size:.88em;opacity:.9} .tag .anb.g{color:#7ee2a8} .tag .anb.a{color:#fcd34d} .tag .anb.r{color:#fca5a5}
+  .tag{max-width:100%;box-sizing:border-box} .tag .anb{font-style:normal;margin-left:auto;padding-left:8px;white-space:nowrap;font-size:.88em;opacity:.9;min-width:0;overflow:hidden;text-overflow:ellipsis} .tag .anb.g{color:#7ee2a8} .tag .anb.a{color:#fcd34d} .tag .anb.r{color:#fca5a5}
   body.amb.light .tag .anb.g{color:#047857} body.amb.light .tag .anb.a{color:#92400e} body.amb.light .tag .anb.r{color:#b91c1c}
   /* Anime 90s by day: cream tiles, so tags get dark ink (strong borders to match the comic look) */
   body.anime:not(.anidark) .tag{border-width:2px}
@@ -1100,7 +1100,7 @@
     .tile .p{font-size:clamp(22px,8vw,34px)} .tile .nm{font-size:clamp(14px,4.4vw,18px)} .tile .chg{font-size:clamp(13px,4vw,17px)}
     /* five or six stocks on a slide: each tile is one compact row (name left, price and move right) so nothing is cut */
     .grid6.g56{gap:7px}
-    .grid6.g56 .tile{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"hd p" "w52 chg" "tev tev";align-content:center;align-items:center;
+    .grid6.g56 .tile{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"hd p" "w52 chg" "tag tag" "tev tev";align-content:center;align-items:center;
       column-gap:12px;row-gap:.2vh;padding:.5vh 4.5vw;overflow:hidden;min-height:0}
     .grid6.g56 .tile .hd{grid-area:hd;gap:10px}
     .grid6.g56 .tile .logo, .grid6.g56 .tile .badge{width:clamp(18px,5.6vw,24px);height:clamp(18px,5.6vw,24px);border-radius:6px;flex:none}
@@ -1109,6 +1109,8 @@
     .grid6.g56 .tile .p{grid-area:p;text-align:right;font-size:clamp(18px,6vw,26px);line-height:1.1;margin:0}
     .grid6.g56 .tile .chg{grid-area:chg;justify-self:end;text-align:right;font-size:clamp(12px,3.6vw,15px);line-height:1.1;margin:0}
     .grid6.g56 .tile .w52{grid-area:w52;margin:0;font-size:clamp(10px,3vw,12px);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .grid6.g56 .tile .tag{grid-area:tag;justify-self:stretch;align-self:center;margin-top:.3vh;padding:4px 10px}   /* the tag gets its own full-width row, so it never runs under the % move */
+    .grid6.g56 .tile .tag span{display:none} .grid6.g56 .tile .tag .anb{flex:none}   /* compact rows: label + analyst view only, the target is never cut */
     .grid6.g56 .tile .tev{grid-area:tev;font-size:clamp(10px,3vw,12px);line-height:1.1}
     /* currencies: one card per row */
     .fx{grid-template-columns:1fr!important;grid-auto-rows:minmax(0,1fr);grid-template-rows:none}
