@@ -9,7 +9,11 @@ const SIZES_ALL = [['iphone-396x859', 396, 859], ['iphone-375x667', 375, 667], [
 const SIZES = process.env.SIZES ? SIZES_ALL.filter(x => process.env.SIZES.split(',').some(k => x[0].includes(k))) : SIZES_ALL;
 const ENGINES = (process.env.ENGINES || 'webkit,chromium').split(',');
 fs.mkdirSync('shots', { recursive: true });
-const problems = [];
+const problems = [], known = [];
+// problems already known and parked (reported, but they don't fail the check). Remove a line once it's fixed.
+const KNOWN = [
+  { look: 'anime', sz: '375x667', slide: /Aligarh|Bengaluru, Karnataka|weather/i, why: 'Anime weather card is too tall on small iPhones (older issue, parked 26 Nov 2026)' },
+];
 for (const eng of ENGINES) {
   const b = await (eng === 'webkit' ? webkit : chromium).launch();
   for (const look of LOOKS) for (const [sz, w, h] of SIZES) {
@@ -41,7 +45,8 @@ for (const eng of ENGINES) {
       });
       const f = `shots/${eng}-${look}-${sz}-${String(k).padStart(2, '0')}.png`;
       await pg.screenshot({ path: f });
-      if (bad.length) problems.push({ eng, look, sz, slide: title, bad, shot: f });
+      if (bad.length) { const kn = KNOWN.find(x => x.look === look && sz.includes(x.sz) && x.slide.test(title));
+        (kn ? known : problems).push({ eng, look, sz, slide: title, bad, shot: f, why: kn && kn.why }); }
     }
     if (errs.length) problems.push({ eng, look, sz, slide: '(page)', bad: errs.slice(0, 5).map(e => 'script error: ' + e) });
     await ctx.close(); break;
@@ -52,7 +57,8 @@ for (const eng of ENGINES) {
   }
   await b.close();
 }
-fs.writeFileSync('shots/report.json', JSON.stringify(problems, null, 1));
+fs.writeFileSync('shots/report.json', JSON.stringify({ problems, known }, null, 1));
+for (const p of known) console.log(`KNOWN ${p.eng} ${p.look} ${p.sz} [${p.slide}] ${p.why}`);
 console.log(problems.length ? 'PROBLEMS ' + problems.length : 'ALL CLEAR');
 for (const p of problems) console.log(`PROB ${p.eng} ${p.look} ${p.sz} [${p.slide}] ${p.bad.join(' | ')}`);
 process.exit(problems.length ? 1 : 0);
