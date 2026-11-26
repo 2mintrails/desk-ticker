@@ -7,15 +7,20 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Index previous close
+      - name: Open the live app like an iPhone
         run: |
-          curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed > f.json
-          node -e "const f=require('./f.json');console.log('feed at',new Date(f.at).toISOString());
-          for(const s of ['INDEXNSE:NIFTY_50','INDEXBOM:SENSEX','INDEXSP:.INX'])console.log('APP',s,JSON.stringify(f.quotes[s]));
-          for(const [k,v] of Object.entries(f.charts||{})){const l=v.line||[];console.log('CHART',k,l.length,'pts first',JSON.stringify(l.slice(0,2)),'last',JSON.stringify(l.slice(-2)),'extra',JSON.stringify(Object.fromEntries(Object.entries(v).filter(([a])=>a!=='line'))))}"
-          for s in %5ENSEI %5EBSESN; do
-            echo "== $s chart 1d/5m"; curl -s -A "Mozilla/5.0" "https://query1.finance.yahoo.com/v8/finance/chart/$s?range=1d&interval=5m" | node -e "const r=JSON.parse(require('fs').readFileSync(0)).chart.result[0],m=r.meta,ts=r.timestamp||[],c=r.indicators.quote[0].close;const d=t=>new Date(t*1000).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'});console.log(JSON.stringify({p:m.regularMarketPrice,cpc:m.chartPreviousClose,pc:m.previousClose,t:d(m.regularMarketTime),n:ts.length,first:ts.length&&[d(ts[0]),c[0]],last:ts.length&&[d(ts.at(-1)),c.at(-1)]}))"
-            echo "== $s daily 10d"; curl -s -A "Mozilla/5.0" "https://query1.finance.yahoo.com/v8/finance/chart/$s?range=10d&interval=1d" | node -e "const r=JSON.parse(require('fs').readFileSync(0)).chart.result[0];console.log((r.timestamp||[]).map((t,i)=>new Date(t*1000).toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata'})+'='+r.indicators.quote[0].close[i]).join('  '))"
-          done
-          echo "== Google sheet rows"; curl -sL "https://docs.google.com/spreadsheets/d/e/2PACX-1vQvtAtoM3GTJ--tbsHV5cWMPhFrtaofoAyvqSbRt2H2-n2_pUiQ5YYnaVsXRgRTe1ieAnODMXPw1joB/pub?gid=1087668592&single=true&output=csv" | grep -E "NIFTY_50|SENSEX" | cut -c1-200
-          echo "== Google Finance pages"; for q in NIFTY_50:INDEXNSE SENSEX:INDEXBOM; do curl -sL -A "Mozilla/5.0" "https://www.google.com/finance/quote/$q" | node -e "const s=require('fs').readFileSync(0,'utf8');const t=s.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ');const i=t.indexOf('Previous close');console.log('$q', i>=0?t.slice(i,i+60):'n/a', '| price', (s.match(/data-last-price=\"([^\"]+)\"/)||[])[1])"; done
+          npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install --with-deps webkit chromium >/dev/null 2>&1
+          cat > t.mjs <<'JS'
+          import { webkit, chromium, devices } from 'playwright';
+          for (const [name, bt] of [['webkit', webkit], ['chromium', chromium]]) {
+            const b = await bt.launch(), ctx = await b.newContext({ ...devices['iPhone 15 Pro Max'], timezoneId: 'Asia/Kolkata' }), pg = await ctx.newPage();
+            const logs = []; pg.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') logs.push(m.type() + ': ' + m.text()); }); pg.on('pageerror', e => logs.push('PAGEERROR ' + e.message + ' @ ' + (e.stack || '').split('\n').slice(0, 3).join(' | ')));
+            await pg.goto('https://2mintrails.github.io/desk-ticker/?_=' + Date.now()); await pg.waitForTimeout(15000);
+            const o = await pg.evaluate(() => ({ version: (document.querySelector('meta[name="ticker-version"]') || {}).content, slides: typeof slides !== 'undefined' ? slides.length : 'undefined', bodyText: document.body.innerText.slice(0, 200).replace(/\s+/g, ' '), active: (document.querySelector('.slide.active') || {}).dataset?.title }));
+            console.log(name, JSON.stringify(o)); console.log(logs.slice(0, 15).join('\n'));
+            await pg.screenshot({ path: name + '.png' }); await b.close();
+          }
+          JS
+          node t.mjs
+      - uses: actions/upload-artifact@v4
+        with: { name: shots, path: '*.png' }
