@@ -7,14 +7,17 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: GoodReturns silver
+      - name: GoodReturns gold
         run: |
-          curl -sL -A "Mozilla/5.0" -o g.html https://www.goodreturns.in/silver-rates/bangalore.html
+          curl -sL -A "Mozilla/5.0" -o g.html https://www.goodreturns.in/gold-rates/bangalore.html
           python3 - <<'PY'
           import re
           s=open('g.html',encoding='utf-8',errors='replace').read()
-          for m in list(re.finditer(r'Nov 1[34], 2026', s))[:6]:
-              print('----', m.start()); print(re.sub(r'\s+',' ',s[m.start()-300:m.start()+700]))
+          print('len',len(s))
+          for h in re.findall(r'<h2[^>]*>[\s\S]*?</h2>', s)[:12]: print('H2', re.sub(r'<[^>]+>|\s+',' ',h).strip()[:120])
+          for i,t in enumerate(re.findall(r'<table[\s\S]*?</table>', s)[:8]):
+              rows=[re.sub(r'\s+',' ',re.sub(r'<[^>]+>',' | ',r)).strip()[:200] for r in re.findall(r'<tr[\s\S]*?</tr>', t)[:5]]
+              print('TABLE',i); [print('  ',r) for r in rows]
           PY
       - name: Feed v2
         run: |
