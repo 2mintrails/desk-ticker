@@ -7,6 +7,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Local news language
+      - name: Browser translation allowed from the app
         run: |
-          curl -s "https://desk-ticker.twominutetrails.workers.dev/v2/local?lat=27.88&lon=78.08&city=Aligarh" | node -e "const j=JSON.parse(require('fs').readFileSync(0));console.log('TR',j.tr,'city',j.city);for(const i of j.items||[])console.log('ITEM',i.t)"
+          curl -s -D - -o body.json -H "Origin: https://2mintrails.github.io" "https://translate.googleapis.com/translate_a/single?client=gtx&sl=hi&tl=en&dt=t&q=%E0%A4%AE%E0%A4%A4%E0%A4%A6%E0%A4%BE%E0%A4%A4%E0%A4%BE%20%E0%A4%B8%E0%A5%82%E0%A4%9A%E0%A5%80%20%E0%A4%AE%E0%A5%87%E0%A4%82%20%E0%A4%B5%E0%A4%BF%E0%A4%B8%E0%A4%82%E0%A4%97%E0%A4%A4%E0%A4%BF" | grep -iE "^HTTP|access-control-allow-origin"
+          echo "BODY $(head -c 200 body.json)"
