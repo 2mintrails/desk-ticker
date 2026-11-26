@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v22.2-2026-11-26">
+<meta name="ticker-version" content="v22.3-2026-11-26">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -406,6 +406,7 @@
   #dsheet .hc em{font-style:normal;font-size:11px;color:#8cc8ff;min-height:1.2em}
   #dsheet .wtl{grid-column:1/-1} #dsheet .wtl svg{width:100%;height:9vh;display:block}
   #dsheet .nudge{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap} #dsheet .nudge div{background:rgba(255,255,255,.07);border-radius:10px;padding:7px 12px;font-size:13px}
+  #sparkSvg, #spxSvg{touch-action:none;cursor:crosshair} .idx:not(.scrub) .scr, .idx.scrub .ix-p:not(.scr), .idx.scrub .chg.big:not(.scr){display:none!important}
   .grid6 .tile, .ws-r, #wxCard, .slide .card:has(#sparkSvg), .slide .card:has(#spxSvg){-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
   .holdring{position:fixed;z-index:70;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;pointer-events:none;
     background:conic-gradient(#3b82f6 var(--p), rgba(128,128,128,.35) 0);filter:drop-shadow(0 0 3px rgba(0,0,0,.35));-webkit-mask:radial-gradient(circle,transparent 21px,#000 22px);mask:radial-gradient(circle,transparent 21px,#000 22px);
@@ -2139,6 +2140,7 @@ function holdCancel() { clearTimeout(HOLD.timer); HOLD.timer = null; if (HOLD.ri
 document.addEventListener('pointerdown', e => {
   holdCancel(); HOLD.fired = false;
   if (e.button > 0) return;
+  if (chartOf(e.target)) return;                     // the chart itself scrubs; hold elsewhere on the card
   const tg = dsTargetOf(e.target); if (!tg) return;
   HOLD.x = e.clientX; HOLD.y = e.clientY;
   const r = document.createElement('div'); r.className = 'holdring'; r.style.left = e.clientX + 'px'; r.style.top = e.clientY + 'px';
@@ -2296,6 +2298,7 @@ function record(c, price) {
 function intraday(price) { return record(CHARTS.nifty, price); }
 function drawChart(c) {
   const svg = document.getElementById(c.svg); if (!svg || c.live == null) return;
+  if (c.scrub) return;                      // a finger is on the chart: redraw when it lifts
   const L = c.len, live = c.live, prev = c.prev;
   const { st, open, now } = record(c, live);
   // after hours, only draw what this screen recorded if it is from the latest session (not an older day's leftovers)
@@ -2344,6 +2347,7 @@ function drawChart(c) {
     `<circle cx="${lx}" cy="${ly}" r="5.5" fill="${col}" stroke="#0b0d12" stroke-width="2"/>` +
     (prev != null ? `<text x="${W - padR}" y="${Y(prev) - 6}" text-anchor="end" fill="var(--gridtxt,rgba(255,255,255,.45))" font-size="11" font-family="Manrope, Space Grotesk"${XM ? ' paint-order="stroke" stroke="rgba(255,255,255,.85)" stroke-width="3"' : ''}>Prev close ${prev.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</text>` : '') +
     c.ticks(c).map(([m, t]) => tick(m, t)).join('');
+  c.geo = { pts: pts.slice(), X, Y, W, H, padT, padB, padL, padR, col, prev };   // for finger scrubbing
   if (XM && solid.length > 1) xRide(c.svg, up, prev ? Math.abs(live / prev - 1) * 100 : 0, solid.map(p => [X(p[0]), Y(p[1])]));
 }
 // winter themes: Santa (down days) / reindeer pulling Santa (up days) / a toy train rides the line; steeper day = faster ride
@@ -2390,6 +2394,50 @@ function drawSpark() {           // both charts (kept under this name; many plac
 }
 window.addEventListener('resize', drawSpark);
 try { const ro = new ResizeObserver(() => drawSpark()); ro.observe(document.getElementById('sparkSvg')); setTimeout(() => { const x = document.getElementById('spxSvg'); if (x) ro.observe(x); }, 0); } catch (e) {}
+// finger on the Nifty / S&P chart: a line and dot follow it, the big number shows that moment's price and change; lift to go back to live
+function chartOf(t) { const svg = t && t.closest && t.closest('#sparkSvg, #spxSvg'); return svg ? { svg, c: svg.id === 'spxSvg' ? CHARTS.spx : CHARTS.nifty } : null; }
+let SCRUB = null;
+function scrubAt(x) {
+  const { svg, c } = SCRUB, g = c.geo; if (!g || !g.pts.length) return;
+  const r = svg.getBoundingClientRect(), vx = (x - r.left) * g.W / r.width;
+  let best = g.pts[0]; for (const p of g.pts) if (Math.abs(g.X(p[0]) - vx) < Math.abs(g.X(best[0]) - vx)) best = p;
+  const px = g.X(best[0]), py = g.Y(best[1]), NS = 'http://www.w3.org/2000/svg';
+  let o = svg.querySelector('.scrubG');
+  if (!o) { o = document.createElementNS(NS, 'g'); o.setAttribute('class', 'scrubG'); o.innerHTML = '<line stroke-width="1.2" stroke="var(--gridtxt,rgba(255,255,255,.6))"/><circle r="6" stroke="#0b0d12" stroke-width="2"/>'; svg.appendChild(o); }
+  const ln = o.firstChild, dot = o.lastChild;
+  ln.setAttribute('x1', px); ln.setAttribute('x2', px); ln.setAttribute('y1', g.padT - 6); ln.setAttribute('y2', g.H - g.padB);
+  dot.setAttribute('cx', px); dot.setAttribute('cy', py); dot.setAttribute('fill', g.col);
+  const card = svg.closest('.idx'), sym = c === CHARTS.spx ? 'INDEXSP:.INX' : 'INDEXNSE:NIFTY_50';
+  const pe = card.querySelector('.ix-p.scr'), ce = card.querySelector('.chg.big.scr'), lbl = document.getElementById(c.lbl);
+  pe.textContent = money(sym, best[1]);
+  if (g.prev != null) { const ch = best[1] - g.prev, up = ch >= 0, pct = ch / g.prev * 100;
+    ce.className = 'chg big scr ' + (up ? 'up' : 'down');
+    ce.textContent = (up ? '▲ ' : '▼ ') + Math.abs(pct).toFixed(2) + '%  (' + (up ? '+' : '−') + Math.abs(ch).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ')'; }
+  if (lbl) lbl.textContent = istTime(new Date(+sessionStartAt(c) + Math.min(best[0], c.len) * 6e4));
+}
+function scrubEnd() {
+  if (!SCRUB) return;
+  const { svg, c } = SCRUB; SCRUB = null; c.scrub = false;
+  const card = svg.closest('.idx'); card && card.classList.remove('scrub');
+  const o = svg.querySelector('.scrubG'); o && o.remove();
+  swiped = true; setTimeout(() => swiped = false, 600);          // the release is not a tap (next / previous slide)
+  drawSpark();
+  if (!locked) { clearTimeout(resumeTimer); resumeTimer = setTimeout(() => { document.body.classList.remove('paused'); next(); start(); }, 15000); }   // a moment to read, then carry on
+}
+document.addEventListener('pointerdown', e => {
+  const h = chartOf(e.target); if (!h || mode === 'night' || e.button > 0) return;
+  const card = h.svg.closest('.idx'); if (!card || !h.c.geo) return;
+  if (!card.querySelector('.ix-p.scr')) {                    // stand-ins for the live number while scrubbing (the live ones keep updating underneath)
+    const pe = document.createElement('div'); pe.className = 'ix-p scr'; card.querySelector('.ix-p').after(pe);
+    const ce = document.createElement('div'); ce.className = 'chg big scr'; card.querySelector('.chg.big').after(ce);
+  }
+  SCRUB = h; h.c.scrub = true; card.classList.add('scrub');
+  clearInterval(timer); clearTimeout(resumeTimer); document.body.classList.add('paused');
+  try { h.svg.setPointerCapture(e.pointerId); } catch (x) {}
+  scrubAt(e.clientX);
+}, true);
+document.addEventListener('pointermove', e => { if (SCRUB) { e.preventDefault(); scrubAt(e.clientX); } }, true);
+['pointerup', 'pointercancel'].forEach(ev => document.addEventListener(ev, scrubEnd, true));
 // GoodReturns Bangalore rates imported into the sheet: gold table in I:K, silver table in M:P.
 // Row 1 of each is the latest day, e.g. "₹13,937 (+49)" = rate (change vs previous day).
 let GR = null;
@@ -3240,10 +3288,11 @@ document.body.addEventListener('click', e => {
   tapTimer = setTimeout(() => goManual(x < innerWidth / 2 ? -1 : 1), 350);                      // tap left half: back · right half: forward
 });
 // swipe left / right
-let tx = 0, ty = 0;
-document.addEventListener('touchstart', e => { const t = e.touches[0]; tx = t.clientX; ty = t.clientY; }, { passive: true });
+let tx = 0, ty = 0, txChart = false;
+document.addEventListener('touchstart', e => { const t = e.touches[0]; tx = t.clientX; ty = t.clientY; txChart = !!chartOf(e.target); }, { passive: true });
 document.addEventListener('touchend', e => {
   if (e.target.closest && e.target.closest('#setWrap')) return;          // swiping inside the settings panel
+  if (txChart) return;                                                   // a finger on the Nifty / S&P chart scrubs it
   const t = e.changedTouches[0], dx = t.clientX - tx, dy = t.clientY - ty;
   if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy) && mode !== 'night') {
     swiped = true; setTimeout(() => swiped = false, 600);
