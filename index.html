@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v22.0-2026-11-26">
+<meta name="ticker-version" content="v22.1-2026-11-26">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -415,7 +415,19 @@
   .holdhint{position:fixed;left:50%;bottom:max(18px,4vh);z-index:70;transform:translate(-50%,10px);opacity:0;transition:.35s;pointer-events:none;
     background:rgba(20,24,36,.92);color:#fff;font:600 14px Inter,sans-serif;padding:9px 16px;border-radius:99px;box-shadow:0 6px 20px rgba(0,0,0,.3)}
   .holdhint.on{opacity:1;transform:translate(-50%,0)}
+  /* Overview / Analysis tabs on the stock card: the selected tab takes the theme's colour */
+  #dsheet{--tbOn:#9db8ff;--tbTx:#0c1430;--tbOff:#c9cfe6}
+  body.calm:not(.amb):not(.anime):not(.retro):not(.swiss):not(.xmas) #dsheet{--tbOn:#c9d1e0;--tbTx:#151922;--tbOff:#b4bccb} body.retro #dsheet{--tbOn:#39ff6a;--tbTx:#04210c;--tbOff:#8fe8a8}
+  body.anime #dsheet{--tbOn:#ff9ad0;--tbTx:#3a0d26;--tbOff:#d8c6ff} body.swiss #dsheet{--tbOn:#fff;--tbTx:#111;--tbOff:#e4e4e4}
+  body.xsnow #dsheet{--tbOn:#e6f1fb;--tbTx:#0c447c;--tbOff:#b5d4f4} body.xmarket #dsheet{--tbOn:#f5b84a;--tbTx:#3d1606;--tbOff:#f5c4b3}
+  #dsheet .dvt{grid-column:1/-1;display:flex;gap:6px;padding:4px;border-radius:12px;background:rgba(255,255,255,.07)}
+  #dsheet .dvt button{flex:1;font:inherit;font-size:15px;font-weight:700;padding:9px 0;border:0;border-radius:9px;background:none;color:var(--tbOff);cursor:pointer}
+  #dsheet .dvt button.on{background:var(--tbOn);color:var(--tbTx)}
+  #dsheet .dpane{grid-column:1/-1;display:none} #dsheet .dpane.on{display:block}
+  #dsheet .dpane.ov.on{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:1.6vh 2.6vw}
+  body.swiss #dsheet .dvt button, body.swiss #dsheet .dvt button.on{transition:none}
   @media (orientation:portrait) and (max-aspect-ratio: 4/5){
+    #dsheet .dpane.ov.on{grid-template-columns:minmax(0,1fr);gap:1.4vh}
     #dsheet .box{grid-template-columns:minmax(0,1fr);width:94vw;padding:2vh 4.5vw;gap:1.4vh}
     #dsheet .hd{flex-wrap:wrap} #dsheet .nm{font-size:18px;flex:1} #dsheet .px{order:3;width:100%;text-align:left;margin-left:0} #dsheet .px b{font-size:26px}
     #dsheet .dch{height:17vh} #dsheet .hrs{grid-template-columns:repeat(6,minmax(0,1fr));row-gap:12px} #dsheet .dnw a:nth-child(n+3){display:none}
@@ -1793,8 +1805,8 @@ function fitTiles() {
 }
 addEventListener('resize', () => { clearTimeout(fitTiles.t); fitTiles.t = setTimeout(fitTiles, 250); });
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitTiles());
-function sigBlock(sym) {
-  const g = timingFor(sym); if (!g) return '';
+function sigBlock(sym, split) {
+  const g = timingFor(sym); if (!g) return split ? ['', ''] : '';
   const t = g.t, f = t.f, cur = (f && f.cur === 'USD') || !/^(NSE|BSE|BOM):/.test(sym) ? '$' : '₹';
   const row = (k, v, cls, d, small) => '<div class="row"><span class="k">' + k + '</span><span class="v ' + cls + '">' + v + '</span><span class="d">' + d + (small ? '<small>' + small + '</small>' : '') + '</span></div>';
   const pct = (x, dp = 0) => (x * 100).toFixed(dp) + '%';
@@ -1840,17 +1852,19 @@ function sigBlock(sym) {
   const A = analystOf(sym), fmt = v => A.cur + (v >= 1000 ? Math.round(v).toLocaleString(A.cur === '₹' ? 'en-IN' : 'en-US') : v.toFixed(v < 100 ? 2 : 0));
   const anl = !A ? '' : '<div class="anl"><div class="ah">Analysts</div><div class="av"><b class="' + A.cls + '">' + A.label + '</b><span>· ' + A.n + ' analysts</span></div>' +
     '<div class="abar"><i style="width:' + A.buy.toFixed(1) + '%" class="g"></i><i style="width:' + A.hold.toFixed(1) + '%" class="a"></i><i style="width:' + A.sell.toFixed(1) + '%" class="r"></i></div>' +
-    '<div class="alg"><span>Buy ' + Math.round(A.buy) + '%</span>' +   // Hold sits under the middle of its own (yellow) part of the bar
-    '<span class="ah2" style="left:' + Math.min(78, Math.max(22, A.buy + A.hold / 2)).toFixed(1) + '%">Hold ' + Math.round(A.hold) + '%</span><span class="as2">Sell ' + Math.round(A.sell) + '%</span></div>' +
+    '<div class="alg"><span>Buy ' + Math.round(A.buy) + '%</span>' +   // Hold sits under the middle of its own (yellow) part of the bar; a 0% label is left out
+    (Math.round(A.hold) ? '<span class="ah2" style="left:' + Math.min(Math.round(A.sell) ? 78 : 88, Math.max(22, A.buy + A.hold / 2)).toFixed(1) + '%">Hold ' + Math.round(A.hold) + '%</span>' : '') +
+    (Math.round(A.sell) ? '<span class="as2">Sell ' + Math.round(A.sell) + '%</span>' : '') + '</div>' +
     (A.tm ? '<div class="ar"><span>Average target</span><b>' + fmt(A.tm) + (A.up != null ? ' <em class="' + (A.up >= 0 ? 'g' : 'r') + '">(' + (A.up >= 0 ? '+' : '−') + Math.abs(A.up).toFixed(0) + '%)</em>' : '') + '</b></div>' : '') +
     (A.tl && A.th ? '<div class="ar"><span>Target range</span><b>' + fmt(A.tl) + ' – ' + fmt(A.th) + '</b></div>' : '') +
     (A.theme ? '<div class="ar th"><span>Theme</span><b>' + esc(A.theme) + '</b></div>' : '') +
     (A.calls.length ? '<div class="ah" style="margin-top:10px">Recent calls</div>' + A.calls.map(c => '<div class="ar"><span>' + esc(c.f) + ' · ' + new Date(c.t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + '</span><b>' + esc(c.g) + (c.pt ? ' · ' + fmt(c.pt) : '') + '</b></div>').join('') : '') +
-    '<div class="asrc">Broker consensus via Yahoo Finance' + (A.calls.length ? '; recent calls by firm' : '; individual brokers not named for this stock') + '. Theme written by AI from recent headlines.</div></div>';
-  return '<div class="gl"><div class="zone ' + g.cls + '"><i>' + g.icon + '</i><div><b>' + esc(g.label) + '</b><span>' + esc(g.sentence) + '</span></div></div>' + anl +
-    '<div class="rows">' + rows + '</div>' +
+    '<div class="asrc">Broker consensus via Yahoo Finance' + (A.calls.length ? '; recent calls by firm' : '; individual brokers not named for this stock') + '.' + (A.theme ? ' Theme written by AI from recent headlines.' : '') + '</div></div>';
+  const top = '<div class="zone ' + g.cls + '"><i>' + g.icon + '</i><div><b>' + esc(g.label) + '</b><span>' + esc(g.sentence) + '</span></div></div>' + anl;
+  const bottom = '<div class="rows">' + rows + '</div>' +
     '<div class="src">From Yahoo Finance, updated daily' + (f && f.at ? ' (fundamentals ' + new Date(f.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ')' : '') +
-    '. The plain-word reads use fixed rules on these numbers; they are not advice or a forecast.</div></div>';
+    '. The plain-word reads use fixed rules on these numbers; they are not advice or a forecast.</div>';
+  return split ? ['<div class="gl">' + top + '</div>', '<div class="gl">' + bottom + '</div>'] : '<div class="gl">' + top + bottom + '</div>';   // split: verdict on top, details for the Analysis tab
 }
 function tileCard(st) {
   const card = document.createElement('div'); card.className = 'card tile';
@@ -1984,6 +1998,8 @@ function dsShell(html) {
       const a = e.target.closest('a[data-url]'); if (a) { e.preventDefault(); window.open(a.dataset.url, '_blank', 'noopener'); }
       dsArm();
       const r = e.target.closest('.dtabs button'); if (r && DS.sym) dsRange(r.dataset.r);
+      const v = e.target.closest('.dvt button');      // Overview / Analysis
+      if (v) { DS.el.querySelectorAll('.dvt button').forEach(b => b.classList.toggle('on', b === v)); DS.el.querySelectorAll('.dpane').forEach(d => d.classList.toggle('on', d.classList.contains(v.dataset.p))); }
     });
     DS.el.addEventListener('touchend', e => e.stopPropagation());
   }
@@ -2016,15 +2032,17 @@ function dsStock(sym) {
     return '<a href="#" data-url="' + esc(x.u || '') + '">' + esc(k > 20 ? x.t.slice(0, k) : x.t) + (k > 20 ? '<small>' + esc(x.t.slice(k + 3)) + '</small>' : '') + '</a>'; }).join('');
   DS.sym = sym;
   DS.ms = timingFor(sym) ? 40000 : 20000;             // more to read when there's a timing block
+  const [sTop, sRows] = sigBlock(sym, true);         // tag + analysts stay fixed on top; the detail rows move to the Analysis tab
   dsShell('<div class="hd"><div class="lg">' + logo + '</div><div class="nm">' + esc(name) + '<small>' + esc(sub) + '</small></div>' +
     '<div class="px"><b>' + cur + dsNum(q.price, 2) + '</b><span class="' + dsCls(q.pct) + '">' + (q.pct > 0 ? '▲ ' : q.pct < 0 ? '▼ ' : '') + dsPct(q.pct) +
     (q.change != null && isFinite(q.change) ? ' (' + (q.change > 0 ? '+' : q.change < 0 ? '−' : '') + dsNum(Math.abs(q.change), 2) + ')' : '') + ' today</span></div><button class="x" aria-label="Close">✕</button></div>' +
-    sigBlock(sym) +
-    '<div><div class="dtabs">' + [['1d', '1D'], ['3mo', '3M'], ['1y', '1Y']].map(r => '<button data-r="' + r[0] + '">' + r[1] + '</button>').join('') + '</div>' +
+    sTop + (sRows ? '<div class="dvt"><button class="on" data-p="ov">Overview</button><button data-p="an">Analysis</button></div>' : '') +
+    '<div class="dpane ov on"><div><div class="dtabs">' + [['1d', '1D'], ['3mo', '3M'], ['1y', '1Y']].map(r => '<button data-r="' + r[0] + '">' + r[1] + '</button>').join('') + '</div>' +
     '<div class="dch"><div class="wait">Loading chart…</div></div><div class="drl"></div>' + (ev ? '<div class="devt">' + ev + '</div>' : '') + '</div>' +
     '<div><h4>52-week range</h4><div class="drng"><b style="left:50%;opacity:0"></b></div><div class="drl dr52"><span></span><span></span></div>' +
     '<div class="dst"><div><span>3M</span><b class="r3">--</b></div><div><span>1Y</span><b class="r1">--</b></div><div><span>Day range</span><b class="dday">--</b></div><div><span>From high</span><b class="dfh">--</b></div></div>' +
-    (news ? '<h4 style="margin-top:14px">Latest news</h4><div class="dnw">' + news + '</div>' : '') + '</div>');
+    (news ? '<h4 style="margin-top:14px">Latest news</h4><div class="dnw">' + news + '</div>' : '') + '</div></div>' +
+    (sRows ? '<div class="dpane an">' + sRows + '</div>' : ''));
   dsRange(idx ? '1d' : '3mo');
   ['1d', '3mo', '1y'].forEach(r => dsFetch(sym, r).then(() => dsStats(sym)));
   dsStats(sym);
