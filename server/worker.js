@@ -400,7 +400,7 @@ async function localNews(plan, env) {
   if (top.length < 8) { const have = new Set(top.map(x => x.text.toLowerCase().slice(0, 40)));
     top = top.concat(pickTop(items, { keep: 8 - top.length, per: 3, ageH: 24 }).filter(x => !have.has(x.text.toLowerCase().slice(0, 40)))); }
   if (env) top = await toEnglish(env, top);
-  return { top, note: plan.feeds.length + ' feeds + Hindi city papers, ' + read + ' read, ' + found.length + ' from city papers, ' + items.length + ' name ' + plan.city };
+  return { top, note: plan.feeds.length + ' feeds + Hindi city papers, ' + read + ' read, ' + found.length + ' from city papers, ' + items.length + ' name ' + plan.city + (top.trNote ? '; translated: ' + top.trNote : '') };
 }
 // which Live Hindustan state section has this city: tried once, then remembered for a week
 const LH_STATES = ['uttar-pradesh', 'bihar', 'uttarakhand', 'jharkhand', 'madhya-pradesh', 'rajasthan', 'haryana', 'delhi', 'himachal-pradesh', 'punjab', 'chhattisgarh'];
@@ -416,23 +416,39 @@ async function cityFeeds(env, slug) {
   if (st) out.push(['https://api.livehindustan.com/feeds/rss/' + st + '/' + slug + '/rssfeed.xml', 'Live Hindustan']);
   return out;
 }
-// Hindi (Devanagari) headlines are translated to short plain English by the AI; if that fails, they stay in Hindi
+// Hindi (Devanagari) headlines are translated to plain English: first by the AI (clear 10-20 word headlines), and anything it
+// misses goes through Google Translate (literal but readable), so a headline only stays in Hindi when both fail.
+// Each headline is matched by its number, so one bad item no longer throws away the whole batch (26 Nov 2026: all 8 Aligarh items stayed Hindi).
+const isHi = t => /[ऀ-ॿ]/.test(t);
+async function gTranslate(t) {
+  const r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=hi&tl=en&dt=t&q=' + encodeURIComponent(t), { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!r.ok) throw new Error('translate HTTP ' + r.status);
+  const j = await r.json(); return (j[0] || []).map(x => x[0]).join('').trim();
+}
 async function toEnglish(env, top) {
-  const idx = top.map((x, i) => /[\u0900-\u097F]/.test(x.text) ? i : -1).filter(i => i >= 0);
-  if (!idx.length || !env.AI) return top.map(({ desc, src, ...x }) => x);
-  try {
-    const list = idx.map((i, k) => (k + 1) + '. HEADLINE: ' + top[i].text.replace(/ - [^-]+$/, '') + (top[i].desc ? '\n   SUMMARY: ' + top[i].desc : '')).join('\n');
+  const idx = top.map((x, i) => isHi(x.text) ? i : -1).filter(i => i >= 0);
+  const done = new Map(), note = [];
+  const clean = i => top[i].text.replace(/ - [^-]+$/, '');
+  if (idx.length && env.AI) try {
+    const list = idx.map((i, k) => (k + 1) + '. HEADLINE: ' + clean(i) + (top[i].desc ? '\n   SUMMARY: ' + String(top[i].desc).slice(0, 300) : '')).join('\n');
     const r = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', { messages: [
       { role: 'system', content: 'You turn Hindi local news into clear English headlines. You are faithful: you never add facts that are not in the headline or summary.' },
-      { role: 'user', content: 'For each item, write ONE clear English headline (10 to 20 words) that tells a reader what actually happened, who was involved and where, using the Hindi headline and its summary. ' +
+      { role: 'user', content: 'For each numbered item, write ONE clear English headline (10 to 20 words) that tells a reader what actually happened, who was involved and where, using the Hindi headline and its summary. ' +
         'Do not shorten it into fragments like "Buses prepared for fog"; write it so it makes sense on its own, e.g. "Roadways adds extra checks and fog lights on buses as dense fog season begins in Aligarh". ' +
-        'Keep names and places. Do not start with the city name. Reply with a JSON array of strings, same order, nothing else.\n\n' + list }], max_tokens: 1200, temperature: 0.1 });
+        'Keep names and places. Do not start with the city name. Reply with one line per item in the form  N|English headline  and nothing else.\n\n' + list }], max_tokens: 1500, temperature: 0.1 });
     const txt = typeof r.response === 'string' ? r.response : JSON.stringify(r.response || '');
-    const arr = JSON.parse((txt.match(/\[[\s\S]*\]/) || ['[]'])[0]);
-    if (Array.isArray(arr) && arr.length === idx.length) idx.forEach((i, k) => { const t = String(arr[k] || '').trim().replace(/^["']|["']$/g, '');
-      if (t.split(/\s+/).length >= 6 && !/[\u0900-\u097F]/.test(t)) top[i] = { ...top[i], text: t + (top[i].src ? ' - ' + top[i].src : ''), hi: top[i].text }; });
-  } catch (e) {}
-  return top.map(({ desc, src, ...x }) => x);              // whatever didn't translate well stays in Hindi
+    for (const line of txt.split('\n')) { const m = line.match(/^\s*\**\s*(\d+)\s*[|.):-]\s*(.+)$/); if (!m) continue;
+      const k = +m[1] - 1, t = m[2].trim().replace(/^["'*]+|["'*]+$/g, '');
+      if (idx[k] != null && t.split(/\s+/).length >= 6 && !isHi(t)) done.set(idx[k], t); }
+    note.push('AI ' + done.size + '/' + idx.length);
+  } catch (e) { note.push('AI failed: ' + String(e.message || e).slice(0, 80)); }
+  const rest = idx.filter(i => !done.has(i));
+  if (rest.length) { let ok = 0, err = '';
+    await Promise.all(rest.map(async i => { try { const t = await gTranslate(clean(i)); if (t && !isHi(t)) { done.set(i, t); ok++; } } catch (e) { err = String(e.message || e).slice(0, 60); } }));
+    note.push('Google ' + ok + '/' + rest.length + (err ? ' (' + err + ')' : '')); }
+  done.forEach((t, i) => { top[i] = { ...top[i], text: t + ((top[i].text.match(/ - [^-]+$/) || [''])[0]), hi: top[i].text }; });   // keep the ' - Paper' credit
+  const out = top.map(({ desc, src, ...x }) => x); out.trNote = note.join(', ');
+  return out;
 }
 async function jobLocal(env) {
   const set = (await getCfg(env)).settings || {};
@@ -447,11 +463,11 @@ async function jobLocal(env) {
 async function localHere(env, lat, lon, cityName) {
   if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return { city: '', items: [] };
   const plan = localPlan(lat, lon, cityName); if (!plan) return { city: '', items: [] };
-  const key = 'local8_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
+  const key = 'local9_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
   if (c && Date.now() - c.at < 15 * 60e3) return { ...c.v, at: c.at };
   const { top } = await localNews(plan, env);
   if (!top.length && c && c.v.items.length && Date.now() - c.at < 6 * 3600e3) return { ...c.v, at: c.at };   // feeds failed: keep the last list for a while
-  const v = { city: plan.city, items: top.map(i => ({ t: i.text, u: i.link })) };
+  const v = { city: plan.city, items: top.map(i => ({ t: i.text, u: i.link })), ...(top.trNote ? { tr: top.trNote } : {}) };
   await dbPut(env, key, v);
   return { ...v, at: Date.now() };
 }
