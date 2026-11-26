@@ -7,7 +7,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Browser translation allowed from the app
+      - name: Metal history depth
         run: |
-          curl -s -D - -o body.json -H "Origin: https://2mintrails.github.io" "https://translate.googleapis.com/translate_a/single?client=gtx&sl=hi&tl=en&dt=t&q=%E0%A4%AE%E0%A4%A4%E0%A4%A6%E0%A4%BE%E0%A4%A4%E0%A4%BE%20%E0%A4%B8%E0%A5%82%E0%A4%9A%E0%A5%80%20%E0%A4%AE%E0%A5%87%E0%A4%82%20%E0%A4%B5%E0%A4%BF%E0%A4%B8%E0%A4%82%E0%A4%97%E0%A4%A4%E0%A4%BF" | grep -iE "^HTTP|access-control-allow-origin"
-          echo "BODY $(head -c 200 body.json)"
+          curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed > f.json
+          node -e "const m=require('./f.json').metals||{};for(const k of ['gold','silver']){const l=m[k]||[];console.log('HIST',k,l.length,'newest',JSON.stringify(l[0]),'oldest',JSON.stringify(l.at(-1)))};console.log('SRC',m.source,m.goldSource,m.silverSource)"
