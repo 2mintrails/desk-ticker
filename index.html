@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v22.3-2026-11-26">
+<meta name="ticker-version" content="v22.4-2026-11-26">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -4290,6 +4290,26 @@ async function loadLocalNews() {
   } catch (e) {}
   if (!LOCAL_HERE) LOCAL_HERE = { city: '', items: [] };          // away, nothing known yet: don't show home's news
   if (FEED) renderNews(FEED.news);
+  if (LOCAL_HERE.items.some(i => HI_RE.test(i.t))) { await phoneTranslate(LOCAL_HERE.items); if (FEED) renderNews(FEED.news); }
+}
+// Hindi headlines the server couldn't translate (its free AI allowance runs out; Google and MyMemory refuse Cloudflare's servers)
+// are translated here on the phone with Google Translate, and remembered for 3 days so each headline is asked about once
+const HI_RE = /[\u0900-\u097F]/;
+async function phoneTranslate(items) {
+  let mem = {}; try { mem = JSON.parse(localStorage.getItem('deskTickerTr') || '{}'); } catch (e) {}
+  const now = Date.now(); for (const k in mem) if (now - mem[k].at > 3 * 864e5) delete mem[k];
+  await Promise.all(items.map(async it => {
+    if (!HI_RE.test(it.t)) return;
+    const m = it.t.match(/^(.*?)( - [^-]+)?$/), head = m[1], credit = m[2] || '';
+    let en = mem[head] && mem[head].en;
+    if (!en) try {
+      const j = await (await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=hi&tl=en&dt=t&q=' + encodeURIComponent(head))).json();
+      en = (j[0] || []).map(x => x[0]).join('').trim();
+      if (en && !HI_RE.test(en)) mem[head] = { en, at: now }; else en = '';
+    } catch (e) { en = ''; }
+    if (en) it.t = en + credit;
+  }));
+  try { localStorage.setItem('deskTickerTr', JSON.stringify(mem)); } catch (e) {}
 }
 setInterval(loadLocalNews, 10 * 60 * 1000);
 let awayVotes = 0, locRetry;
