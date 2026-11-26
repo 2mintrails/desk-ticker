@@ -646,6 +646,7 @@ async function bullionSummary(env, recent, views, dirs = {}) {
   return out;
 }
 async function jobBullion(env) {
+  return 'off: the bullion slide now shows the dip view and event dates (26 Nov 2026), so no AI summary is needed';   // saves the daily AI allowance for translations
   const lists = await Promise.all(BULLION_FEEDS.map(([u, s]) => readFeed(u, s)));
   const all = lists.flat().filter(x => x.t).sort((a, b) => b.t - a.t), now = Date.now(), seen = new Set(), out = {};
   for (const m of ['gold', 'silver']) {
@@ -1062,6 +1063,20 @@ async function feed(env) {
     metals.silverSource = 'GoodReturns Bangalore';
   }
   if (metals.goldSource === 'GoodReturns Bangalore' && metals.silverSource === 'GoodReturns Bangalore') { metals.source = 'GoodReturns Bangalore'; metals.at = Math.max(d.gr_gold?.at || 0, d.gr_silver?.at || 0) || metals.at; }
+  // ~3 months of daily rates for the dip view (30-day average, 3-month range): GoodReturns where we have it, older days from IBJA
+  // scaled to GoodReturns' level (IBJA is before GST and jewellers' margin; the median ratio on days both have bridges the two)
+  try {
+    const cut = new Date(Date.now() - 100 * 864e5).toISOString().slice(0, 10), long = {};
+    for (const m of ['gold', 'silver']) {
+      const gr = {}; metals[m].forEach(x => { if (x.date >= cut) gr[x.date] = x.p; });
+      const ib = {}; ((I && I[m]) || []).forEach(x => { if (x.date >= cut) ib[x.date] = x.p; });
+      const both = Object.keys(gr).filter(k => ib[k]), rs = both.map(k => gr[k] / ib[k]).sort((a, b) => a - b);
+      const ratio = metals[m + 'Source'] === 'IBJA' ? 1 : rs.length >= 3 ? rs[rs.length >> 1] : null;
+      const days = new Set([...Object.keys(gr), ...(ratio ? Object.keys(ib) : [])]);
+      long[m] = [...days].sort().map(k => [k, gr[k] != null ? gr[k] : Math.round(ib[k] * ratio * 100) / 100]);
+    }
+    metals.long = long;
+  } catch (e) {}
   const charts = {};
   (d.idx?.v || []).slice(1).forEach(r => {
     charts[r[0]] = { p: num(r[1]), prev: num(r[2]), at: num(r[3]) ? num(r[3]) * 1000 : null,
