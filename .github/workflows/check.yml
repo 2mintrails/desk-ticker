@@ -19,6 +19,24 @@ jobs:
               rows=[re.sub(r'\s+',' ',re.sub(r'<[^>]+>',' | ',r)).strip()[:200] for r in re.findall(r'<tr[\s\S]*?</tr>', t)[:5]]
               print('TABLE',i); [print('  ',r) for r in rows]
           PY
+      - name: IBJA vs GoodReturns
+        run: |
+          curl -sL -A "Mozilla/5.0" -o i.html https://www.ibjarates.com/
+          python3 - <<'PY'
+          import re, json, html
+          s=open('i.html',encoding='utf-8',errors='replace').read()
+          def f(id):
+              m=re.search(r'id="'+id+r'"\s+value="([^"]*)"',s) or re.search(r'value="([^"]*)"\s+id="'+id+'"',s)
+              return json.loads(html.unescape(m.group(1))) if m else None
+          G=f('HdnGold')
+          if G: print('IBJA 999 per 10g last 8:', list(zip(G['labels'][-8:], G['purity999'][-8:])))
+          for k in ['GoldRatesCompare999','GoldRatesCompare995','GoldRatesCompare916']:
+              m=re.search(r'id="'+k+r'"[^>]*>\s*([\d,.]+)',s); print(k, m and m.group(1))
+          for m in re.finditer(r'(AM|PM)[^<]{0,40}</', s[:200000]): pass
+          t=re.sub(r'<[^>]+>',' ',s); t=re.sub(r'\s+',' ',t)
+          for kw in ['Gold 999','Rate as on','AM','PM']:
+              j=t.find(kw); print('CTX',kw, t[max(0,j-80):j+200] if j>=0 else None)
+          PY
       - name: Feed v2
         run: |
           curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed > f.json
