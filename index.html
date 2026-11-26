@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v21.7-2026-11-25">
+<meta name="ticker-version" content="v21.9-2026-11-26">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -324,13 +324,24 @@
   }
   .tag .anb{font-style:normal;margin-left:auto;padding-left:8px;white-space:nowrap;font-size:.88em;opacity:.9} .tag .anb.g{color:#7ee2a8} .tag .anb.a{color:#fcd34d} .tag .anb.r{color:#fca5a5}
   body.amb.light .tag .anb.g{color:#047857} body.amb.light .tag .anb.a{color:#92400e} body.amb.light .tag .anb.r{color:#b91c1c}
+  /* Anime 90s by day: cream tiles, so tags get dark ink (strong borders to match the comic look) */
+  body.anime:not(.anidark) .tag{border-width:2px}
+  body.anime:not(.anidark) .tag.good{color:#047857;background:rgba(16,185,129,.16);border-color:#059669}
+  body.anime:not(.anidark) .tag.hot{color:#b45309;background:rgba(245,158,11,.18);border-color:#d97706}
+  body.anime:not(.anidark) .tag.weak{color:#1d4ed8;background:rgba(59,130,246,.14);border-color:#2563eb}
+  body.anime:not(.anidark) .tag.high{color:#5b21b6;background:rgba(139,92,246,.14);border-color:#7c3aed}
+  body.anime:not(.anidark) .tag.pricey{color:#854d0e;background:rgba(234,179,8,.2);border-color:#ca8a04}
+  body.anime:not(.anidark) .tag.mid{color:#334155;background:rgba(15,23,42,.06);border-color:#64748b}
+  body.anime:not(.anidark) .tag span{color:#475569;opacity:1}
+  body.anime:not(.anidark) .tag .anb.g{color:#047857} body.anime:not(.anidark) .tag .anb.a{color:#92400e} body.anime:not(.anidark) .tag .anb.r{color:#b91c1c}
   #dsheet .anl{margin:10px 0;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03)}
   #dsheet .anl .ah{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;opacity:.6;margin-bottom:6px}
   #dsheet .anl .av b{font-size:18px} #dsheet .anl .av span{opacity:.65;margin-left:6px;font-size:13px}
   #dsheet .anl .g{color:#3ddc84} #dsheet .anl .a{color:#f5a524} #dsheet .anl .r{color:#ff5a5f}
   #dsheet .anl .abar{display:flex;height:7px;border-radius:4px;overflow:hidden;margin:8px 0 4px;background:rgba(255,255,255,.08)}
   #dsheet .anl .abar i.g{background:#3ddc84} #dsheet .anl .abar i.a{background:#f5a524} #dsheet .anl .abar i.r{background:#ff5a5f}
-  #dsheet .anl .alg{display:flex;justify-content:space-between;font-size:12px;opacity:.75;margin-bottom:6px}
+  #dsheet .anl .alg{position:relative;height:1.4em;font-size:12px;opacity:.75;margin-bottom:6px} #dsheet .anl .alg span{position:absolute;top:0;left:0;white-space:nowrap}
+  #dsheet .anl .alg .ah2{transform:translateX(-50%)} #dsheet .anl .alg .as2{left:auto;right:0}
   #dsheet .anl .ar{display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:5px 0;border-top:1px solid rgba(255,255,255,.07)}
   #dsheet .anl .ar span{opacity:.65;flex:none} #dsheet .anl .ar b{font-weight:600;text-align:right} #dsheet .anl .ar em{font-style:normal}
   #dsheet .anl .ar.th b{font-weight:500}
@@ -338,7 +349,7 @@
   .tile.tight .tag span{display:none} .tile.tight .tag{padding:3px 9px;margin-top:.3vh;align-self:flex-start}
   .tile.tighter{gap:2px} .tile.tighter .p{font-size:clamp(16px,min(6.5vh,7vw),30px)!important} .tile.tighter .tag{font-size:12px}
   .tile.tightest{position:relative} .tile.tightest .tag{position:absolute;top:8px;right:8px;margin:0;padding:2px 8px;font-size:11px}
-  .tile.tightest .tag b{white-space:nowrap}
+  .tile.tightest .tag b{white-space:nowrap} .tile.tightest .tag .anb{display:none}
   #dsheet .gl{grid-column:1/-1;display:flex;flex-direction:column;gap:10px}
   #dsheet .gl .zone{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:12px}
   #dsheet .gl .zone.good{background:rgba(61,220,132,.1);border:1px solid rgba(61,220,132,.4)} #dsheet .gl .zone.good b{color:#7ef0ad}
@@ -1773,7 +1784,8 @@ function fitTiles() {
     if (!t.querySelector('.tag') || !t.clientHeight) return;
     const over = () => t.scrollHeight > t.clientHeight + 1 || [...t.children].some(c => {   // hidden or empty parts don't count
       const a = c.getBoundingClientRect(), r = t.getBoundingClientRect();
-      return a.height > 0 && getComputedStyle(c).position !== 'absolute' && (a.top < r.top - 1 || a.bottom > r.bottom + 1); });
+      return a.height > 0 && getComputedStyle(c).position !== 'absolute' && (a.top < r.top - 1 || a.bottom > r.bottom + 1 ||
+        c.clientHeight > 0 && c.scrollHeight > c.clientHeight + 1 && getComputedStyle(c).overflow !== 'visible'); });   // a line squeezed shorter than its text (e.g. the event line) also counts
     if (over()) t.classList.add('tight');
     if (over()) t.classList.add('tighter');
     if (over()) t.classList.add('tightest');      // last step: the tag becomes a small corner badge and takes no height
@@ -1828,7 +1840,8 @@ function sigBlock(sym) {
   const A = analystOf(sym), fmt = v => A.cur + (v >= 1000 ? Math.round(v).toLocaleString(A.cur === '₹' ? 'en-IN' : 'en-US') : v.toFixed(v < 100 ? 2 : 0));
   const anl = !A ? '' : '<div class="anl"><div class="ah">Analysts</div><div class="av"><b class="' + A.cls + '">' + A.label + '</b><span>· ' + A.n + ' analysts</span></div>' +
     '<div class="abar"><i style="width:' + A.buy.toFixed(1) + '%" class="g"></i><i style="width:' + A.hold.toFixed(1) + '%" class="a"></i><i style="width:' + A.sell.toFixed(1) + '%" class="r"></i></div>' +
-    '<div class="alg"><span>Buy ' + Math.round(A.buy) + '%</span><span>Hold ' + Math.round(A.hold) + '%</span><span>Sell ' + Math.round(A.sell) + '%</span></div>' +
+    '<div class="alg"><span>Buy ' + Math.round(A.buy) + '%</span>' +   // Hold sits under the middle of its own (yellow) part of the bar
+    '<span class="ah2" style="left:' + Math.min(78, Math.max(22, A.buy + A.hold / 2)).toFixed(1) + '%">Hold ' + Math.round(A.hold) + '%</span><span class="as2">Sell ' + Math.round(A.sell) + '%</span></div>' +
     (A.tm ? '<div class="ar"><span>Average target</span><b>' + fmt(A.tm) + (A.up != null ? ' <em class="' + (A.up >= 0 ? 'g' : 'r') + '">(' + (A.up >= 0 ? '+' : '−') + Math.abs(A.up).toFixed(0) + '%)</em>' : '') + '</b></div>' : '') +
     (A.tl && A.th ? '<div class="ar"><span>Target range</span><b>' + fmt(A.tl) + ' – ' + fmt(A.th) + '</b></div>' : '') +
     (A.theme ? '<div class="ar th"><span>Theme</span><b>' + esc(A.theme) + '</b></div>' : '') +
