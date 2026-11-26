@@ -9,6 +9,4 @@ jobs:
     steps:
       - name: Local news language
         run: |
-          curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed > f.json
-          node -e "const f=require('./f.json');const L=f.news&&f.news.Local||f.local||null;console.log('feed keys',Object.keys(f).join(','));console.log('LOCAL',JSON.stringify(L).slice(0,3000));console.log('LOG',JSON.stringify((f.log||[]).filter(x=>/local/i.test(JSON.stringify(x))).slice(-6)).slice(0,2000))"
-          curl -s https://desk-ticker.twominutetrails.workers.dev/v1/status | head -c 3000 | tr ',' '\n' | grep -i -A2 local | head -20
+          curl -s "https://desk-ticker.twominutetrails.workers.dev/v2/local?lat=27.88&lon=78.08&city=Aligarh" | node -e "const j=JSON.parse(require('fs').readFileSync(0));console.log('TR',j.tr,'city',j.city);for(const i of j.items||[])console.log('ITEM',i.t)"
