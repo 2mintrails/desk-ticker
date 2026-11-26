@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v22.4-2026-11-26">
+<meta name="ticker-version" content="v22.5-2026-11-26">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -2537,6 +2537,22 @@ function weekLine(id, wk, mult) {
 // The app reads it once a minute. If the server can't be reached, the last feed (saved on this screen) stays up with a note.
 const SERVER_URL = 'https://desk-ticker.twominutetrails.workers.dev';
 const FEED_KEY = 'deskTickerFeed';
+var HI_RE = /[\u0900-\u097F]/;
+var TR_ERR = '', trBusy = false;
+// swap in translations already remembered (instant), then fetch the rest once and redraw the news
+function localToEnglish(items) {
+  let mem = {}; try { mem = JSON.parse(localStorage.getItem('deskTickerTr') || '{}'); } catch (e) {}
+  let missing = 0;
+  items.forEach(it => { if (!HI_RE.test(it.t || '')) return; const m = it.t.match(/^(.*?)( - [^-]+)?$/); const h = mem[m[1]]; if (h && h.en) it.t = h.en + (m[2] || ''); else missing++; });
+  if (!missing || trBusy) return;
+  trBusy = true;
+  phoneTranslate(items).then(() => { trBusy = false; if (FEED && items.every(i => !HI_RE.test(i.t || ''))) renderNews(FEED.news); }).catch(() => { trBusy = false; });
+}
+var TR_WAYS = [
+  async q => { const r = await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=hi&tl=en&dt=t&q=' + encodeURIComponent(q)); if (!r.ok) throw new Error('google ' + r.status); return ((await r.json())[0] || []).map(x => x[0]).join(''); },
+  async q => { const r = await fetch('https://api.mymemory.translated.net/get?langpair=hi|en&q=' + encodeURIComponent(q.slice(0, 480))); if (!r.ok) throw new Error('mymemory ' + r.status); return (await r.json()).responseData?.translatedText; },
+  async q => { const r = await fetch('https://lingva.ml/api/v1/hi/en/' + encodeURIComponent(q)); if (!r.ok) throw new Error('lingva ' + r.status); return (await r.json()).translation; },
+];
 let FEED = null, feedSavedAt = 0, feedErr = '', dataFrom = '';
 var savedRowsAt = 0;          // > 0 while a saved feed is shown (the day chart doesn't record from it)
 const tm2 = t => new Date(t).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
@@ -2893,6 +2909,7 @@ function renderNews(news) {
     const extra = (id, sec) => { const items = ((sec || {}).items || []).map(x => ({ t: String(x.t || '').trim(), u: String(x.u || '').trim(), sym: x.sym, tick: x.tick })).filter(x => x.t).slice(0, 8);
       if (!items.length) { const ol = document.getElementById(id); ol.innerHTML = ''; ol._all = []; } else fill(id, items); };
     const loc = away ? (LOCAL_HERE || { city: '', items: [] }) : news.Local;
+    if (loc && Array.isArray(loc.items) && loc.items.some(i => /[\u0900-\u097F]/.test(i.t || ''))) localToEnglish(loc.items);   // home or away: Hindi headlines get translated on the phone
     extra('newsLC', loc); extra('newsWL', news.Watch); extra('newsWLU', news.WatchUS); renderWhy(news.Bullion); renderMood(news.Mood);
     const city = (loc || {}).city, ls = document.getElementById('localSlide'), t = city ? city + ' News' : 'Local News';
     document.getElementById('lcName').textContent = t;
@@ -4290,11 +4307,9 @@ async function loadLocalNews() {
   } catch (e) {}
   if (!LOCAL_HERE) LOCAL_HERE = { city: '', items: [] };          // away, nothing known yet: don't show home's news
   if (FEED) renderNews(FEED.news);
-  if (LOCAL_HERE.items.some(i => HI_RE.test(i.t))) { await phoneTranslate(LOCAL_HERE.items); if (FEED) renderNews(FEED.news); }
 }
 // Hindi headlines the server couldn't translate (its free AI allowance runs out; Google and MyMemory refuse Cloudflare's servers)
 // are translated here on the phone with Google Translate, and remembered for 3 days so each headline is asked about once
-const HI_RE = /[\u0900-\u097F]/;
 async function phoneTranslate(items) {
   let mem = {}; try { mem = JSON.parse(localStorage.getItem('deskTickerTr') || '{}'); } catch (e) {}
   const now = Date.now(); for (const k in mem) if (now - mem[k].at > 3 * 864e5) delete mem[k];
@@ -4302,11 +4317,10 @@ async function phoneTranslate(items) {
     if (!HI_RE.test(it.t)) return;
     const m = it.t.match(/^(.*?)( - [^-]+)?$/), head = m[1], credit = m[2] || '';
     let en = mem[head] && mem[head].en;
-    if (!en) try {
-      const j = await (await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl=hi&tl=en&dt=t&q=' + encodeURIComponent(head))).json();
-      en = (j[0] || []).map(x => x[0]).join('').trim();
-      if (en && !HI_RE.test(en)) mem[head] = { en, at: now }; else en = '';
-    } catch (e) { en = ''; }
+    if (!en) for (const fn of TR_WAYS) {                      // three free translators in turn; the first that answers in English wins
+      try { const t = String(await fn(head) || '').trim(); if (t && !HI_RE.test(t) && !/MYMEMORY|QUERY LENGTH/i.test(t)) { en = t; mem[head] = { en, at: now }; break; } }
+      catch (e) { TR_ERR = String(e.message || e).slice(0, 60); }
+    }
     if (en) it.t = en + credit;
   }));
   try { localStorage.setItem('deskTickerTr', JSON.stringify(mem)); } catch (e) {}
