@@ -207,6 +207,12 @@
   #mRange{display:none!important}
   .slide.bull{display:flex;flex-direction:column} .bull .metals{flex:1;min-height:0;height:auto} .bull .mev{flex:none}
   .bull > .mnote{position:static;flex:none;margin-top:.7vh}
+  /* the dip line gives way first when a card is short (26 Nov 2026: on a 396x859 iPhone with the "vs yesterday" line, the title and
+     month change were cut off): the plot shrinks to fit instead of the card spilling over its top and bottom */
+  .bull .metal.has-wk .wk.dipv{flex:0 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+  .bull .metal.has-wk .wk.dipv .plot{flex:0 1 clamp(22px,9vh,64px);height:auto!important;min-height:14px}
+  .bull .metal.has-wk .wk.dipv .dv, .bull .metal.has-wk .wk.dipv .ends, .bull .metal.has-wk .wk.dipv .mo{flex:none}
+  .bull .metal > *{flex-shrink:0} .bull .metal > .wk{flex-shrink:1}
   .slide.active > .mevl{animation:none} .mev.now .mt, .mev.soon .mt{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
   .wk.dipv.pricey{--wkc:#f5b84a;--wkbg:rgba(245,184,74,.14)}
   .dipv .dv{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:.8vh}
