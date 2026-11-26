@@ -7,71 +7,15 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: GoodReturns gold
-        run: |
-          curl -sL -A "Mozilla/5.0" -o g.html https://www.goodreturns.in/gold-rates/bangalore.html
-          python3 - <<'PY'
-          import re
-          s=open('g.html',encoding='utf-8',errors='replace').read()
-          print('len',len(s))
-          for h in re.findall(r'<h2[^>]*>[\s\S]*?</h2>', s)[:12]: print('H2', re.sub(r'<[^>]+>|\s+',' ',h).strip()[:120])
-          for i,t in enumerate(re.findall(r'<table[\s\S]*?</table>', s)[:8]):
-              rows=[re.sub(r'\s+',' ',re.sub(r'<[^>]+>',' | ',r)).strip()[:200] for r in re.findall(r'<tr[\s\S]*?</tr>', t)[:5]]
-              print('TABLE',i); [print('  ',r) for r in rows]
-          PY
-      - name: IBJA vs GoodReturns
-        run: |
-          curl -sL -A "Mozilla/5.0" -o i.html https://www.ibjarates.com/
-          python3 - <<'PY'
-          import re, json, html
-          s=open('i.html',encoding='utf-8',errors='replace').read()
-          def f(id):
-              m=re.search(r'id="'+id+r'"\s+value="([^"]*)"',s) or re.search(r'value="([^"]*)"\s+id="'+id+'"',s)
-              return json.loads(html.unescape(m.group(1))) if m else None
-          G=f('HdnGold')
-          if G: print('IBJA 999 per 10g last 8:', list(zip(G['labels'][-8:], G['purity999'][-8:])))
-          for k in ['GoldRatesCompare999','GoldRatesCompare995','GoldRatesCompare916']:
-              m=re.search(r'id="'+k+r'"[^>]*>\s*([\d,.]+)',s); print(k, m and m.group(1))
-          for m in re.finditer(r'(AM|PM)[^<]{0,40}</', s[:200000]): pass
-          t=re.sub(r'<[^>]+>',' ',s); t=re.sub(r'\s+',' ',t)
-          for kw in ['Gold 999','Rate as on','AM','PM']:
-              j=t.find(kw); print('CTX',kw, t[max(0,j-80):j+200] if j>=0 else None)
-          PY
-      - name: Feed v2
+      - name: Index previous close
         run: |
           curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed > f.json
-          node -e "const f=require('./f.json');const q=f.quotes;console.log('at',new Date(f.at).toISOString(),'quotes',Object.keys(q).length);
-          for(const s of ['INDEXNSE:NIFTY_50','INDEXBOM:SENSEX','INDEXSP:.INX','CURRENCY:USDINR','NSE:RELIANCE'])console.log(s,JSON.stringify(q[s]));
-          const src={};Object.values(q).forEach(x=>src[x.src]=(src[x.src]||0)+1);console.log('sources',JSON.stringify(src));
-          console.log('charts',Object.entries(f.charts).map(([k,v])=>k+':'+v.line.length+' pts, last '+JSON.stringify(v.line.slice(-1))).join(' | '));
-          console.log('metals',JSON.stringify(f.metals.gold.slice(0,3)),JSON.stringify(f.metals.silver.slice(0,2)));
-          console.log('usq',JSON.stringify(['INDEXNSE:NIFTY_50','INDEXBOM:SENSEX','INDEXSP:.INX'].map(k=>[k,f.quotes&&f.quotes[k]]))); console.log('mood',JSON.stringify(f.news.Mood||null)); console.log('bullion',JSON.stringify((f.news.Bullion||{}).sum||null)); console.log('news',Object.entries(f.news).map(([k,v])=>k+':'+(v.items||[]).length).join(' '),'aqi',JSON.stringify(f.aqi));
-          console.log('metar',f.metar.length,'airports',f.airports.length,'settings',JSON.stringify(f.settings),'pinSet',f.pinSet,'watch',Object.entries(f.watchlist||{}).map(([k,v])=>k+':'+v.length).join(' '));
-          console.log('health',JSON.stringify(f.health.ages), Object.entries(f.health.runs).map(([k,r])=>k+':'+r.ok).join(' '));"
-      - name: Yahoo daily closes
-        run: |
-          curl -s -A "Mozilla/5.0" "https://query1.finance.yahoo.com/v8/finance/spark?symbols=%5ENSEI,RELIANCE.NS,USDINR%3DX,%5EGSPC,M_M.NS,M%26M.NS&range=5d&interval=1d" | head -c 3000; echo
-          curl -s -A "Mozilla/5.0" "https://query1.finance.yahoo.com/v8/finance/chart/%5ENSEI?range=1d&interval=5m" | node -e "const m=JSON.parse(require('fs').readFileSync(0)).chart.result[0].meta;console.log(JSON.stringify({p:m.regularMarketPrice,cpc:m.chartPreviousClose,pc:m.previousClose,t:m.regularMarketTime}))"
-      - name: Zero-change check
-        run: |
-          node -e "const f=require('./f.json');const z=Object.entries(f.quotes).filter(([k,x])=>x.c===0).map(([k,x])=>k+'='+x.p+'/'+x.src);console.log('zero change:',z.length,z.join(' '));console.log('google:',Object.entries(f.quotes).filter(([k,x])=>x.src==='google').map(([k])=>k).join(' '))"
-          curl -sL "https://docs.google.com/spreadsheets/d/e/2PACX-1vQvtAtoM3GTJ--tbsHV5cWMPhFrtaofoAyvqSbRt2H2-n2_pUiQ5YYnaVsXRgRTe1ieAnODMXPw1joB/pub?gid=1087668592&single=true&output=csv" | cut -d, -f1-4 | head -70 | tr '\n' ' '
-      - name: Open the live app and read what it shows
-        run: |
-          npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install --with-deps chromium >/dev/null 2>&1
-          cat > t.mjs <<'JS'
-          import { chromium } from 'playwright';
-          const b = await chromium.launch(), pg = await b.newPage({ viewport: { width: 915, height: 412 }, timezoneId: 'Asia/Kolkata' });
-          const logs = []; pg.on('console', m => { if (m.type() !== 'log' && !/Failed to load resource/.test(m.text())) logs.push(m.type() + ': ' + m.text()); }); pg.on('pageerror', e => logs.push('ERROR ' + e.message));
-          await pg.goto('https://2mintrails.github.io/desk-ticker/?_=' + Date.now()); await pg.waitForTimeout(20000);
-          const o = await pg.evaluate(() => ({ version: document.querySelector('meta[name="ticker-version"]').content, dataFrom,
-            nifty: document.querySelector('.ix-p').textContent, chg: document.querySelector('.ix-p').parentElement.textContent.replace(/\s+/g,' ').slice(0,120),
-            note: (document.getElementById('srcNote')||{}).textContent, dataLine: (document.getElementById('dataLine')||{}).textContent,
-            gold: document.getElementById('gold').textContent, goldWk: document.getElementById('goldW').innerText.replace(/\n/g,' | '), silver: document.getElementById('silver').textContent, silverWk: document.getElementById('silverW').innerText.replace(/\n/g,' | '), mnote: document.getElementById('mNote').textContent, ranges: [...document.querySelectorAll('#mRange button')].map(b=>b.textContent+(b.disabled?'(off)':'')+(b.classList.contains('on')?'*':'')).join(' '),
-            news: [...document.querySelectorAll('#newsIN li .tt')].length, ws: document.querySelectorAll('#wsA .ws-r').length + ' rows, ' + document.querySelector('#wsA .ws-c').textContent + ', grid slides ' + document.querySelectorAll('.grid6').length, mNote: document.getElementById('mNote').textContent, goldP: document.getElementById('gold').textContent, mRange: [...document.querySelectorAll('#mRange button')].map(b => b.textContent + (b.disabled ? ' off' : ' on')).join(', ') + (document.getElementById('mRange').classList.contains('ready') ? ' (shown)' : ' (hidden)'), goldD: document.getElementById('goldD').textContent + ' | ' + document.getElementById('silverD').textContent, next50: (document.querySelector('[data-sym="INDEXNSE:NIFTY_NEXT_50"][data-f="price"]') || {}).textContent, local: document.getElementById('lcName').textContent + ' ' + document.querySelectorAll('#newsLC li').length, watch: [...document.querySelectorAll('#newsWL li .tk')].map(e => e.textContent).join(' | '), aqi: document.getElementById('wAqi').textContent, temp: (document.getElementById('wTemp')||{}).textContent,
-            tags: [...new Set([...document.querySelectorAll('[data-sym]')].map(e=>e.dataset.sym))].map(s=>{const g=typeof timingFor==='function'&&timingFor(s);return g?s.split(':')[1]+' = '+g.label+' | '+g.line+' | offHi '+(g.offHi==null?'-':g.offHi.toFixed(1))+' d200 '+(g.d200==null?'-':g.d200.toFixed(1))+' rsi '+Math.round(g.t.rsi)+(g.val?' | P/E x'+g.val.r.toFixed(2):' | no P/E'):null}).filter(Boolean), mktPE: JSON.stringify((FEED.tech||{})._mkt||null), analysts: Object.entries(FEED.tech||{}).filter(([k,v])=>v&&v.f&&v.f.an).map(([k,v])=>k+' '+(v.f.an.mean||'-')+'/'+v.f.an.n+(v.th&&v.th.text?' [theme] '+v.th.text:'')),
-            chartPts: (CHARTS.nifty.mem||{pts:[]}).pts.length, fx: FX_LIST.join(), watchSlides: [...document.querySelectorAll('.slide')].map(s=>s.dataset.title).filter(t=>/Watchlist|Large/.test(t)).join(' | ') }));
-          if (await pg.isVisible('#gearBtn')) { await pg.click('#gearBtn'); await pg.waitForTimeout(500); } console.log('panel:', (await pg.textContent('#setPanel')).replace(/\s+/g,' ').slice(0,600));
-          console.log(JSON.stringify(o, null, 1)); console.log(logs.slice(0, 20).join('\n')); await b.close();
-          JS
-          node t.mjs
+          node -e "const f=require('./f.json');console.log('feed at',new Date(f.at).toISOString());
+          for(const s of ['INDEXNSE:NIFTY_50','INDEXBOM:SENSEX','INDEXSP:.INX'])console.log('APP',s,JSON.stringify(f.quotes[s]));
+          for(const [k,v] of Object.entries(f.charts||{})){const l=v.line||[];console.log('CHART',k,l.length,'pts first',JSON.stringify(l.slice(0,2)),'last',JSON.stringify(l.slice(-2)),'extra',JSON.stringify(Object.fromEntries(Object.entries(v).filter(([a])=>a!=='line'))))}"
+          for s in %5ENSEI %5EBSESN; do
+            echo "== $s chart 1d/5m"; curl -s -A "Mozilla/5.0" "https://query1.finance.yahoo.com/v8/finance/chart/$s?range=1d&interval=5m" | node -e "const r=JSON.parse(require('fs').readFileSync(0)).chart.result[0],m=r.meta,ts=r.timestamp||[],c=r.indicators.quote[0].close;const d=t=>new Date(t*1000).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'});console.log(JSON.stringify({p:m.regularMarketPrice,cpc:m.chartPreviousClose,pc:m.previousClose,t:d(m.regularMarketTime),n:ts.length,first:ts.length&&[d(ts[0]),c[0]],last:ts.length&&[d(ts.at(-1)),c.at(-1)]}))"
+            echo "== $s daily 10d"; curl -s -A "Mozilla/5.0" "https://query1.finance.yahoo.com/v8/finance/chart/$s?range=10d&interval=1d" | node -e "const r=JSON.parse(require('fs').readFileSync(0)).chart.result[0];console.log((r.timestamp||[]).map((t,i)=>new Date(t*1000).toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata'})+'='+r.indicators.quote[0].close[i]).join('  '))"
+          done
+          echo "== Google sheet rows"; curl -sL "https://docs.google.com/spreadsheets/d/e/2PACX-1vQvtAtoM3GTJ--tbsHV5cWMPhFrtaofoAyvqSbRt2H2-n2_pUiQ5YYnaVsXRgRTe1ieAnODMXPw1joB/pub?gid=1087668592&single=true&output=csv" | grep -E "NIFTY_50|SENSEX" | cut -c1-200
+          echo "== Google Finance pages"; for q in NIFTY_50:INDEXNSE SENSEX:INDEXBOM; do curl -sL -A "Mozilla/5.0" "https://www.google.com/finance/quote/$q" | node -e "const s=require('fs').readFileSync(0,'utf8');const t=s.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ');const i=t.indexOf('Previous close');console.log('$q', i>=0?t.slice(i,i+60):'n/a', '| price', (s.match(/data-last-price=\"([^\"]+)\"/)||[])[1])"; done
