@@ -86,7 +86,13 @@ async function hist(env, sym, range) {
     const m = r.meta || {}, cl = (r.indicators.quote[0] || {}).close || [];
     const pts = (r.timestamp || []).map((t, i) => [t * 1000, cl[i]]).filter(x => x[1] != null && isFinite(x[1])).map(x => [x[0], Math.round(x[1] * 100) / 100]);
     if (pts.length < 2) throw new Error('no history');
-    const v = { sym, range, pts, prev: m.chartPreviousClose ?? m.previousClose ?? null, dayHi: m.regularMarketDayHigh ?? null, dayLo: m.regularMarketDayLow ?? null,
+    let prev = m.chartPreviousClose ?? m.previousClose ?? null;
+    if (range === '1d') try {       // same holiday problem as the quotes: take the previous close from the daily bars
+      const d = (await get('https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ys) + '?range=10d&interval=1d', { json: true })).chart.result[0];
+      const dc = (d.indicators.quote[0] || {}).close || [];
+      prev = prevBefore((d.timestamp || []).map((t, i) => [t, dc[i]]), m.regularMarketTime, m.exchangeTimezoneName) ?? prev;
+    } catch (e) {}
+    const v = { sym, range, pts, prev, dayHi: m.regularMarketDayHigh ?? null, dayLo: m.regularMarketDayLow ?? null,
       hi52: m.fiftyTwoWeekHigh ?? null, lo52: m.fiftyTwoWeekLow ?? null, tz: m.exchangeTimezoneName || '' };
     await dbPut(env, key, v);
     return v;
@@ -101,9 +107,19 @@ function readDaily(j) {
     if (!x || !Array.isArray(x.close)) return;
     const c = x.close.map((v, i) => [x.timestamp[i], v]).filter(([, v]) => v != null);
     if (c.length < 2) return;
-    out[sym] = { price: c[c.length - 1][1], prev: c[c.length - 2][1], at: null };
+    out[sym] = { price: c[c.length - 1][1], prev: c[c.length - 2][1], at: null, bars: c };
   });
   return out;
+}
+// the last DAILY close from a trading day before the session that `t` (unix seconds) belongs to, by India/US exchange date.
+// Yahoo's intraday chartPreviousClose / previousClose were seen a session behind after a market holiday
+// (26 Nov 2026: Nifty showed 23 Nov's close, skipping 25 Nov, after the 24 Nov holiday), so the daily bars decide.
+function prevBefore(bars, t, tz) {
+  if (!Array.isArray(bars) || !bars.length || !t) return null;
+  const day = x => new Date(x * 1000).toLocaleDateString('en-CA', { timeZone: tz || 'Asia/Kolkata' });
+  const today = day(t); let pc = null;
+  for (const [ts, v] of bars) if (v != null && day(ts) < today) pc = v;
+  return pc;
 }
 async function yahooQuotes(syms) {
   const out = {}, errs = [];
@@ -121,10 +137,11 @@ async function yahooQuotes(syms) {
       const o = out[s] || {};
       // price and previous close both from this intraday chart, so they always belong to the same session
       // (the 5-day daily summary sometimes lacks the latest day around midnight, which shifted the previous close back a day)
-      const pc = m.chartPreviousClose ?? m.previousClose;
+      const pc = prevBefore(o.bars, m.regularMarketTime, m.exchangeTimezoneName) ?? m.chartPreviousClose ?? m.previousClose;
       out[s] = { price: m.regularMarketPrice ?? o.price, prev: pc != null && m.regularMarketPrice != null ? pc : o.prev, at: m.regularMarketTime || null, line };
     } catch (e) { errs.push(String(e.message || e)); }
   }
+  Object.values(out).forEach(x => delete x.bars);   // only needed above
   return { out, errs };
 }
 function marketWindow(t = Date.now()) {          // a busy time for prices: Indian session or US session (India time)
