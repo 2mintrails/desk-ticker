@@ -7,7 +7,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Metal history depth
+      - name: Long metal history
         run: |
           curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed > f.json
-          node -e "const m=require('./f.json').metals||{};for(const k of ['gold','silver']){const l=m[k]||[];console.log('HIST',k,l.length,'newest',JSON.stringify(l[0]),'oldest',JSON.stringify(l.at(-1)))};console.log('SRC',m.source,m.goldSource,m.silverSource)"
+          node -e "const L=(require('./f.json').metals||{}).long||{};for(const k of ['gold','silver']){const l=L[k]||[];console.log('LONG',k,l.length,JSON.stringify(l.slice(0,2)),JSON.stringify(l.slice(-3)))}"
