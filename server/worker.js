@@ -425,12 +425,23 @@ async function gTranslate(t) {
   if (!r.ok) throw new Error('translate HTTP ' + r.status);
   const j = await r.json(); return (j[0] || []).map(x => x[0]).join('').trim();
 }
+async function myMemory(t) {   // free, no key: MyMemory (used when the AI is out of its daily allowance and Google refuses Cloudflare)
+  const r = await fetch('https://api.mymemory.translated.net/get?langpair=hi|en&q=' + encodeURIComponent(t.slice(0, 480)));
+  if (!r.ok) throw new Error('mymemory HTTP ' + r.status);
+  const j = await r.json(); const out = String(j.responseData?.translatedText || '').trim();
+  if (/MYMEMORY WARNING|QUERY LENGTH/i.test(out)) throw new Error('mymemory limit'); return out;
+}
+const trKey = t => 'tr_' + [...t].reduce((h, c) => (h * 31 + c.codePointAt(0)) >>> 0, 7).toString(36) + '_' + t.length;
 async function toEnglish(env, top) {
   const idx = top.map((x, i) => isHi(x.text) ? i : -1).filter(i => i >= 0);
   const done = new Map(), note = [];
   const clean = i => top[i].text.replace(/ - [^-]+$/, '');
-  if (idx.length && env.AI) try {
-    const list = idx.map((i, k) => (k + 1) + '. HEADLINE: ' + clean(i) + (top[i].desc ? '\n   SUMMARY: ' + String(top[i].desc).slice(0, 300) : '')).join('\n');
+  const fresh = new Map();                                    // translated now: saved so the same headline is never paid for twice
+  if (idx.length && env.DB) try { const c = await dbGet(env, idx.map(i => trKey(clean(i))));
+    idx.forEach(i => { const h = c[trKey(clean(i))]; if (h && h.v && h.v.en) done.set(i, h.v.en); }); if (done.size) note.push('cached ' + done.size); } catch (e) {}
+  const todo = idx.filter(i => !done.has(i));
+  if (todo.length && env.AI) try {
+    const list = todo.map((i, k) => (k + 1) + '. HEADLINE: ' + clean(i) + (top[i].desc ? '\n   SUMMARY: ' + String(top[i].desc).slice(0, 300) : '')).join('\n');
     const r = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', { messages: [
       { role: 'system', content: 'You turn Hindi local news into clear English headlines. You are faithful: you never add facts that are not in the headline or summary.' },
       { role: 'user', content: 'For each numbered item, write ONE clear English headline (10 to 20 words) that tells a reader what actually happened, who was involved and where, using the Hindi headline and its summary. ' +
@@ -439,13 +450,15 @@ async function toEnglish(env, top) {
     const txt = typeof r.response === 'string' ? r.response : JSON.stringify(r.response || '');
     for (const line of txt.split('\n')) { const m = line.match(/^\s*\**\s*(\d+)\s*[|.):-]\s*(.+)$/); if (!m) continue;
       const k = +m[1] - 1, t = m[2].trim().replace(/^["'*]+|["'*]+$/g, '');
-      if (idx[k] != null && t.split(/\s+/).length >= 6 && !isHi(t)) done.set(idx[k], t); }
-    note.push('AI ' + done.size + '/' + idx.length);
+      if (todo[k] != null && t.split(/\s+/).length >= 6 && !isHi(t)) { done.set(todo[k], t); fresh.set(todo[k], t); } }
+    note.push('AI ' + fresh.size + '/' + todo.length);
   } catch (e) { note.push('AI failed: ' + String(e.message || e).slice(0, 80)); }
   const rest = idx.filter(i => !done.has(i));
   if (rest.length) { let ok = 0, err = '';
-    await Promise.all(rest.map(async i => { try { const t = await gTranslate(clean(i)); if (t && !isHi(t)) { done.set(i, t); ok++; } } catch (e) { err = String(e.message || e).slice(0, 60); } }));
-    note.push('Google ' + ok + '/' + rest.length + (err ? ' (' + err + ')' : '')); }
+    await Promise.all(rest.map(async i => { for (const [name, fn] of [['Google', gTranslate], ['MyMemory', myMemory]]) try {
+        const t = await fn(clean(i)); if (t && !isHi(t)) { done.set(i, t); fresh.set(i, t); ok++; return; } } catch (e) { err = name + ': ' + String(e.message || e).slice(0, 50); } }));
+    note.push('fallback ' + ok + '/' + rest.length + (err ? ' (' + err + ')' : '')); }
+  if (env.DB) await Promise.all([...fresh].map(([i, t]) => dbPut(env, trKey(clean(i)), { en: t }).catch(() => {})));
   done.forEach((t, i) => { top[i] = { ...top[i], text: t + ((top[i].text.match(/ - [^-]+$/) || [''])[0]), hi: top[i].text }; });   // keep the ' - Paper' credit
   const out = top.map(({ desc, src, ...x }) => x); out.trNote = note.join(', ');
   return out;
@@ -463,7 +476,7 @@ async function jobLocal(env) {
 async function localHere(env, lat, lon, cityName) {
   if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return { city: '', items: [] };
   const plan = localPlan(lat, lon, cityName); if (!plan) return { city: '', items: [] };
-  const key = 'local9_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
+  const key = 'local10_' + plan.city.toLowerCase().replace(/[^a-z]/g, ''), c = (await dbGet(env, [key]))[key];
   if (c && Date.now() - c.at < 15 * 60e3) return { ...c.v, at: c.at };
   const { top } = await localNews(plan, env);
   if (!top.length && c && c.v.items.length && Date.now() - c.at < 6 * 3600e3) return { ...c.v, at: c.at };   // feeds failed: keep the last list for a while
