@@ -5,22 +5,10 @@ on:
     paths: ['.github/workflows/check.yml', 'server/check.txt']
 jobs:
   check:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
-      - name: Open the live app like an iPhone
+      - name: Local news language
         run: |
-          npm i playwright@1.49.1 >/dev/null 2>&1; npx playwright install --with-deps chromium >/dev/null 2>&1; npx playwright install --with-deps webkit 2>&1 | tail -3 || true
-          cat > t.mjs <<'JS'
-          import { webkit, chromium, devices } from 'playwright';
-          for (const [name, bt] of [['webkit', webkit]]) { try {
-            const b = await bt.launch(), ctx = await b.newContext({ ...devices['iPhone 15 Pro Max'], timezoneId: 'Asia/Kolkata' }), pg = await ctx.newPage();
-            const logs = []; pg.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') logs.push(m.type() + ': ' + m.text()); }); pg.on('pageerror', e => logs.push('PAGEERROR ' + e.message + ' @ ' + (e.stack || '').split('\n').slice(0, 3).join(' | ')));
-            await pg.goto('https://2mintrails.github.io/desk-ticker/?_=' + Date.now()); await pg.waitForTimeout(15000);
-            const o = await pg.evaluate(() => ({ version: (document.querySelector('meta[name="ticker-version"]') || {}).content, slides: typeof slides !== 'undefined' ? slides.length : 'undefined', bodyText: document.body.innerText.slice(0, 200).replace(/\s+/g, ' '), active: (document.querySelector('.slide.active') || {}).dataset?.title }));
-            console.log(name, JSON.stringify(o)); console.log(logs.slice(0, 15).join('\n'));
-            await pg.screenshot({ path: name + '.png' }); await b.close();
-          } catch (e) { console.log(name, 'FAILED', e.message.slice(0, 300)); } }
-          JS
-          node t.mjs
-      - uses: actions/upload-artifact@v4
-        with: { name: shots, path: '*.png' }
+          curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed > f.json
+          node -e "const f=require('./f.json');const L=f.news&&f.news.Local||f.local||null;console.log('feed keys',Object.keys(f).join(','));console.log('LOCAL',JSON.stringify(L).slice(0,3000));console.log('LOG',JSON.stringify((f.log||[]).filter(x=>/local/i.test(JSON.stringify(x))).slice(-6)).slice(0,2000))"
+          curl -s https://desk-ticker.twominutetrails.workers.dev/v1/status | head -c 3000 | tr ',' '\n' | grep -i -A2 local | head -20

@@ -38,3 +38,4 @@ check 2026-11-26T08:21:08Z after prev-close fix
 check 2026-11-26T09:12:45Z white screen
 check 2026-11-26T09:15:40Z white screen 2
 check 2026-11-26T09:18:57Z webkit 24.04
+check 2026-11-26T12:37:07Z local news hindi
