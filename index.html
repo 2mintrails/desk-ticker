@@ -213,10 +213,10 @@
   .bull .metal.has-wk .wk.dipv .plot{flex:0 1 clamp(22px,9vh,64px);height:auto!important;min-height:14px}
   .bull .metal.has-wk .wk.dipv .dv, .bull .metal.has-wk .wk.dipv .ends, .bull .metal.has-wk .wk.dipv .mo{flex:none}
   .bull .metal > *{flex-shrink:0} .bull .metal > .wk{flex-shrink:1}
-  .bull .metal.mt1 .per{display:none} html body .bull .metal.mt2 .price{font-size:clamp(26px,8.5vh,46px)} .bull .metal.mt3 .dchg{display:none}
+  .bull .metal.mt1 .per{display:none} html body .bull .metal.mt2 .price, html body.anime .bull .metal.mt2 .price{font-size:clamp(24px,min(8.5vh,10.5vw),46px)} .bull .metal.mt3 .dchg{display:none}
   .dipv .mo2{display:none} .dipv .mo2.down{color:var(--down,#ff5a5f)} .dipv .mo2.up{color:var(--up,#3ddc84)}
   @media (orientation:portrait) and (max-height:760px){ .bull .dipv .mo{display:none} .bull .dipv .mo2{display:inline} .bull .dipv .dv{margin-bottom:.4vh}
-    .bull .dipv .e1p{display:none} .bull .dipv .mo2::before{content:'to today '} .bull .metal .price, html body.anime .bull .metal .price{font-size:clamp(30px,10vh,54px)} }   /* small iPhones: the big price already says today's rate */   /* small iPhones: the month change joins the "today" label */
+    .bull .dipv .e1p{display:none} .bull .dipv .mo2::before{content:'to today '} .bull .metal .price, html body.anime .bull .metal .price{font-size:clamp(28px,min(10vh,12vw),54px)} }   /* small iPhones: the big price already says today's rate */   /* small iPhones: the month change joins the "today" label */
   .slide.active > .mevl{animation:none} .mev.now .mt, .mev.soon .mt{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
   .wk.dipv.pricey{--wkc:#f5b84a;--wkbg:rgba(245,184,74,.14)}
   .dipv .dv{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:.8vh}
@@ -2593,7 +2593,7 @@ function fitMetals() {
   const cards = [...document.querySelectorAll('.bull .metal')]; if (!cards.length) return;
   const spills = () => cards.some(c => { const q = c.getBoundingClientRect(); if (!q.height) return false;
     for (const el of c.querySelectorAll('.price, .per, .dchg, .vchip, .plot, .ends, .mo, .k, .lbl, .chip')) { const r = el.getBoundingClientRect();
-      if (r.height && (r.top < q.top - 1 || r.bottom > q.bottom + 1)) return true; }
+      if (r.height && (r.top < q.top - 1 || r.bottom > q.bottom + 1 || r.right > q.right + 1)) return true; }
     const w = c.querySelector('.dipv'); return !!(w && w.scrollHeight > w.clientHeight + 1); });
   cards.forEach(c => c.classList.remove('mt1', 'mt2', 'mt3'));
   for (const lv of ['mt1', 'mt2', 'mt3']) { if (!spills()) break; cards.forEach(c => c.classList.add(lv)); }
