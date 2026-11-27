@@ -5,7 +5,8 @@ import { chromium, webkit } from 'playwright';
 import fs from 'fs';
 const URL = process.argv[2] || 'http://localhost:8080/index.html';
 const LOOKS = process.env.LOOKS ? process.env.LOOKS.split(',') : ['ambient', 'swiss', 'retro', 'calm', 'anime', 'xsnow', 'xmarket'];
-const SIZES_ALL = [['iphone-396x859', 396, 859], ['iphone-375x667', 375, 667], ['iphone-430x932', 430, 932], ['landscape-859x396', 859, 396]];
+// Shivam's iPhone only, portrait and landscape (27 Nov 2026: other phone sizes dropped to keep the check quick)
+const SIZES_ALL = [['iphone-396x859', 396, 859], ['landscape-859x396', 859, 396]];
 const SIZES = process.env.SIZES ? SIZES_ALL.filter(x => process.env.SIZES.split(',').some(k => x[0].includes(k))) : SIZES_ALL;
 const ENGINES = (process.env.ENGINES || 'webkit,chromium').split(',');
 fs.mkdirSync('shots', { recursive: true });

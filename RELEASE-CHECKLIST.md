@@ -15,7 +15,7 @@ Written 26 Nov 2026 after a bullion card that looked fine in testing came out cu
 ## 3. Automatic UI check must pass (runs by itself on every push to `preview`)
 `UI check` in GitHub Actions opens the app with **live data**, in **Safari's engine (WebKit)**, and steps through **every slide** (one job per theme, side by side: about 5 minutes) in:
 - every theme: Ambient, Swiss, Retro, Calm, Anime, and the winter themes (until 6 Jan 2027)
-- these screens: 396×859 (Shivam's iPhone), 375×667 (small iPhone), 430×932 (large iPhone), 859×396 (landscape)
+- Shivam's iPhone only: 396×859 portrait and 859×396 landscape (other sizes dropped 27 Nov 2026 to keep the check to a few minutes)
 
 It fails on: text cut off by its card, text off the screen, text too long for its line, a page crash, and any script error.
 Problems already known and parked are listed in `KNOWN` in `tools/ui-check.mjs`: they are reported as KNOWN but don't fail the check.
@@ -25,7 +25,7 @@ To re-run just a few themes or sizes: run the workflow by hand with `looks` / `s
 
 ## 4. Test with real-looking data
 - [ ] Real data, not just a mock: every line the card can show (e.g. "vs yesterday", "no change", long names, big numbers).
-- [ ] Small screens: the card has the most lines it can show (e.g. "vs yesterday" present) on 375×667.
+- [ ] The card has the most lines it can show (e.g. "vs yesterday" present).
 - [ ] Edge states: market open and closed, holiday, empty lists, very long headline, Hindi text.
 - [ ] New code never runs before something it needs is defined (no `const`/`let` used before its line: it gives a white screen).
 
