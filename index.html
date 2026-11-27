@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v22.9-2026-11-27">
+<meta name="ticker-version" content="v23.0-2026-11-27">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -438,7 +438,13 @@
   #dsheet .dst div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:4px} #dsheet .dst span{opacity:.6}
   #dsheet .devt{background:rgba(255,200,80,.12);border:1px solid rgba(255,200,80,.35);border-radius:10px;padding:7px 12px;font-size:13px;margin-top:10px}
   #dsheet .dnw a{display:block;color:inherit;text-decoration:none;font-size:14px;line-height:1.35;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08)}
-  #dsheet .dnw small{display:block;opacity:.55;font-size:11px;margin-top:2px}
+  #dsheet .dnw small{opacity:.55;font-size:11px}
+  #dsheet .dnwt{margin:2px 0 10px} #dsheet .dnwt h4{margin:0 0 2px}
+  #dsheet .dnw a{display:flex;gap:8px;align-items:flex-start}
+  #dsheet .dnw a span{flex:1;min-width:0} #dsheet .dnw a em{font-style:normal;opacity:.5;font-size:11px;white-space:nowrap;margin-top:2px}
+  #dsheet .dnw .nk{font-style:normal;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:6px;white-space:nowrap;margin-top:2px}
+  #dsheet .dnw .nk.co{background:rgba(61,220,132,.16);color:#5ee59b} #dsheet .dnw .nk.se{background:rgba(96,165,250,.18);color:#8ab8ff}
+  body.light #dsheet .dnw a{border-bottom-color:rgba(0,0,0,.08)}
   #dsheet .foot{grid-column:1/-1;font-size:11px;opacity:.5;text-align:center}
   #dsheet .hrs{grid-column:1/-1;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));text-align:center}
   #dsheet .hc{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:13px} #dsheet .hc small{opacity:.6;font-size:11px;white-space:nowrap}
@@ -466,6 +472,8 @@
   #dsheet .dvt button.on{background:var(--tbOn);color:var(--tbTx)}
   #dsheet .dpane{grid-column:1/-1;display:none} #dsheet .dpane.on{display:block}
   #dsheet .dpane.ov.on{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:1.6vh 2.6vw}
+  @media (orientation:landscape){ #dsheet .dnwt{grid-column:1/-1} #dsheet .dnw a{padding:4px 0} #dsheet .dnw a:nth-child(n+3){display:none}
+    #dsheet .dnw a span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} }   /* landscape: two one-line headlines so the chart keeps its room */
   body.swiss #dsheet .dvt button, body.swiss #dsheet .dvt button.on{transition:none}
   @media (orientation:portrait) and (max-aspect-ratio: 4/5){
     #dsheet .dpane.ov.on{grid-template-columns:minmax(0,1fr);gap:1.4vh}
@@ -2071,22 +2079,28 @@ function dsStock(sym) {
   // what the slides already know: the 52-week note and the next event on this stock's card
   const tile = document.querySelector('.tile [data-sym="' + CSS.escape(sym) + '"]'), card = tile && tile.closest('.tile');
   const ev = [card && card.querySelector('.tev') && card.querySelector('.tev').textContent, card && card.querySelector('.w52') && card.querySelector('.w52').textContent].filter(t => t && t.trim()).map(esc).join(' · ');
-  const nw = ((FEED && FEED.news) || {}), items = [...((nw.Watch || {}).items || []).filter(x => x.sym === sym),
-    ...(us && !idx ? ((nw.USMarkets || {}).items || []).filter(x => new RegExp('\\b(' + [tick, name.split(' ')[0]].map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b', 'i').test(x.t)) : [])].slice(0, 3);
-  const news = items.map(x => { const k = String(x.t).lastIndexOf(' - ');
-    return '<a href="#" data-url="' + esc(x.u || '') + '">' + esc(k > 20 ? x.t.slice(0, k) : x.t) + (k > 20 ? '<small>' + esc(x.t.slice(k + 3)) + '</small>' : '') + '</a>'; }).join('');
+  // news this week (27 Nov 2026): the stock's own headlines plus its sector's (e.g. defence capex news for BEL), at the top of the pop-up
+  const nw = ((FEED && FEED.news) || {}), ago = t => { const h = (Date.now() - t) / 3600e3; return h < 1 ? 'now' : h < 24 ? Math.round(h) + ' h' : Math.round(h / 24) + ' d'; };
+  let items = ((nw.BySym || {})[sym] || []).slice();
+  if (!items.length) items = [...((nw.Watch || {}).items || []).filter(x => x.sym === sym).map(x => { const k = String(x.t).lastIndexOf(' - ');
+      return { t: k > 20 ? x.t.slice(0, k) : x.t, src: k > 20 ? x.t.slice(k + 3) : '', u: x.u, kind: 'co', label: tick }; }),
+    ...(us && !idx ? ((nw.USMarkets || {}).items || []).filter(x => new RegExp('\\b(' + [tick, name.split(' ')[0]].map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b', 'i').test(x.t))
+      .map(x => { const k = String(x.t).lastIndexOf(' - '); return { t: k > 20 ? x.t.slice(0, k) : x.t, src: k > 20 ? x.t.slice(k + 3) : '', u: x.u, kind: 'co', label: tick }; }) : [])];
+  const news = items.slice(0, 3).map(x => '<a href="#" data-url="' + esc(x.u || '') + '"><i class="nk ' + (x.kind === 'sec' ? 'se' : 'co') + '">' + esc(x.label || tick) + '</i>' +
+    '<span>' + esc(x.t) + (x.src ? ' <small>· ' + esc(x.src) + '</small>' : '') + '</span>' + (x.at ? '<em>' + ago(x.at) + '</em>' : '') + '</a>').join('');
   DS.sym = sym;
   DS.ms = timingFor(sym) ? 40000 : 20000;             // more to read when there's a timing block
   const [sTop, sRows] = sigBlock(sym, true);         // tag + analysts stay fixed on top; the detail rows move to the Analysis tab
   dsShell('<div class="hd"><div class="lg">' + logo + '</div><div class="nm">' + esc(name) + '<small>' + esc(sub) + '</small></div>' +
     '<div class="px"><b>' + cur + dsNum(q.price, 2) + '</b><span class="' + dsCls(q.pct) + '">' + (q.pct > 0 ? '▲ ' : q.pct < 0 ? '▼ ' : '') + dsPct(q.pct) +
     (q.change != null && isFinite(q.change) ? ' (' + (q.change > 0 ? '+' : q.change < 0 ? '−' : '') + dsNum(Math.abs(q.change), 2) + ')' : '') + ' today</span></div><button class="x" aria-label="Close">✕</button></div>' +
+    (news ? '<div class="dnwt"><h4>News this week</h4><div class="dnw">' + news + '</div></div>' : '') +
     sTop + (sRows ? '<div class="dvt"><button class="on" data-p="ov">Overview</button><button data-p="an">Analysis</button></div>' : '') +
     '<div class="dpane ov on"><div><div class="dtabs">' + [['1d', '1D'], ['3mo', '3M'], ['1y', '1Y']].map(r => '<button data-r="' + r[0] + '">' + r[1] + '</button>').join('') + '</div>' +
     '<div class="dch"><div class="wait">Loading chart…</div></div><div class="drl"></div>' + (ev ? '<div class="devt">' + ev + '</div>' : '') + '</div>' +
     '<div><h4>52-week range</h4><div class="drng"><b style="left:50%;opacity:0"></b></div><div class="drl dr52"><span></span><span></span></div>' +
     '<div class="dst"><div><span>3M</span><b class="r3">--</b></div><div><span>1Y</span><b class="r1">--</b></div><div><span>Day range</span><b class="dday">--</b></div><div><span>From high</span><b class="dfh">--</b></div></div>' +
-    (news ? '<h4 style="margin-top:14px">Latest news</h4><div class="dnw">' + news + '</div>' : '') + '</div></div>' +
+    '</div></div>' +
     (sRows ? '<div class="dpane an">' + sRows + '</div>' : ''));
   dsRange(idx ? '1d' : '3mo');
   ['1d', '3mo', '1y'].forEach(r => dsFetch(sym, r).then(() => dsStats(sym)));

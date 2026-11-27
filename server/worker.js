@@ -498,7 +498,33 @@ const WATCH_FEEDS = [...FEEDS.Markets,
 const ALIAS = { 'NSE:M&M': ['M&M', 'Mahindra'], 'NSE:LT': ['L&T', 'Larsen'], 'NSE:HINDUNILVR': ['HUL'], 'NSE:INDIGO': ['InterGlobe'], 'NSE:DRREDDY': ['Dr Reddy', 'Dr. Reddy'],
   'NSE:SONACOMS': ['Sona Comstar', 'Sona BLW'], 'NSE:RECLTD': ['REC Ltd', 'REC Limited'], 'NSE:BHARTIARTL': ['Airtel'], 'NSE:VBL': ['Varun Beverages'], 'NSE:POLYMED': ['Polymed'],
   'NSE:RELIANCE': ['RIL', 'Reliance Industries', 'Reliance Jio', 'Reliance Retail'], 'NSE:SUNPHARMA': ['Sun Pharmaceutical'], 'NSE:HDFCBANK': ['HDFC Bank'], 'NSE:ABREL': ['Birla Estates'],
-  'NSE:TMCV': ['Tata Motors'], 'NSE:TATACONSUM': ['Tata Consumer'], 'NSE:INOXINDIA': ['INOX India', 'Inox India'] };
+  'NSE:TMCV': ['Tata Motors'], 'NSE:ETERNAL': ['Zomato', 'Blinkit'], 'NSE:BEL': ['Bharat Electronics'], 'NSE:RECLTD': ['REC Ltd', 'REC Limited', 'Rural Electrification'], 'NSE:TATACONSUM': ['Tata Consumer'], 'NSE:INOXINDIA': ['INOX India', 'Inox India'] };
+// sector news for the detail pop-up (27 Nov 2026): a headline about a stock's sector counts for it even when it doesn't name the
+// company (e.g. defence-ministry capex news for BEL). Each stock's sector and the words that mark that sector's news.
+const SECTORS = {
+  Defence: { re: /\bdefen[cs]e (ministry|minister|budget|capex|spending|procurement|exports?|production|stocks|sector|orders?|deals?|acquisitions?|corridor|manufacturing|psus?)\b|\bdefence acquisition council\b|\bDAC (clears|approves|nod)\b|\bRajnath\b|\bRaksha Mantri\b|\bmilitary (modernisation|modernization|hardware)\b|\bOperation Sindoor\b/i, syms: ['NSE:BEL'] },
+  'Power finance': { re: /\bpower (sector|ministry|minister|demand|tariffs?|stocks|transmission|financ\w*)\b|\belectricity demand\b|\bpeak (power )?demand\b|\bdiscoms?\b|\bNBFCs?\b|\bPFC\b/i, syms: ['NSE:RECLTD'] },
+  Power: { re: /\bpower (sector|ministry|minister|demand|tariffs?|stocks|transmission|generation)\b|\belectricity demand\b|\bpeak (power )?demand\b|\bdiscoms?\b|\bthermal power\b/i, syms: ['NSE:TATAPOWER'] },
+  Solar: { re: /\bsolar\b|\brenewable(s| energy)\b|\bALMM\b|\bgreen hydrogen\b|\bclean energy\b/i, syms: ['NSE:WAAREEENER', 'NSE:TATAPOWER'] },
+  IT: { re: /\bIT (stocks|sector|services|companies|firms|index|shares|majors|hiring|spending)\b|\bNifty IT\b|\bH-?1B\b|\btech services\b|\bIT outsourcing\b/, syms: ['NSE:TCS', 'NSE:INFY'] },
+  Banks: { re: /\bbank(ing)? (stocks|sector|shares|index)\b|\bNifty Bank\b|\bPSU banks\b|\bprivate banks\b|\bcredit growth\b|\bdeposit growth\b|\brepo rate\b|\bRBI (policy|rate|MPC)\b|\bMPC\b/i, syms: ['NSE:HDFCBANK', 'NSE:ICICIBANK'] },
+  NBFC: { re: /\bNBFCs?\b|\bconsumer (loans|credit|lending)\b|\bunsecured (loans|lending)\b|\brepo rate\b|\bRBI (policy|rate|MPC)\b/i, syms: ['NSE:BAJFINANCE'] },
+  Auto: { re: /\bauto (sales|stocks|sector|industry|makers?|demand|index)\b|\bNifty Auto\b|\b(passenger vehicle|PV|two-wheeler|tractor|car|EV|electric vehicle) (sales|demand|makers?|registrations?|policy|subsidy)\b|\bSIAM\b|\bFADA\b/i, syms: ['NSE:M&M', 'NSE:TMCV', 'NSE:SONACOMS'] },
+  Telecom: { re: /\btelecom\b|\btariff hikes?\b|\bTRAI\b|\bspectrum\b|\bsatcom\b/i, syms: ['NSE:BHARTIARTL'] },
+  Pharma: { re: /\bpharma(ceutical)?s?\b|\bUS ?FDA\b|\bdrug (prices|pricing|tariffs?|exports?|makers?)\b|\bgeneric drugs?\b|\bNifty Pharma\b/i, syms: ['NSE:SUNPHARMA', 'NSE:CIPLA', 'NSE:DRREDDY'] },
+  Healthcare: { re: /\bhospitals?\b|\bhealthcare (sector|stocks)\b|\bmedical tourism\b|\bhealth insurance\b/i, syms: ['NSE:MAXHEALTH'] },
+  'Medical devices': { re: /\bmedical devices?\b|\bmedtech\b|\bmed-tech\b/i, syms: ['NSE:POLYMED'] },
+  FMCG: { re: /\bFMCG\b|\bconsumer (staples|goods|demand|spending)\b|\brural (demand|consumption)\b|\bGST (cut|rate|rates)\b/i, syms: ['NSE:ITC', 'NSE:HINDUNILVR', 'NSE:TATACONSUM', 'NSE:VBL'] },
+  Jewellery: { re: /\bjewell?ery\b|\bgold demand\b|\bwedding season\b/i, syms: ['NSE:TITAN'] },
+  'Oil & gas': { re: /\bcrude( oil)?\b|\boil prices?\b|\brefining margins?\b|\bOPEC\b|\bwindfall tax\b|\bRussian oil\b/i, syms: ['NSE:RELIANCE'] },
+  Infrastructure: { re: /\binfrastructure (spending|projects?|push|capex)\b|\bgovernment capex\b|\bpublic capex\b|\bcapital goods\b|\border inflows?\b/i, syms: ['NSE:LT'] },
+  Steel: { re: /\bsteel (prices|demand|imports|duty|sector|stocks|makers?|output)\b|\bmetal stocks\b|\bNifty Metal\b|\biron ore\b|\bsafeguard duty\b/i, syms: ['NSE:TATASTEEL'] },
+  Aviation: { re: /\baviation\b|\bairlines?\b|\bair traffic\b|\bATF\b|\bDGCA\b|\bjet fuel\b|\bdomestic flyers\b/i, syms: ['NSE:INDIGO'] },
+  Cement: { re: /\bcement\b/i, syms: ['NSE:AMBUJACEM'] },
+  'Real estate': { re: /\breal estate\b|\brealty\b|\bhousing (sales|demand|prices)\b|\bhome sales\b/i, syms: ['NSE:ABREL'] },
+  'Quick commerce': { re: /\bquick commerce\b|\bq-?commerce\b|\bfood delivery\b|\bSwiggy\b/i, syms: ['NSE:ETERNAL'] },
+};
+const SECTOR_OF = {}; Object.entries(SECTORS).forEach(([n, x]) => x.syms.forEach(sym => (SECTOR_OF[sym] = SECTOR_OF[sym] || []).push(n)));
 function stockMatcher(x) {
   const names = new Set([x.name, ...(ALIAS[x.sym] || [])]);
   const short = x.name.replace(/\s+(Ltd\.?|Limited|Company|Corporation|Corp\.?|Industries|Inc\.?)$/i, '').trim();
@@ -704,6 +730,26 @@ async function jobWatch(env, us) {
       const a = mem[h.sym] = (mem[h.sym] || []).filter(x => x.t > cut); if (!a.some(x => x.text === tx)) a.push({ t: h.t, text: tx }); a.sort((x, y) => y.t - x.t); a.splice(10); });
     Object.keys(mem).forEach(k => { mem[k] = mem[k].filter(x => x.t > cut); if (!mem[k].length) delete mem[k]; });
     await dbPut(env, mk, mem); } catch (e) {}
+  // each stock's own news list for the detail pop-up: company headlines plus (India) its sector's headlines, kept for 7 days
+  try {
+    const sk = us ? 'news_BySymUS' : 'news_BySym', mem = (await dbGet(env, [sk]))[sk]?.v || {}, cut = Date.now() - 7 * 864e5, add = (sym, it, kind, label) => {
+      const tx = String(it.title || '').trim(); if (!tx || !(it.t > cut)) return;
+      const a = mem[sym] = (mem[sym] || []).filter(x => x.at > cut), key = tx.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 50), ws = words(tx);
+      if (a.some(x => x.k === key || sameStory(words(x.t), ws))) return;
+      a.push({ t: tx, src: it.source || '', u: /^https?:\/\//.test(it.link) ? it.link : '', at: it.t, kind, label, k: key });
+    };
+    hits.forEach(h => add(h.sym, h, 'co', h.tick));
+    if (!us) {
+      const extra = await Promise.all((FEEDS.India || []).map(([u, s2]) => readFeed(u, s2)));
+      const pool = [...lists.flat(), ...extra.flat()].filter(x => x.t > cut), mine = new Set(list.map(x => x.sym));
+      for (const [name, sec] of Object.entries(SECTORS)) { const hs = pool.filter(x => sec.re.test(x.title));
+        sec.syms.filter(sy => mine.has(sy)).forEach(sy => hs.forEach(h => add(sy, h, 'sec', name))); }
+    }
+    for (const k of Object.keys(mem)) {               // company news first, then newest; at most 6 per stock
+      mem[k] = mem[k].filter(x => x.at > cut).sort((a, b) => (a.kind === 'co' ? 0 : 1) - (b.kind === 'co' ? 0 : 1) || b.at - a.at).slice(0, 6);
+      if (!mem[k].length) delete mem[k]; }
+    await dbPut(env, sk, mem);
+  } catch (e) {}
   await dbPut(env, us ? 'news_WatchUS' : 'news_Watch', top);      // an empty list is fine: the slide hides itself
   return top.length + ' headlines for ' + new Set(top.map(x => x.tick)).size + ' stocks, from ' + hits.length + ' matches (' + Object.entries(perFeed).map(([n, c]) => n + ' ' + c).join(', ') + ')' +
     (top[0] ? ' · newest: [' + top[0].tick + '] ' + top[0].text.slice(0, 60) : '');
@@ -1028,7 +1074,7 @@ async function watchText(env) {
 }
 async function feed(env) {
   const cfg = await getCfg(env);
-  const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'ibja', 'gr_silver', 'gr_gold', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets', 'news_Local', 'news_Watch', 'news_WatchUS', 'news_Bullion', 'mood', 'tech'];
+  const keys = ['sheet1', 'idx', 'env', 'log', 'metal_hist', 'ibja', 'gr_silver', 'gr_gold', 'news_India', 'news_World', 'news_Markets', 'news_USMarkets', 'news_Local', 'news_Watch', 'news_WatchUS', 'news_BySym', 'news_BySymUS', 'news_Bullion', 'mood', 'tech'];
   const d = await dbGet(env, keys), E = d.env?.v || {}, rows = (d.sheet1?.v || []).slice(1);
   const quotes = {};
   rows.forEach(r => {
@@ -1088,6 +1134,8 @@ async function feed(env) {
     news.Watch = { at: W?.at || null, items: (W?.v || []).map(i => ({ t: i.text, u: i.link, sym: i.sym, tick: i.tick })) };
     news.Mood = { at: d.mood?.at || null, ...(d.mood?.v || {}) };
     news.Bullion = { at: d.news_Bullion?.at || null, sum: d.news_Bullion?.v?.sum || null };
+    news.BySym = { ...(d.news_BySym?.v || {}), ...(d.news_BySymUS?.v || {}) };
+    Object.values(news.BySym).forEach(a => a.forEach(x => delete x.k));
     const WU = d.news_WatchUS; news.WatchUS = { at: WU?.at || null, items: (WU?.v || []).map(i => ({ t: i.text, u: i.link, sym: i.sym, tick: i.tick })) }; }
   ['India', 'World', 'Markets', 'USMarkets'].forEach(s => { const x = d['news_' + s]; news[s] = { at: x?.at || null, items: (x?.v || []).map(i => ({ t: i.text, u: i.link })) }; });
   const a = E.aqi;
