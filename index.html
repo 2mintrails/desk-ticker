@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v23.2-2026-11-27">
+<meta name="ticker-version" content="v23.3-2026-11-27">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -212,6 +212,7 @@
   .bull .metal.has-wk .wk.dipv{flex:0 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
   .bull .metal.has-wk .wk.dipv .plot{flex:0 1 clamp(22px,9vh,64px);height:auto!important;min-height:14px}
   .bull .metal.has-wk .wk.dipv .dv, .bull .metal.has-wk .wk.dipv .ends, .bull .metal.has-wk .wk.dipv .mo{flex:none}
+  .nlist .tk.sec{background:#2f6fd6!important;color:#fff!important;border-color:#2f6fd6!important}
   .bull .metal > *{flex-shrink:0} .bull .metal > .wk{flex-shrink:1}
   .bull .metal .per{display:none}   /* per-gram removed (27 Nov 2026): the 10g / 1kg price is enough, and it frees space */
   html body .bull .metal.mt2 .price, html body.anime .bull .metal.mt2 .price{font-size:clamp(24px,min(8.5vh,10.5vw),46px)} .bull .metal.mt3 .dchg{display:none}
@@ -3061,7 +3062,9 @@ function renderNews(news) {
       li.innerHTML = '<span class="no"></span><span><span class="tt"></span><span class="sr"></span></span>';
       li.querySelector('.no').textContent = String(i + 1).padStart(2, '0');
       li.querySelector('.tt').textContent = title; li.querySelector('.sr').textContent = src;
-      if (it.tick) {                                  // watchlist news: the stock and its move today
+      if (it.kind === 'sec' && it.label) {           // sector news on the Portfolio News slides (27 Nov 2026): blue sector label
+        const b = document.createElement('span'); b.className = 'tk sec'; b.textContent = it.label; li.querySelector('.tt').prepend(b);
+      } else if (it.tick) {                                  // watchlist news: the stock and its move today
         const q = FEED && FEED.quotes && FEED.quotes[it.sym], p0 = q && q.pct != null && isFinite(q.pct) ? Math.round(q.pct * 10) / 10 : null, pc = p0 === 0 ? null : p0, b = document.createElement('span');
         b.className = 'tk' + (pc == null ? '' : pc >= 0 ? ' up' : ' dn');
         b.textContent = it.tick + (p0 == null ? '' : ' ' + (p0 > 0 ? '+' : p0 < 0 ? '−' : '') + Math.abs(p0).toFixed(1) + '%');
@@ -3082,7 +3085,7 @@ function renderNews(news) {
   const got = fill('newsIN', pickL(0)) + fill('newsWD', pickL(1)) + fill('newsMK', pickL(3)) + fill('newsUS', pickL(7));
   {                                                   // local and watchlist news: shown only when there is some
     const was = ['newsLC', 'newsWL', 'newsWLU'].map(id => document.getElementById(id).children.length > 0).join();
-    const extra = (id, sec) => { const items = ((sec || {}).items || []).map(x => ({ t: String(x.t || '').trim(), u: String(x.u || '').trim(), sym: x.sym, tick: x.tick })).filter(x => x.t).slice(0, 8);
+    const extra = (id, sec) => { const items = ((sec || {}).items || []).map(x => ({ t: String(x.t || '').trim(), u: String(x.u || '').trim(), sym: x.sym, tick: x.tick, kind: x.kind, label: x.label })).filter(x => x.t).slice(0, 8);
       if (!items.length) { const ol = document.getElementById(id); ol.innerHTML = ''; ol._all = []; } else fill(id, items); };
     const loc = away ? (LOCAL_HERE || { city: '', items: [] }) : news.Local;
     if (loc && Array.isArray(loc.items) && loc.items.some(i => /[\u0900-\u097F]/.test(i.t || ''))) localToEnglish(loc.items);   // home or away: Hindi headlines get translated on the phone

@@ -523,7 +523,17 @@ const SECTORS = {
   Cement: { re: /\bcement\b/i, syms: ['NSE:AMBUJACEM'] },
   'Real estate': { re: /\breal estate\b|\brealty\b|\bhousing (sales|demand|prices)\b|\bhome sales\b/i, syms: ['NSE:ABREL'] },
   'Quick commerce': { re: /\bquick commerce\b|\bq-?commerce\b|\bfood delivery\b|\bSwiggy\b/i, syms: ['NSE:ETERNAL'] },
+  // US
+  Chips: { re: /\b(chip|chips|chipmakers?|semiconductors?|foundr(y|ies)|AI chips?|GPUs?|wafer|export controls?|CHIPS Act)\b/i, syms: ['NYSE:TSM', 'NASDAQ:NVDA'] },
+  'AI & cloud': { re: /\bcloud (computing|spending|revenue|growth|business)\b|\bAI (spending|capex|investment|infrastructure|data cent(er|re)s?|bubble|boom|stocks|trade)\b|\bhyperscalers?\b|\bdata cent(er|re)s?\b/i, syms: ['NASDAQ:MSFT', 'NASDAQ:GOOGL', 'NASDAQ:AMZN', 'NASDAQ:NVDA'] },
+  Software: { re: /\bsoftware (stocks|companies|spending|sector)\b|\bSaaS\b|\benterprise software\b|\bAI agents?\b/i, syms: ['NYSE:CRM', 'NASDAQ:MSFT'] },
+  'Big Tech': { re: /\bbig tech\b|\bmagnificent seven\b|\bmag(nificent)? ?7\b|\bantitrust\b|\bapp stores?\b|\bDigital Markets Act\b|\btech (giants|stocks|selloff|rally)\b/i, syms: ['NASDAQ:AAPL', 'NASDAQ:GOOGL', 'NASDAQ:AMZN', 'NASDAQ:MSFT'] },
+  Streaming: { re: /\bstreaming (wars|subscribers|services?|giants?|prices?)\b|\bbox office\b|\bHollywood\b/i, syms: ['NASDAQ:NFLX'] },
+  Smartphones: { re: /\bsmartphones?\b|\bphone (sales|shipments|market)\b/i, syms: ['NASDAQ:AAPL'] },
+  'E-commerce': { re: /\be-?commerce\b|\bonline (shopping|sales|retail)\b|\bholiday (shopping|sales|spending)\b|\bBlack Friday\b|\bCyber Monday\b/i, syms: ['NASDAQ:AMZN'] },
 };
+// headlines that only mention a stock on the way (market wraps, lists, tips) don't count as news about it (27 Nov 2026)
+const NOISE = /\b(stocks? to (watch|buy|sell)|top (gainers|losers)|(gainers|losers) (today|list)|buzzing stocks?|stocks? in (news|focus|spotlight)|shares? in focus|(stock )?market (live|wrap|highlights|today|closing|opening)|(sensex|nifty|dow|nasdaq|s&p 500)[^|]{0,50}\b(today|live|updates?|highlights|closing bell|opening bell)\b|stock picks?|buy or sell|trade setup|technical picks?|top picks?|pre-?market|hot stocks|most active|stocks? that|these \d+ stocks|\d+ stocks (to|that|for|under)|stocks under ₹|multibagger|penny stocks?|f&o ban|bulk deals?|block deals?|mutual funds? (bought|sold|added)|smallcase|portfolio of|earnings call transcript|\bGAAP EPS\b)\b/i;
 const SECTOR_OF = {}; Object.entries(SECTORS).forEach(([n, x]) => x.syms.forEach(sym => (SECTOR_OF[sym] = SECTOR_OF[sym] || []).push(n)));
 function stockMatcher(x) {
   const names = new Set([x.name, ...(ALIAS[x.sym] || [])]);
@@ -719,8 +729,9 @@ async function jobWatch(env, us) {
   const perFeed = FEEDS_W.map((f, i) => [f[1], lists[i].length]).reduce((o, [n, c]) => (o[n] = (o[n] || 0) + c, o), {});
   const count = {}, hits = [];
   lists.flat().sort((a, b) => b.t - a.t).forEach(it => {
-    if (us && (/earnings call transcript|\bGAAP EPS\b/i.test(it.title))) return;
-    const m = ms.find(([, f]) => f(it.title)); if (!m) return;
+    if (NOISE.test(it.title)) return;
+    const named = ms.filter(([, f]) => f(it.title)); if (!named.length || named.length >= 3) return;   // a list of 3+ of your stocks is a market roundup
+    const m = named[0];
     hits.push({ ...it, sym: m[0].sym, tick: m[0].tick });
   });
   const top = pickTop(hits, { keep: 8, per: 3, ageH: 48, skip: x => { if ((count[x.sym] || 0) >= 2) return true; count[x.sym] = (count[x.sym] || 0) + 1; return false; } });
@@ -739,16 +750,27 @@ async function jobWatch(env, us) {
       a.push({ t: tx, src: it.source || '', u: /^https?:\/\//.test(it.link) ? it.link : '', at: it.t, kind, label, k: key });
     };
     hits.forEach(h => add(h.sym, h, 'co', h.tick));
-    if (!us) {
-      const extra = await Promise.all((FEEDS.India || []).map(([u, s2]) => readFeed(u, s2)));
-      const pool = [...lists.flat(), ...extra.flat()].filter(x => x.t > cut), mine = new Set(list.map(x => x.sym));
+    {
+      const extra = us ? [] : await Promise.all((FEEDS.India || []).map(([u, s2]) => readFeed(u, s2)));
+      const pool = [...lists.flat(), ...extra.flat()].filter(x => x.t > cut && !NOISE.test(x.title)), mine = new Set(list.map(x => x.sym));
       for (const [name, sec] of Object.entries(SECTORS)) { const hs = pool.filter(x => sec.re.test(x.title));
         sec.syms.filter(sy => mine.has(sy)).forEach(sy => hs.forEach(h => add(sy, h, 'sec', name))); }
     }
     for (const k of Object.keys(mem)) {               // company news first, then newest; at most 6 per stock
-      mem[k] = mem[k].filter(x => x.at > cut).sort((a, b) => (a.kind === 'co' ? 0 : 1) - (b.kind === 'co' ? 0 : 1) || b.at - a.at).slice(0, 6);
+      mem[k] = mem[k].filter(x => x.at > cut && !NOISE.test(x.t)).sort((a, b) => (a.kind === 'co' ? 0 : 1) - (b.kind === 'co' ? 0 : 1) || b.at - a.at).slice(0, 6);
       if (!mem[k].length) delete mem[k]; }
     await dbPut(env, sk, mem);
+    // the Portfolio News slide comes from the same lists (27 Nov 2026): company news first (newest, one per stock), then sector
+    // news (one per sector) to fill 8; last 4 days. Each item keeps its label so the slide shows "BEL" or "Defence".
+    const fresh = Date.now() - 4 * 864e5, tickOf = Object.fromEntries(list.map(x => [x.sym, x.tick])), all = [];
+    Object.entries(mem).forEach(([sym, a]) => a.forEach(x => x.at > fresh && all.push({ ...x, sym })));
+    all.sort((a, b) => b.at - a.at);
+    const seen = new Set(), usedSym = new Set(), usedSec = new Set(), slide = [];
+    const take = x => { const k = x.t.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 50); if (seen.has(k) || slide.length >= 8) return; seen.add(k);
+      slide.push({ text: x.t + (x.src ? ' - ' + x.src : ''), link: x.u, sym: x.sym, tick: x.kind === 'co' ? (tickOf[x.sym] || x.label) : '', kind: x.kind, label: x.label, at: x.at }); };
+    all.filter(x => x.kind === 'co').forEach(x => { if (!usedSym.has(x.sym)) { usedSym.add(x.sym); take(x); } });
+    all.filter(x => x.kind === 'sec').forEach(x => { if (!usedSec.has(x.label)) { usedSec.add(x.label); take(x); } });
+    top.length = 0; slide.forEach(x => top.push(x));
   } catch (e) {}
   await dbPut(env, us ? 'news_WatchUS' : 'news_Watch', top);      // an empty list is fine: the slide hides itself
   return top.length + ' headlines for ' + new Set(top.map(x => x.tick)).size + ' stocks, from ' + hits.length + ' matches (' + Object.entries(perFeed).map(([n, c]) => n + ' ' + c).join(', ') + ')' +
@@ -1131,12 +1153,12 @@ async function feed(env) {
   const news = {};
   { const L = d.news_Local, W = d.news_Watch;
     news.Local = { at: L?.at || null, city: L?.v?.city || '', items: (L?.v?.items || []).map(i => ({ t: i.text, u: i.link })) };
-    news.Watch = { at: W?.at || null, items: (W?.v || []).map(i => ({ t: i.text, u: i.link, sym: i.sym, tick: i.tick })) };
+    news.Watch = { at: W?.at || null, items: (W?.v || []).map(i => ({ t: i.text, u: i.link, sym: i.sym, tick: i.tick, kind: i.kind, label: i.label })) };
     news.Mood = { at: d.mood?.at || null, ...(d.mood?.v || {}) };
     news.Bullion = { at: d.news_Bullion?.at || null, sum: d.news_Bullion?.v?.sum || null };
     news.BySym = { ...(d.news_BySym?.v || {}), ...(d.news_BySymUS?.v || {}) };
     Object.values(news.BySym).forEach(a => a.forEach(x => delete x.k));
-    const WU = d.news_WatchUS; news.WatchUS = { at: WU?.at || null, items: (WU?.v || []).map(i => ({ t: i.text, u: i.link, sym: i.sym, tick: i.tick })) }; }
+    const WU = d.news_WatchUS; news.WatchUS = { at: WU?.at || null, items: (WU?.v || []).map(i => ({ t: i.text, u: i.link, sym: i.sym, tick: i.tick, kind: i.kind, label: i.label })) }; }
   ['India', 'World', 'Markets', 'USMarkets'].forEach(s => { const x = d['news_' + s]; news[s] = { at: x?.at || null, items: (x?.v || []).map(i => ({ t: i.text, u: i.link })) }; });
   const a = E.aqi;
   const ages = Object.fromEntries(Object.entries(d).filter(([k]) => !['log', 'metal_hist', 'ibja', 'gr_silver', 'gr_gold'].includes(k)).map(([k, x]) => [k, Math.round((Date.now() - x.at) / 1000)]));
