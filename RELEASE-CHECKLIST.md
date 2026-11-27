@@ -13,7 +13,7 @@ Written 26 Nov 2026 after a bullion card that looked fine in testing came out cu
 - [ ] Server changes (`server/worker.js`) deploy straight to Cloudflare on push to `main`: say so, and get a go-ahead first.
 
 ## 3. Automatic UI check must pass (runs by itself on every push to `preview`)
-`UI check` in GitHub Actions opens the app with **live data**, in **Safari's engine (WebKit)**, and steps through **every slide** in:
+`UI check` in GitHub Actions opens the app with **live data**, in **Safari's engine (WebKit)**, and steps through **every slide** (one job per theme, side by side: about 5 minutes) in:
 - every theme: Ambient, Swiss, Retro, Calm, Anime, and the winter themes (until 6 Jan 2027)
 - these screens: 396×859 (Shivam's iPhone), 375×667 (small iPhone), 430×932 (large iPhone), 859×396 (landscape)
 

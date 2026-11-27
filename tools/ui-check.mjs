@@ -22,11 +22,11 @@ for (const eng of ENGINES) {
     await ctx.addInitScript(l => { try { localStorage.setItem('deskTickerLook', l); } catch (e) {} }, look);
     const pg = await ctx.newPage(); const errs = [];
     pg.on('pageerror', e => { if (!/access control|Load failed|Failed to fetch|NetworkError/i.test(e.message)) errs.push(e.message); });   // other sites refusing the test machine is not an app fault
-    await pg.goto(URL + (URL.includes('?') ? '&' : '?') + '_=' + Date.now()); await pg.waitForTimeout(7000);
+    await pg.goto(URL + (URL.includes('?') ? '&' : '?') + '_=' + Date.now()); await pg.waitForTimeout(5000);
     const n = await pg.evaluate(() => { clearInterval(timer); return slides.length; });
     for (let k = 0; k < n; k++) {
       const title = await pg.evaluate(k => { show(k); clearInterval(timer); return slides[k].dataset.title || ('slide ' + k); }, k);
-      await pg.waitForTimeout(1200);
+      await pg.waitForTimeout(900);
       const bad = await pg.evaluate(() => {
         const out = [], sl = document.querySelector('.slide.active'), vw = innerWidth, vh = innerHeight;
         if (!sl) return out;
