@@ -44,3 +44,4 @@ check 2026-11-26T12:42:51Z local after cache+mymemory
 check 2026-11-26T12:44:12Z translate cors
 check 2026-11-26T13:48:39Z metal hist
 check 2026-11-26T13:51:36Z long hist
+check 2026-11-27T05:30:53Z portfolio list
