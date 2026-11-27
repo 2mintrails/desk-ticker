@@ -7,6 +7,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Feed snapshot
+      - name: Per-stock news
         run: |
-          curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed | gzip -9 | base64 -w 0 > f.b64; echo "SIZE $(wc -c < f.b64)"; echo "FEEDB64 $(cat f.b64)"
+          curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed > f.json
+          node -e "const b=(require('./f.json').news||{}).BySym||{};console.log('STOCKS',Object.keys(b).length);for(const s of ['NSE:BEL','NSE:RECLTD','NSE:TCS','NSE:TATASTEEL'])for(const x of (b[s]||[]).slice(0,3))console.log('NEWS',s,x.kind,x.label,'|',x.t.slice(0,90))"
