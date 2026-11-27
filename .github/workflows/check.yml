@@ -10,4 +10,4 @@ jobs:
       - name: Portfolio list
         run: |
           curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed > f.json
-          node -e "const f=require('./f.json');const c=f.cfg||f.settings||{};const w=(c.watch||{}).in||[];console.log('KEYS',Object.keys(f).join(','));console.log('CFGKEYS',Object.keys(c).join(','));for(const x of w)console.log('STOCK',x.sym,'|',x.name,'|',x.tick)"
+          node -e "const f=require('./f.json');const c=f.settings||{};const W=f.watchlist||{};const w=Array.isArray(W)?W:(W.in||[]);console.log('WTYPE',typeof W,Object.keys(W).slice(0,5).join(','));console.log('KEYS',Object.keys(f).join(','));console.log('CFGKEYS',Object.keys(c).join(','));for(const x of w)console.log('STOCK',x.sym,'|',x.name,'|',x.tick)"
