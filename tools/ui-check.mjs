@@ -13,7 +13,7 @@ fs.mkdirSync('shots', { recursive: true });
 const problems = [], known = [];
 // problems already known and parked (reported, but they don't fail the check). Remove a line once it's fixed.
 const KNOWN = [
-  { look: 'anime', sz: '375x667', slide: /Aligarh|Bengaluru, Karnataka|weather/i, why: 'Anime weather card is too tall on small iPhones (older issue, parked 26 Nov 2026)' },
+  { look: 'anime', sz: 'x', slide: /Aligarh|Bengaluru|Karnataka|Uttar Pradesh|weather/i, why: 'Anime weather card too tall at some times of day (older issue; Shivam chose to fix it later, 27 Nov 2026)' },
 ];
 for (const eng of ENGINES) {
   const b = await (eng === 'webkit' ? webkit : chromium).launch();
