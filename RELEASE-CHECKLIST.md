@@ -20,7 +20,7 @@ Written 26 Nov 2026 after a bullion card that looked fine in testing came out cu
 It fails on: text cut off by its card, text off the screen, text too long for its line, a page crash, and any script error.
 Problems already known and parked are listed in `KNOWN` in `tools/ui-check.mjs`: they are reported as KNOWN but don't fail the check.
 To re-run just a few themes or sizes: run the workflow by hand with `looks` / `sizes` filled in.
-- [ ] `UI check` is green on `preview`.
+- [ ] `UI check` is green on `preview`, **run during market hours** (9:15 AM–3:30 PM IST): the stock tiles carry more live lines then, and an after-hours run can pass while they overflow (27 Nov 2026).
 - [ ] Screenshots (the `ui-shots` artifact) of the changed slide checked by eye in at least the phone's current theme.
 
 ## 4. Test with real-looking data

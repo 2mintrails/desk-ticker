@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07080c">
-<meta name="ticker-version" content="v23.0-2026-11-27">
+<meta name="ticker-version" content="v23.1-2026-11-27">
 <title>Desk Ticker</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -390,6 +390,8 @@
   .tile.tighter{gap:2px} .tile.tighter .p{font-size:clamp(16px,min(6.5vh,7vw),30px)!important} .tile.tighter .tag{font-size:12px}
   .tile.tightest{position:relative} .tile.tightest .tag{position:absolute;top:8px;right:8px;margin:0;padding:2px 8px;font-size:11px}
   .tile.tightest .tag b{white-space:nowrap} .tile.tightest .tag .anb{display:none}
+  .tile .tag{flex-wrap:wrap;row-gap:2px;max-width:100%} .tile .tag .anb{white-space:normal;text-align:right;overflow:visible}   /* narrow columns (Swiss): the analyst badge drops to its own line instead of running out of the tag (27 Nov 2026) */
+  .grid6.g56 .tile.tightest .tag{display:none}   /* 6 to a slide on a small iPhone: no room for the tag at all; it's in the pop-up */
   #dsheet .gl{grid-column:1/-1;display:flex;flex-direction:column;gap:10px}
   #dsheet .gl .zone{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:12px}
   #dsheet .gl .zone.good{background:rgba(61,220,132,.1);border:1px solid rgba(61,220,132,.4)} #dsheet .gl .zone.good b{color:#7ef0ad}
@@ -1159,7 +1161,7 @@
     .grid6.g56 .tile .chg{grid-area:chg;justify-self:end;text-align:right;font-size:clamp(12px,3.6vw,15px);line-height:1.1;margin:0}
     .grid6.g56 .tile .w52{grid-area:w52;margin:0;font-size:clamp(10px,3vw,12px);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .grid6.g56 .tile .tag{grid-area:tag;justify-self:stretch;align-self:center;margin-top:.3vh;padding:4px 10px}   /* the tag gets its own full-width row, so it never runs under the % move */
-    .grid6.g56 .tile .tag span{display:none} .grid6.g56 .tile .tag .anb{flex:none}   /* compact rows: label + analyst view only, the target is never cut */
+    .grid6.g56 .tile .tag span{display:none} .grid6.g56 .tile .tag .anb{flex:0 1 auto}   /* compact rows: label + analyst view only, the target is never cut */
     .grid6.g56 .tile .tev{grid-area:tev;font-size:clamp(10px,3vw,12px);line-height:1.1}
     /* currencies: one card per row */
     .fx{grid-template-columns:1fr!important;grid-auto-rows:minmax(0,1fr);grid-template-rows:none}
