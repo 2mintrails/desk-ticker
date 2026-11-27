@@ -49,3 +49,4 @@ check 2026-11-27T05:32:39Z portfolio list 2
 check 2026-11-27T05:33:29Z list 3
 check 2026-11-27T07:07:00Z feed snapshot
 check 2026-11-27T08:22:11Z by-sym news
+check 2026-11-27T13:34:12Z news slides

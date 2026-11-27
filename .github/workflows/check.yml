@@ -7,7 +7,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Per-stock news
+      - name: Portfolio news slides
         run: |
           curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed > f.json
-          node -e "const b=(require('./f.json').news||{}).BySym||{};console.log('STOCKS',Object.keys(b).length);for(const s of ['NSE:BEL','NSE:RECLTD','NSE:TCS','NSE:TATASTEEL'])for(const x of (b[s]||[]).slice(0,3))console.log('NEWS',s,x.kind,x.label,'|',x.t.slice(0,90))"
+          node -e "const n=require('./f.json').news||{};for(const k of ['Watch','WatchUS']){console.log('SLIDE',k,new Date(n[k]?.at||0).toISOString());for(const x of (n[k]?.items||[]))console.log('ITEM',k,x.kind||'-',x.kind==='sec'?x.label:x.tick,'|',String(x.t).slice(0,95))}"
