@@ -6,7 +6,10 @@ on:
   push:
     branches: [main, preview]
     paths: ['index.html', 'tools/ui-check.mjs', '.github/workflows/ui-check.yml']
-concurrency: { group: ui-check-${{ github.ref }}, cancel-in-progress: true }   # a newer push replaces a running check
+# a newer push replaces a running check
+concurrency:
+  group: ui-check-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   ui:
     runs-on: ubuntu-24.04
@@ -20,7 +23,12 @@ jobs:
       - run: npm i playwright@1.49.1 >/dev/null 2>&1 && npx playwright install --with-deps webkit >/dev/null 2>&1
       - run: (python3 -m http.server 8080 >/dev/null 2>&1 &) && sleep 2
       - run: node tools/ui-check.mjs http://localhost:8080/index.html
-        env: { LOOKS: '${{ matrix.look }}', SIZES: '${{ inputs.sizes }}', ENGINES: webkit }
+        env:
+          LOOKS: ${{ matrix.look }}
+          SIZES: ${{ inputs.sizes }}
+          ENGINES: webkit
       - if: always()
         uses: actions/upload-artifact@v4
-        with: { name: 'ui-shots-${{ matrix.look }}', path: shots/ }
+        with:
+          name: ui-shots-${{ matrix.look }}
+          path: shots/
