@@ -7,7 +7,6 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Portfolio list
+      - name: Feed snapshot
         run: |
-          curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed > f.json
-          node -e "const f=require('./f.json');const c=f.settings||{};const W=f.watchlist||{};const w=Array.isArray(W)?W:(W.in||[]);console.log('WTYPE',typeof W,Object.keys(W).slice(0,5).join(','));console.log('KEYS',Object.keys(f).join(','));console.log('CFGKEYS',Object.keys(c).join(','));for(const x of w)console.log('STOCK',x.sym,'|',x.name,'|',x.tick)"
+          curl -s https://desk-ticker.twominutetrails.workers.dev/v2/feed | gzip -9 | base64 -w 0 > f.b64; echo "SIZE $(wc -c < f.b64)"; echo "FEEDB64 $(cat f.b64)"
